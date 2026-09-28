@@ -247,12 +247,12 @@ If local Isaac cannot run, publish the completed repository, development workflo
 
 ## Work-package status
 
-Initial status when this plan was recorded; no implementation work has been performed by recording it.
+Status as of 2026-09-28. This batch covers R0, B0, I0 and G0 only.
 
 | Package | Status |
 |---|---|
-| R0 | Ready |
-| B0, I0, G0 | Await R0 |
+| R0 | Complete: private upstream, matching commits, fresh clone and Actions availability verified |
+| B0, I0, G0 | In progress in separate branches, worktrees and environments |
 | B1, C0, S0, A0 | Await listed dependencies |
 | K0, D0, X0 | Await listed dependencies |
 | X1, M0 | Await listed dependencies |
