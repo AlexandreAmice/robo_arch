@@ -1,0 +1,40 @@
+module(
+    name = "robo_arch",
+    version = "0.1.0",
+    bazel_compatibility = [">=9.2.0"],
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "rules_python", version = "2.3.4")
+bazel_dep(name = "nanobind", version = "3.0.1")
+bazel_dep(name = "toolchains_llvm", version = "1.10.0")
+
+bazel_dep(name = "buildifier_prebuilt", version = "10.1.0", dev_dependency = True)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12.13",
+)
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pip",
+    python_version = "3.12.13",
+    requirements_lock = "//third_party/python:core.txt",
+)
+pip.parse(
+    hub_name = "pip_drake",
+    python_version = "3.12.13",
+    requirements_lock = "//third_party/python:drake.txt",
+)
+use_repo(pip, "pip", "pip_drake")
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "22.1.8",
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains("@llvm_toolchain//:all")

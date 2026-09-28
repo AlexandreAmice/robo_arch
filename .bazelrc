@@ -1,0 +1,6 @@
+common --enable_bzlmod
+build --cxxopt=-std=c++23
+build --host_cxxopt=-std=c++23
+build --incompatible_default_to_explicit_init_py
+build --strict_proto_deps=error
+test --test_output=errors
