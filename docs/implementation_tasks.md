@@ -252,7 +252,24 @@ Status as of 2026-09-28. This batch covers R0, B0, I0 and G0 only.
 | Package | Status |
 |---|---|
 | R0 | Complete: private upstream, matching commits, fresh clone and Actions availability verified |
-| B0, I0, G0 | In progress in separate branches, worktrees and environments |
-| B1, C0, S0, A0 | Await listed dependencies |
-| K0, D0, X0 | Await listed dependencies |
+| B0 | Complete: [PR #2](https://github.com/AlexandreAmice/robo_arch/pull/2); pinned uv/Bazel baseline and separate core/Drake profiles |
+| I0 | Complete: [PR #1](https://github.com/AlexandreAmice/robo_arch/pull/1); SDK-independent declarations and composition records, with integrated Bazel checks |
+| G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
+| B1, C0, S0, A0 | Ready to delegate; not started |
+| K0 | Await A0 |
+| D0 | Await S0, A0, K0 |
+| X0 | Await S0, A0, K0; must validate its required full Isaac API environment and arm workload |
 | X1, M0 | Await listed dependencies |
+
+Integrated validation passed: 11 pytest cases, five Bazel test targets (core,
+C++23, Drake dependency smoke test, contracts and configuration), nanobind library
+compilation, Ruff/clang-format/Buildifier checks, lock-export consistency, and
+wheel imports outside the checkout. See the [dependency baseline](../third_party/compatibility.md)
+for pins and ABI limits. Actions is enabled; CI workflows and required CI checks
+remain C0 work.
+
+The coordinator reproduced G0's 30-step free-fall result and nonzero GPU solver
+allocation. The 6 GB GPU fails the vendor VRAM check; full Core/SimulationApp,
+robot scenes and batching are untested. [G0 evidence](../deployment/isaac/README.md)
+records exact commands and measurements. The controller-reuse milestone is
+**not complete**. Stop here before delegating another batch.

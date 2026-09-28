@@ -127,6 +127,11 @@ The C++ library depends on its numerical libraries, the binding depends on that 
 
 ## Build and Python workflow
 
+B0's selected pins and measured compatibility are recorded in the
+[dependency baseline](../third_party/compatibility.md); working development
+commands are in [README.md](../README.md). The native bridge, CI and world
+integration described below remain later work packages.
+
 Use Bzlmod, committed module lockfiles, Bazelisk, explicit rule loads, narrow targets and pinned C++23/Python toolchains. Select a modern Bazel release compatible with the chosen Drake revision. Learn from Drake and `../gcs_solver_project`, but do not inherit old pins, host paths or their whole build framework. Use small symbolic macros where helpful. [Bazel modules](https://bazel.build/external/module), [symbolic macros](https://bazel.build/extending/macros)
 
 **uv is the everyday Python interface; Bazel is the native build and primary CI/test interface.** Use an editable Python package in `.venv` for scripts, pytest, notebooks and IDE debugging. Editing Python requires no Bazel invocation. Bazel tests use the same source and pytest cases through declared targets, with their own pinned interpreter, dependencies and runfiles; they do not consume `.venv`.
