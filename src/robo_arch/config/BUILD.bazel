@@ -1,0 +1,30 @@
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "config",
+    srcs = [
+        "__init__.py",
+        "descriptions.py",
+        "resolved.py",
+        "world.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch:robo_arch",
+        "//src/robo_arch/contracts",
+        requirement("pydantic"),
+    ],
+)
+
+py_test(
+    name = "descriptions_test",
+    srcs = ["tests/test_descriptions.py"],
+    main = "tests/test_descriptions.py",
+    deps = [
+        ":config",
+        "//src/robo_arch/contracts",
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)
