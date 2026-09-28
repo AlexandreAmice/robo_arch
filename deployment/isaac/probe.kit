@@ -1,0 +1,16 @@
+[package]
+title = "robo_arch camera-free PhysX probe"
+version = "0.0.0"
+
+[dependencies]
+"omni.physx" = { version = "110.3.2", exact = true }
+"omni.kit.renderer.init" = { version = "1.0.1", exact = true }
+
+[settings.app]
+name = "robo_arch_isaac_probe"
+window.enabled = false
+settings.persistent = false
+
+[settings]
+"/privacy/userConsent" = false
+"/physics/updateToUsd" = true
