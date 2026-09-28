@@ -1,0 +1,32 @@
+# Local environments, configuration, and agent/tool scratch.
+.venv*/
+.env
+.env.*
+!.env.example
+/plans/
+/.worktrees/
+.playwright-mcp/
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+__pycache__/
+*.py[cod]
+
+# Build products; dependency lockfiles and source assets stay tracked.
+/bazel-*
+/build/
+/dist/
+*.egg-info/
+*.so
+*.o
+*.a
+*.whl
+.coverage
+htmlcov/
+
+# Local experimental output.
+/recordings/
+/checkpoints/
+/logs/
+*.log
