@@ -1,7 +1,6 @@
 """Run a fixed-base arm with explicit external effort feedback in GPU PhysX."""
 
 import math
-import sys
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -11,8 +10,9 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-from robo_arch.core.config.loading import Pose, RunConfiguration
-from robo_arch.core.worlds.registry import Registry
+from robo_arch.core.config.declarations import Pose, RunConfiguration
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
 
 
 def _transform(pose: Pose) -> np.ndarray:
@@ -29,12 +29,12 @@ def _transform(pose: Pose) -> np.ndarray:
     return result
 
 
-def _add_objects(stage, run: RunConfiguration, registry: Registry) -> None:
+def _add_objects(stage, run: RunConfiguration, definitions: DeviceDefinitions) -> None:
     """Support the current fixed single-link SDF box fixtures explicitly."""
     from pxr import Gf, UsdGeom, UsdPhysics
 
     for obj in run.objects:
-        definition = registry.objects[obj.model]
+        definition = definitions.objects[obj.model]
         data = files(definition.package).joinpath(definition.resource).read_text()
         sdf = ET.fromstring(data)
         links = sdf.findall("model/link")
@@ -61,7 +61,7 @@ def _add_objects(stage, run: RunConfiguration, registry: Registry) -> None:
 
 def run_scene(
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
     command: Callable[[np.ndarray, float], np.ndarray],
     *,
     trace_path: Path | None = None,
@@ -72,7 +72,8 @@ def run_scene(
     state/commands cross the GPU boundary at each step; this is scalar control,
     not a tensor-efficient training loop. Partial measured traces survive errors.
     """
-    if run.world != "isaac" or len(run.robots) != 1 or run.sensors:
+    devices = resolve_devices(run)
+    if run.world != "isaac" or len(devices.robots) != 1 or devices.sensors:
         raise ValueError("Isaac runner requires one robot and explicitly no sensors")
     from isaacsim import SimulationApp
 
@@ -104,16 +105,17 @@ def run_scene(
         physics = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
         physics.CreateEnableGPUDynamicsAttr(True)
         physics.CreateBroadphaseTypeAttr("GPU")
-        robot = run.robots[0]
-        definition = registry.robots[robot.model]
+        robot = devices.robots[0]
+        definition = definitions.robots[robot.model]
         X_WB = np.eye(4)
         for pose in robot.poses:
             X_WB = X_WB @ _transform(pose)
         with TemporaryDirectory(prefix="robo_arch_isaac_") as directory:
-            root = definition.implementations["isaac"].load()(
+            adapter = load_device_module("robots", robot.model, "isaac")
+            root = adapter.add_to_stage(
                 stage, name=robot.name, X_WB=X_WB, directory=Path(directory)
             )
-            _add_objects(stage, run, registry)
+            _add_objects(stage, run, definitions)
             cache = UsdUtils.StageCache.Get()
             stage_id = cache.Insert(stage).ToLongInt()
             simulation = get_physx_simulation_interface()
@@ -175,16 +177,11 @@ def run_scene(
             "wall_seconds": time.monotonic() - started,
         }
     finally:
-        failure = sys.exception()
         try:
             if trace_path is not None and len(times) >= 1:
                 trace_path.parent.mkdir(parents=True, exist_ok=True)
                 np.savez(
                     trace_path, times=np.asarray(times), positions=np.asarray(positions)
                 )
-        except Exception as output_error:
-            if failure is None:
-                raise
-            failure.add_note(f"Could not save partial trace: {output_error}")
         finally:
             app.close()
