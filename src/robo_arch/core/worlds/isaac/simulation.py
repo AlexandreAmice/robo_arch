@@ -1,6 +1,7 @@
 """Run a fixed-base arm with explicit external effort feedback in GPU PhysX."""
 
 import math
+import sys
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -174,9 +175,16 @@ def run_scene(
             "wall_seconds": time.monotonic() - started,
         }
     finally:
-        if trace_path is not None and len(times) >= 1:
-            trace_path.parent.mkdir(parents=True, exist_ok=True)
-            np.savez(
-                trace_path, times=np.asarray(times), positions=np.asarray(positions)
-            )
-        app.close()
+        failure = sys.exception()
+        try:
+            if trace_path is not None and len(times) >= 1:
+                trace_path.parent.mkdir(parents=True, exist_ok=True)
+                np.savez(
+                    trace_path, times=np.asarray(times), positions=np.asarray(positions)
+                )
+        except Exception as output_error:
+            if failure is None:
+                raise
+            failure.add_note(f"Could not save partial trace: {output_error}")
+        finally:
+            app.close()
