@@ -297,7 +297,7 @@ Status as of 2026-09-29. Runtime and world configuration changes are prepared fo
 | A0 | Partial: nominal UR7e, ideal RGB-D camera, box and arm-with-camera system; collision models, gripper and calibration remain |
 | K0 | Partial: shared inverse-dynamics controller executes in Drake and scalar CPU Isaac; batch execution remains |
 | D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
-| X0 | Partial: CPU PGS/GPU TGS arm execution; native viewport/collision rendering unvalidated after first-render timeout; cameras remain unsupported |
+| X0 | Partial: CPU PGS/GPU TGS arm execution; native image capture, collision display and clean viewer shutdown unvalidated; cameras remain unsupported |
 | X1, M0 | Await listed dependencies |
 
 Foundation validation passed: 11 pytest cases, five Bazel test targets (core,

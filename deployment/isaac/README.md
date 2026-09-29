@@ -39,8 +39,9 @@ visualization:
 ```
 
 CPU/PGS and GPU/TGS physics execution were verified. Native rendering remains
-**experimental**: a desktop viewer attempt timed out at the first stage render,
-so no successful native viewport/collision-overlay evidence is claimed. Its launch
+**experimental**: a desktop run advanced physics, but image capture did not
+complete and shutdown blocked in native stage closure. No successful native
+viewport/collision-overlay evidence is claimed. Its launch
 path, on a desktop with `DISPLAY` or `WAYLAND_DISPLAY` set, is:
 
 ```sh
