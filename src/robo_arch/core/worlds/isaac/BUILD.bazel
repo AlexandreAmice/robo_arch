@@ -1,5 +1,5 @@
 load("@python_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 # Kit/PhysX are supplied by deployment/isaac, not the core Bazel environment.
 py_library(
@@ -7,12 +7,27 @@ py_library(
     srcs = [
         "__init__.py",
         "simulation.py",
+        "visualization.py",
     ],
-    data = ["physics.kit"],
+    data = [
+        "physics.kit",
+        "viewer.kit",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/worlds",
         requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "configuration_test",
+    srcs = ["tests/test_configuration.py"],
+    main = "tests/test_configuration.py",
+    deps = [
+        ":isaac",
+        "//src/robo_arch/core/config",
+        requirement("pytest"),
     ],
 )

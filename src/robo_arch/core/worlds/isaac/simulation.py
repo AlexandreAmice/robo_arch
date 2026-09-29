@@ -1,6 +1,7 @@
-"""Run a fixed-base arm with explicit external effort feedback in GPU PhysX."""
+"""Run a fixed-base arm with explicit external effort feedback in configured native PhysX."""
 
 import math
+import sys
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -11,6 +12,11 @@ from tempfile import TemporaryDirectory
 import numpy as np
 
 from robo_arch.core.config.loading import Pose, RunConfiguration
+from robo_arch.core.config.worlds import IsaacPhysics, IsaacWorld
+from robo_arch.core.worlds.isaac.visualization import (
+    NativeViewport,
+    validate_visualization,
+)
 from robo_arch.core.worlds.registry import Registry
 
 
@@ -58,12 +64,28 @@ def _add_objects(stage, run: RunConfiguration, registry: Registry) -> None:
         UsdPhysics.CollisionAPI.Apply(box.GetPrim())
 
 
+def apply_physics(scene, config: IsaacPhysics):
+    """Author native scene settings before attaching the stage to PhysX.
+
+    CPU uses the native MBP broadphase. GPU dynamics uses the GPU broadphase on
+    CUDA device zero. Articulation solver limits remain owned by the robot asset.
+    """
+    from pxr import PhysxSchema
+
+    physics = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
+    physics.CreateSolverTypeAttr(config.solver.upper())
+    physics.CreateEnableGPUDynamicsAttr(config.device == "cuda:0")
+    physics.CreateBroadphaseTypeAttr("GPU" if config.device == "cuda:0" else "MBP")
+    return physics
+
+
 def run_scene(
     run: RunConfiguration,
     registry: Registry,
     command: Callable[[np.ndarray, float], np.ndarray],
     *,
     trace_path: Path | None = None,
+    keep_viewer_open: bool = False,
 ) -> dict:
     """Sample [q,v] and apply effort in registered joint order every physics step.
 
@@ -73,15 +95,22 @@ def run_scene(
     """
     if run.world != "isaac" or len(run.robots) != 1 or run.sensors:
         raise ValueError("Isaac runner requires one robot and explicitly no sensors")
+    world = run.world_config
+    if not isinstance(world, IsaacWorld):
+        raise ValueError("Isaac runner requires Isaac world configuration")
+    validate_visualization(world)
+    live = world.visualization.mode == "live"
     from isaacsim import SimulationApp
 
     started = time.monotonic()
     times, positions = [], []
-    experience = files(__package__).joinpath("physics.kit")
+    experience = files(__package__).joinpath("viewer.kit" if live else "physics.kit")
+    viewer = None
     with as_file(experience) as path:
         app = SimulationApp(
             {
-                "headless": True,
+                "headless": not live,
+                "physics_gpu": 0,
                 "multi_gpu": False,
                 "renderer": "MinimalRendering",
                 "create_new_stage": False,
@@ -92,7 +121,7 @@ def run_scene(
     try:
         import omni.physics.tensors as tensors
         from omni.physx import get_physx_simulation_interface
-        from pxr import Gf, PhysxSchema, Usd, UsdGeom, UsdPhysics, UsdUtils
+        from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdUtils
 
         stage = Usd.Stage.CreateInMemory()
         UsdGeom.SetStageMetersPerUnit(stage, 1.0)
@@ -100,9 +129,7 @@ def run_scene(
         scene = UsdPhysics.Scene.Define(stage, "/physics")
         scene.CreateGravityDirectionAttr(Gf.Vec3f(0, 0, -1))
         scene.CreateGravityMagnitudeAttr(9.81)
-        physics = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
-        physics.CreateEnableGPUDynamicsAttr(True)
-        physics.CreateBroadphaseTypeAttr("GPU")
+        physics = apply_physics(scene, world.physics)
         robot = run.robots[0]
         definition = registry.robots[robot.model]
         X_WB = np.eye(4)
@@ -116,6 +143,8 @@ def run_scene(
             cache = UsdUtils.StageCache.Get()
             stage_id = cache.Insert(stage).ToLongInt()
             simulation = get_physx_simulation_interface()
+            if live:
+                viewer = NativeViewport(app, stage_id, world)
             simulation.attach_stage(stage_id)
             try:
                 # Initialize PhysX before obtaining tensor views; then reset q,v.
@@ -143,6 +172,7 @@ def run_scene(
                 arm.set_dof_velocities(np.zeros_like(q), indices)
                 times.append(0.0)
                 positions.append(arm.get_dof_positions()[0].copy())
+                next_display = 0.0
                 for step in range(math.ceil(run.duration / run.time_step)):
                     t = times[-1]
                     if t >= run.duration:
@@ -165,18 +195,45 @@ def run_scene(
                         raise RuntimeError("Isaac returned nonfinite joint positions")
                     times.append(min((step + 1) * run.time_step, run.duration))
                     positions.append(measured)
+                    if viewer is not None and times[-1] >= next_display:
+                        viewer.update()
+                        next_display = times[-1] + world.visualization.publish_period
+                if viewer is not None:
+                    viewer.update()
+                    if keep_viewer_open:
+                        viewer.hold()
             finally:
-                simulation.detach_stage()
-                cache.Erase(stage)
+                # Save before native viewer teardown, which can fail independently.
+                failure = sys.exception()
+                try:
+                    if trace_path is not None and times:
+                        trace_path.parent.mkdir(parents=True, exist_ok=True)
+                        np.savez(
+                            trace_path,
+                            times=np.asarray(times),
+                            positions=np.asarray(positions),
+                        )
+                except Exception as output_error:
+                    if failure is None:
+                        raise
+                    failure.add_note(f"Could not save partial trace: {output_error}")
+                finally:
+                    simulation.detach_stage()
+                    try:
+                        if viewer is not None:
+                            viewer.close()
+                            viewer = None
+                    finally:
+                        cache.Erase(stage)
         return {
             "times": np.asarray(times),
             "positions": np.asarray(positions),
             "wall_seconds": time.monotonic() - started,
+            "physics_settings": {
+                "solver": physics.GetSolverTypeAttr().Get(),
+                "gpu_dynamics": physics.GetEnableGPUDynamicsAttr().Get(),
+                "broadphase": physics.GetBroadphaseTypeAttr().Get(),
+            },
         }
     finally:
-        if trace_path is not None and len(times) >= 1:
-            trace_path.parent.mkdir(parents=True, exist_ok=True)
-            np.savez(
-                trace_path, times=np.asarray(times), positions=np.asarray(positions)
-            )
         app.close()
