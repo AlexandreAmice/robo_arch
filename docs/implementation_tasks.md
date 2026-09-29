@@ -148,7 +148,7 @@ Own configuration loading and resolution under `core/config/`.
 
 Typed, SDK-independent [world configuration](architecture.md#world-configuration-and-visualization) is implemented with complete inline/package profiles, effective settings and rejection of foreign fields. Calibration and deployment-specific tuning remain.
 
-Implement safe YAML loading, package resource references, parameter validation, recursive physical assembly and explicit supported-world checks. Autonomy is assembled in Python using native runtime APIs; do not implement graph parsing or port inference. Reject recursive definition inclusion, missing instances/frames, conflicting attachments, incompatible calibration, missing world implementations and incompatible commands. Report supported slow execution as a warning. Keep device factories lazy and obtain them from explicit registrations, not a shared module importing every device.
+Implement safe YAML loading, package resource references, parameter validation, recursive physical assembly and explicit supported-world checks. Autonomy is assembled in Python using native runtime APIs; do not implement graph parsing or port inference. Reject recursive definition inclusion, missing instances/frames, conflicting attachments, incompatible calibration, missing world implementations and incompatible commands. Report supported slow execution as a warning. Load only selected device packages through the fixed package convention; world assembly calls their explicit native construction functions when needed.
 
 Include fixtures demonstrating:
 

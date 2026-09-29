@@ -9,18 +9,18 @@ import sys
 import uuid
 import webbrowser
 from dataclasses import asdict, replace
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import distributions
 from importlib.resources import files
 from pathlib import Path
-from types import ModuleType
 
 from pydantic import BaseModel, TypeAdapter
 
-from robo_arch.core.config.loading import RunConfiguration, load_run, load_world
-from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.declarations import RunConfiguration
+from robo_arch.core.config.loading import load_run, load_world, resolve_resource
 from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, parse_world
-from robo_arch.core.controllers import definition
-from robo_arch.core.worlds.registry import Registry, discover
+from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions, load_definitions
 from robo_arch.scenarios.arm_tracking.evaluation import TrackingTask, evaluate
 
 
@@ -74,16 +74,17 @@ def _prepare_report(run: RunConfiguration, destination: Path) -> dict:
     profile.write_text(
         run.world_config.model_dump_json(indent=2) + "\n", encoding="utf-8"
     )
+    installed = {
+        dist.metadata["Name"].lower().replace("_", "-"): dist.version
+        for dist in distributions()
+    }
     versions = {}
     for package in (
         "robo-arch",
         "drake",
         *(("isaacsim",) if run.world == "isaac" else ()),
     ):
-        try:
-            versions[package] = version(package)
-        except PackageNotFoundError:
-            versions[package] = "not installed"
+        versions[package] = installed.get(package, "not installed")
     package_root = Path(str(files("robo_arch")))
     application_hashes = {
         path.relative_to(package_root).as_posix(): hashlib.sha256(
@@ -147,17 +148,19 @@ def run_scenario(
         metadata = recording.with_suffix(".json")
     report = _prepare_report(run, metadata) if metadata is not None else None
     try:
-        definitions = discover(run)
-        if len(run.robots) != 1:
+        devices = resolve_devices(run)
+        definitions = load_definitions(run)
+        if len(devices.robots) != 1:
             raise ValueError("Arm tracking requires exactly one actuated robot")
-        controller = definition(run.autonomy.controller)
-        if run.world not in controller.IMPLEMENTATIONS:
-            raise ValueError(f"Controller has no {run.world} implementation")
-        parameters = controller.PARAMETERS.model_validate(run.autonomy.parameters)
+        if run.autonomy.controller != "joint_tracking":
+            raise ValueError(
+                f"Unsupported arm-tracking controller: {run.autonomy.controller}"
+            )
+        parameters = JointTrackingParameters.model_validate(run.autonomy.parameters)
         if run.task.type != "joint_tracking":
             raise ValueError(f"Unsupported task evaluator: {run.task.type}")
         task = TrackingTask.model_validate(run.task.parameters)
-        if task.robot != run.robots[0].name:
+        if task.robot != devices.robots[0].name:
             raise ValueError("Task must select the configured robot")
         if isinstance(run.world_config, DrakeWorld):
             result = _run_drake(
@@ -167,7 +170,6 @@ def run_scenario(
             result = _run_isaac(
                 run,
                 definitions,
-                controller,
                 parameters,
                 task,
                 trace_path,
@@ -181,32 +183,25 @@ def run_scenario(
                 status="passed" if result["success"] else "failed", result=result
             )
         return result
-    except BaseException as error:
-        if report is not None:
-            report.update(status="error", error=f"{type(error).__name__}: {error}")
-        raise
     finally:
         if report is not None:
             failure = sys.exception()
-            try:
-                metadata.write_text(
-                    json.dumps(report, default=_json_value, indent=2) + "\n",
-                    encoding="utf-8",
+            if failure is not None:
+                report.update(
+                    status="error", error=f"{type(failure).__name__}: {failure}"
                 )
-                print(f"Run metadata: {metadata.resolve().as_uri()}", file=sys.stderr)
-                print(
-                    f"Inspect this run: {report['inspection_command']}", file=sys.stderr
-                )
-            except Exception as output_error:
-                if failure is None:
-                    raise
-                failure.add_note(f"Could not save run metadata: {output_error}")
+            metadata.write_text(
+                json.dumps(report, default=_json_value, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            print(f"Run metadata: {metadata.resolve().as_uri()}", file=sys.stderr)
+            print(f"Inspect this run: {report['inspection_command']}", file=sys.stderr)
 
 
 def _run_drake(
     run: RunConfiguration,
-    definitions: Registry,
-    parameters: Parameters,
+    definitions: DeviceDefinitions,
+    parameters: JointTrackingParameters,
     task: TrackingTask,
     recording: Path | None,
     keep_viewer_open: bool,
@@ -221,6 +216,7 @@ def _run_drake(
     )
     from robo_arch.scenarios.arm_tracking.drake import build_simulation
 
+    devices = resolve_devices(run)
     visual = run.world_config.visualization
     if recording is not None:
         recording.unlink(missing_ok=True)
@@ -244,7 +240,7 @@ def _run_drake(
         initial = positions()
         initial_depth = {
             sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-            for sensor in run.sensors
+            for sensor in devices.sensors
         }
         simulator.AdvanceTo(run.duration)
         if meshcat is not None:
@@ -270,32 +266,25 @@ def _run_drake(
             "initial_finite_depth_pixels": initial_depth,
             "final_finite_depth_pixels": {
                 sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-                for sensor in run.sensors
+                for sensor in devices.sensors
             },
             **evaluate(task, tuple(final)),
         }
     finally:
         if meshcat is not None:
             if recording is not None:
-                failure = sys.exception()
-                try:
-                    save_recording(meshcat, recording)
-                    print(f"Scene playback: {recording.as_uri()}", file=sys.stderr)
-                    if visual.mode == "record" and visual.open_browser:
-                        webbrowser.open(recording.as_uri())
-                except Exception as output_error:
-                    if failure is None:
-                        raise
-                    failure.add_note(f"Could not save scene playback: {output_error}")
+                save_recording(meshcat, recording)
+                print(f"Scene playback: {recording.as_uri()}", file=sys.stderr)
+                if visual.mode == "record" and visual.open_browser:
+                    webbrowser.open(recording.as_uri())
             if keep_viewer_open and visual.mode in {"live", "live_and_record"}:
                 hold_live(meshcat)
 
 
 def _run_isaac(
     run: RunConfiguration,
-    definitions: Registry,
-    controller: ModuleType,
-    parameters: Parameters,
+    definitions: DeviceDefinitions,
+    parameters: JointTrackingParameters,
     task: TrackingTask,
     trace_path: Path | None,
     keep_viewer_open: bool,
@@ -305,18 +294,22 @@ def _run_isaac(
 
     import numpy as np
 
+    from robo_arch.core.controllers.joint_tracking.drake import make_policy
     from robo_arch.core.worlds.drake.scene import build_controller_model
     from robo_arch.core.worlds.isaac.simulation import run_scene
 
-    if controller.EXECUTION["isaac"] != "tensor":
-        warnings.warn(
-            f"{run.autonomy.controller} in Isaac uses "
-            f"{controller.EXECUTION['isaac']} execution; it has no tensor "
-            "implementation and requires per-environment work in a batch.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    robot = run.robots[0]
+    transfers = (
+        " State and commands cross the GPU boundary each step."
+        if run.world_config.physics.device == "cuda:0"
+        else ""
+    )
+    warnings.warn(
+        "joint_tracking in Isaac evaluates Drake inverse dynamics on the CPU, "
+        "with per-environment work in a batch." + transfers,
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    robot = resolve_devices(run).robots[0]
     robot_definition = definitions.robots[robot.model]
     model = build_controller_model(robot, robot_definition)
     target = np.asarray(task.target)
@@ -326,7 +319,7 @@ def _run_isaac(
     ):
         raise ValueError("Task target must match the robot's joints and limits")
     reference = np.r_[target, np.zeros_like(target)]
-    command = controller.IMPLEMENTATIONS["isaac"].load()(
+    command = make_policy(
         model=model,
         parameters=parameters,
         joints=robot_definition.joints,
@@ -395,8 +388,15 @@ def main() -> None:
     world = run.world_config
     if args.world is not None:
         world = parse_world({"type": args.world})
+        run = replace(run, world_source=None)
     elif args.world_config is not None:
         world = load_world(args.world_config)
+        source = (
+            resolve_resource(args.world_config)
+            if args.world_config.startswith("package:")
+            else Path(args.world_config).resolve()
+        )
+        run = replace(run, world_source=source)
     payload = world.model_dump()
     if args.visualization is not None:
         payload["visualization"]["mode"] = args.visualization
@@ -414,7 +414,7 @@ def main() -> None:
     # Validate overrides as a complete native config, including unsupported modes.
     run = replace(run, world_config=parse_world(payload))
     if args.no_sensors:
-        run = replace(run, sensors=())
+        run = replace(run, sensors_enabled=False)
     destination = Path(os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR", "recordings"))
     metadata = args.metadata or (
         args.record.with_suffix(".json")

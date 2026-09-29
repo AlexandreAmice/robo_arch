@@ -11,10 +11,11 @@ from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.lcm import ApplyLcmBusConfig
 from pydrake.visualization import ApplyVisualizationConfig, VisualizationConfig
 
-from robo_arch.core.config.loading import RunConfiguration
+from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.config.worlds import DrakeVisualization, DrakeWorld
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions
 from robo_arch.core.worlds.drake.scene import DrakeScene, build_scene
-from robo_arch.core.worlds.registry import Registry
 
 
 def create_meshcat(config: DrakeVisualization) -> Meshcat | None:
@@ -90,15 +91,13 @@ def hold_live(meshcat: Meshcat) -> None:
     try:
         while meshcat.GetButtonClicks(button) == 0:
             time.sleep(0.1)
-    except KeyboardInterrupt:
-        pass
     finally:
         meshcat.DeleteButton(button)
 
 
 def replay_positions(
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
     trace_path: Path,
     recording: Path,
 ) -> None:
@@ -112,12 +111,15 @@ def replay_positions(
         times, positions = trace["times"], trace["positions"]
     if len(times) == 0:
         return
+    devices = resolve_devices(run)
     config = DrakeVisualization(mode="record", publish_contacts=False)
     builder = DiagramBuilder()
     scene = build_scene(
         builder,
-        replace(run, world_config=DrakeWorld(visualization=config), sensors=()),
-        registry,
+        replace(
+            run, world_config=DrakeWorld(visualization=config), sensors_enabled=False
+        ),
+        definitions,
     )
     meshcat = create_meshcat(config)
     add_visualization(builder, scene, config, meshcat)
@@ -132,7 +134,7 @@ def replay_positions(
         for index in indices:
             context.SetTime(times[index])
             scene.plant.SetPositions(
-                plant_context, scene.robots[run.robots[0].name], positions[index]
+                plant_context, scene.robots[devices.robots[0].name], positions[index]
             )
             diagram.ForcedPublish(context)
     finally:

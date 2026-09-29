@@ -51,13 +51,29 @@ def test_viewer_off_does_not_launch():
 
 def test_owned_viewer_stops_on_error():
     process = Mock()
-    process.poll.return_value = None
+    process.poll.side_effect = [None, 0, 0]
     world = RealWorld.model_validate({"visualization": {"mode": "live"}})
     with patch("subprocess.Popen", return_value=process):
         with pytest.raises(RuntimeError, match="caller failed"), launch_rviz(world):
             raise RuntimeError("caller failed")
     process.terminate.assert_called_once()
-    process.wait.assert_called_once_with(timeout=5)
+    process.wait.assert_called_once_with()
+    process.kill.assert_not_called()
+
+
+def test_owned_viewer_is_killed_if_termination_does_not_finish():
+    process = Mock()
+    process.poll.return_value = None
+    world = RealWorld.model_validate({"visualization": {"mode": "live"}})
+    with (
+        patch("subprocess.Popen", return_value=process),
+        patch("time.monotonic", side_effect=[0, 6]),
+        launch_rviz(world),
+    ):
+        pass
+    process.terminate.assert_called_once()
+    process.kill.assert_called_once()
+    process.wait.assert_called_once_with()
 
 
 if __name__ == "__main__":

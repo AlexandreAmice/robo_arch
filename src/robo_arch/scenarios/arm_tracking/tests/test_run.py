@@ -11,7 +11,7 @@ import pytest
 
 from robo_arch.core.config.loading import load_run
 from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
-from robo_arch.core.worlds.registry import discover
+from robo_arch.core.worlds.devices import load_definitions
 from robo_arch.scenarios.arm_tracking.run import (
     default_run,
     load_inspection,
@@ -172,7 +172,7 @@ def test_cli_world_switch_replaces_configuration_without_dropping_sensors(
     assert isinstance(captured[0].world_config, IsaacWorld)
     assert captured[0].world_config.visualization.mode == "off"
     assert captured[0].world_config.physics.solver == "tgs"
-    assert len(captured[0].sensors) == 1
+    assert len(captured[0].robot_system.sensors) == 1
     assert json.loads(capsys.readouterr().out)["success"]
 
 
@@ -205,7 +205,7 @@ def test_cli_rejects_unsupported_native_recording_before_execution(
 def test_world_switch_rejects_missing_support():
     run = replace(load_run(default_run()), world_config=RealWorld())
     with pytest.raises(ValueError, match="no real implementation"):
-        discover(run)
+        load_definitions(run)
 
 
 def test_configuration_checks_need_no_simulator_sdk():
@@ -221,9 +221,9 @@ from dataclasses import replace
 from robo_arch.scenarios.arm_tracking.run import default_run, run_scenario
 from robo_arch.core.config.loading import load_run
 from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
-from robo_arch.core.worlds.registry import discover
+from robo_arch.core.worlds.devices import load_definitions
 run = load_run(default_run())
-discover(run)
+load_definitions(run)
 try:
     run_scenario(replace(run, world_config=RealWorld()))
 except ValueError as error:
@@ -240,7 +240,7 @@ else:
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        ({"controller": "unknown"}, "Unknown controller"),
+        ({"controller": "unknown"}, "Unsupported arm-tracking controller: unknown"),
         ({"parameters": {"kp": [1.0], "kd": [-1.0]}}, "finite positive gains"),
     ],
 )
@@ -256,25 +256,54 @@ def test_inspection_restores_test_overrides_after_source_changes(tmp_path, monke
 
     source = tmp_path / "scenario.yaml"
     source.write_text("old source")
+    child_source = tmp_path / "arm.yaml"
+    child_source.write_text("old child source")
+    world_source = tmp_path / "world.yaml"
+    world_source.write_text("type: drake\n")
     original = load_run(default_run())
     run = replace(
         original,
         source=source,
-        resources=(source,),
         duration=0.001,
-        sensors=(),
+        sensors_enabled=False,
         world_config=DrakeWorld(),
-        robots=(replace(original.robots[0], initial_positions=(0.1,) * 6),),
+        world_source=world_source,
+        robot_system=replace(
+            original.robot_system,
+            robots=(),
+            sensors=(),
+            systems=(
+                replace(
+                    original.robot_system,
+                    name="left",
+                    source=child_source,
+                    robots=(
+                        replace(
+                            original.robot_system.robots[0],
+                            initial_positions=(0.1,) * 6,
+                        ),
+                    ),
+                ),
+            ),
+        ),
         task=original.task.model_copy(
             update={
-                "parameters": {"robot": "arm", "target": [0.2] * 6, "tolerance": 0.001}
+                "parameters": {
+                    "robot": "left/arm",
+                    "target": [0.2] * 6,
+                    "tolerance": 0.001,
+                }
             }
         ),
     )
     monkeypatch.setattr(runner, "_run_drake", lambda *args: {"success": False})
     metadata = tmp_path / "failure.json"
     run_scenario(run, metadata=metadata)
+    hashes = json.loads(metadata.read_text())["configuration_sha256"]
+    assert all(str(path) in hashes for path in (source, child_source, world_source))
     source.unlink()
+    child_source.unlink()
+    world_source.unlink()
     assert load_inspection(metadata) == run
     captured = []
     monkeypatch.setattr(
@@ -291,7 +320,7 @@ def test_inspection_restores_test_overrides_after_source_changes(tmp_path, monke
     assert replace(captured[0], world_config=run.world_config) == run
 
 
-def test_output_failure_preserves_simulation_exception(tmp_path, monkeypatch):
+def test_output_failure_keeps_simulation_exception_as_context(tmp_path, monkeypatch):
     import robo_arch.scenarios.arm_tracking.run as runner
 
     def fail(*args):
@@ -307,12 +336,13 @@ def test_output_failure_preserves_simulation_exception(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner, "_run_drake", fail)
     monkeypatch.setattr(Path, "write_text", cannot_write)
-    with pytest.raises(RuntimeError, match="original simulation error") as caught:
+    with pytest.raises(OSError, match="disk full") as caught:
         run_scenario(
             replace(load_run(default_run()), world_config=DrakeWorld()),
             metadata=metadata,
         )
-    assert "disk full" in caught.value.__notes__[0]
+    assert isinstance(caught.value.__context__, RuntimeError)
+    assert str(caught.value.__context__) == "original simulation error"
 
 
 def test_inspection_preserves_original_failure_recording(tmp_path, monkeypatch):

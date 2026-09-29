@@ -75,12 +75,9 @@ class NativeViewport:
 
     def hold(self) -> None:
         """Keep the final native scene available without advancing physics."""
-        try:
-            while self._app.is_running():
-                self._app.update()
-                time.sleep(1 / 60)
-        except KeyboardInterrupt:
-            pass
+        while self._app.is_running():
+            self._app.update()
+            time.sleep(1 / 60)
 
     def close(self) -> None:
         self._selection_guard = None

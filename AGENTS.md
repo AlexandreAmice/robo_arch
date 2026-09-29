@@ -52,6 +52,7 @@ Prefer Python for experimentation and most autonomy work. Add C++ when requested
 - **Python 3.12 minimum** for shared source; pin interpreters per environment. Any older vendor interpreter needs an explicit compatibility decision.
 - Use **Ruff for linting and formatting**, configured in `pyproject.toml`: `py312`, line length 88, four-space indentation, double quotes; initial rules `E4`, `E7`, `E9`, `F`, `I`, `UP`, `B`. Do not add overlapping formatters/linters.
 - Use modern annotations on public and nontrivial interfaces, standard Python naming, and explicit units, frames, timestamps and array ownership. Keep suppressions narrow.
+- Raise exceptions for errors and let them propagate; catch them only in tests. Use Python `finally` blocks or C++ RAII for required cleanup.
 
 ## Build and validation
 

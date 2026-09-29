@@ -5,6 +5,7 @@ py_library(
     name = "config",
     srcs = [
         "__init__.py",
+        "declarations.py",
         "loading.py",
         "parameters.py",
         "worlds.py",
@@ -23,7 +24,9 @@ py_test(
     main = "tests/test_loading.py",
     deps = [
         ":config",
+        requirement("pydantic"),
         requirement("pytest"),
+        requirement("pyyaml"),
     ],
 )
 

@@ -1,6 +1,7 @@
 """Launch RViz independently of device drivers or hardware command connections."""
 
 import subprocess
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -44,22 +45,18 @@ def launch_rviz(world: RealWorld) -> Iterator[subprocess.Popen | None]:
     if not command:
         yield None
         return
-    try:
-        process = subprocess.Popen(command)
-    except FileNotFoundError as error:
-        raise RuntimeError(
-            "RViz 2 is unavailable; source its ROS 2 environment"
-        ) from error
+    process = subprocess.Popen(command)
     try:
         yield process
     finally:
         if process.poll() is None:
             process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
+            deadline = time.monotonic() + 5
+            while process.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if process.poll() is None:
                 process.kill()
-                process.wait()
+            process.wait()
 
 
 def main() -> None:
@@ -76,14 +73,11 @@ def main() -> None:
     world = load_world(args.world_config)
     if not isinstance(world, RealWorld):
         parser.error("RViz inspection requires a real-world configuration")
-    try:
-        with launch_rviz(world) as process:
-            if process is not None and process.wait() != 0:
-                raise RuntimeError(
-                    "RViz exited unsuccessfully; check its display/ROS diagnostics"
-                )
-    except KeyboardInterrupt:
-        pass
+    with launch_rviz(world) as process:
+        if process is not None and process.wait() != 0:
+            raise RuntimeError(
+                "RViz exited unsuccessfully; check its display/ROS diagnostics"
+            )
 
 
 if __name__ == "__main__":

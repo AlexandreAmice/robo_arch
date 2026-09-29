@@ -4,8 +4,8 @@ from math import pi
 
 from pydantic import Field, model_validator
 
+from robo_arch.core.config.declarations import SensorDefinition
 from robo_arch.core.config.parameters import Parameters
-from robo_arch.core.worlds.registry import FactoryReference, SensorDefinition
 
 
 class CameraParameters(Parameters):
@@ -24,14 +24,8 @@ class CameraParameters(Parameters):
         return self
 
 
-# Intentional approximation: ideal pinhole RGB-D without noise or latency.
-IMPLEMENTATIONS = {
-    "drake": FactoryReference(
-        module="robo_arch.sensors.ideal_camera.drake",
-        attribute="add_to_builder",
-    ),
-}
-
-DEFINITION = SensorDefinition(
-    parameter_schema=CameraParameters, implementations=IMPLEMENTATIONS
-)
+def describe() -> SensorDefinition:
+    """Ideal pinhole RGB-D without noise or latency; currently supported in Drake."""
+    return SensorDefinition(
+        parameter_schema=CameraParameters, supported_worlds=("drake",)
+    )

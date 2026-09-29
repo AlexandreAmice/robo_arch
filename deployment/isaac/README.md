@@ -33,7 +33,7 @@ physics:
   device: cpu                    # cpu or cuda:0
 visualization:
   type: isaac
-  mode: off                     # off or live
+  mode: "off"                     # off or live
   publish_period: 0.03333333333333333  # display seconds; independent of physics
   collision_geometry: false
 ```

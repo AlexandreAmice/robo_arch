@@ -1,7 +1,9 @@
-"""Packaged box model, inspectable without a simulator SDK."""
+"""Packaged geometry for a fixed box fixture."""
 
-from robo_arch.core.worlds.registry import ObjectDefinition
+from robo_arch.core.config.declarations import ObjectDefinition
 
-DEFINITION = ObjectDefinition(
-    package="robo_arch.objects.box", resource="model.sdf", base_frame="box"
-)
+
+def describe() -> ObjectDefinition:
+    return ObjectDefinition(
+        package="robo_arch.objects.box", resource="model.sdf", base_frame="box"
+    )

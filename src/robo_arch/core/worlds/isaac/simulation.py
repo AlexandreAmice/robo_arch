@@ -1,7 +1,6 @@
 """Run a fixed-base arm with explicit external effort feedback in configured native PhysX."""
 
 import math
-import sys
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -11,13 +10,14 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-from robo_arch.core.config.loading import Pose, RunConfiguration
+from robo_arch.core.config.declarations import Pose, RunConfiguration
 from robo_arch.core.config.worlds import IsaacPhysics, IsaacWorld
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
 from robo_arch.core.worlds.isaac.visualization import (
     NativeViewport,
     validate_visualization,
 )
-from robo_arch.core.worlds.registry import Registry
 
 
 def _transform(pose: Pose) -> np.ndarray:
@@ -34,12 +34,12 @@ def _transform(pose: Pose) -> np.ndarray:
     return result
 
 
-def _add_objects(stage, run: RunConfiguration, registry: Registry) -> None:
+def _add_objects(stage, run: RunConfiguration, definitions: DeviceDefinitions) -> None:
     """Support the current fixed single-link SDF box fixtures explicitly."""
     from pxr import Gf, UsdGeom, UsdPhysics
 
     for obj in run.objects:
-        definition = registry.objects[obj.model]
+        definition = definitions.objects[obj.model]
         data = files(definition.package).joinpath(definition.resource).read_text()
         sdf = ET.fromstring(data)
         links = sdf.findall("model/link")
@@ -81,7 +81,7 @@ def apply_physics(scene, config: IsaacPhysics):
 
 def run_scene(
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
     command: Callable[[np.ndarray, float], np.ndarray],
     *,
     trace_path: Path | None = None,
@@ -93,7 +93,8 @@ def run_scene(
     state/commands cross the GPU boundary at each step; this is scalar control,
     not a tensor-efficient training loop. Partial measured traces survive errors.
     """
-    if run.world != "isaac" or len(run.robots) != 1 or run.sensors:
+    devices = resolve_devices(run)
+    if run.world != "isaac" or len(devices.robots) != 1 or devices.sensors:
         raise ValueError("Isaac runner requires one robot and explicitly no sensors")
     world = run.world_config
     if not isinstance(world, IsaacWorld):
@@ -130,16 +131,17 @@ def run_scene(
         scene.CreateGravityDirectionAttr(Gf.Vec3f(0, 0, -1))
         scene.CreateGravityMagnitudeAttr(9.81)
         physics = apply_physics(scene, world.physics)
-        robot = run.robots[0]
-        definition = registry.robots[robot.model]
+        robot = devices.robots[0]
+        definition = definitions.robots[robot.model]
         X_WB = np.eye(4)
         for pose in robot.poses:
             X_WB = X_WB @ _transform(pose)
         with TemporaryDirectory(prefix="robo_arch_isaac_") as directory:
-            root = definition.implementations["isaac"].load()(
+            adapter = load_device_module("robots", robot.model, "isaac")
+            root = adapter.add_to_stage(
                 stage, name=robot.name, X_WB=X_WB, directory=Path(directory)
             )
-            _add_objects(stage, run, registry)
+            _add_objects(stage, run, definitions)
             cache = UsdUtils.StageCache.Get()
             stage_id = cache.Insert(stage).ToLongInt()
             simulation = get_physx_simulation_interface()
@@ -204,7 +206,6 @@ def run_scene(
                         viewer.hold()
             finally:
                 # Save before native viewer teardown, which can fail independently.
-                failure = sys.exception()
                 try:
                     if trace_path is not None and times:
                         trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,10 +214,6 @@ def run_scene(
                             times=np.asarray(times),
                             positions=np.asarray(positions),
                         )
-                except Exception as output_error:
-                    if failure is None:
-                        raise
-                    failure.add_note(f"Could not save partial trace: {output_error}")
                 finally:
                     simulation.detach_stage()
                     try:
