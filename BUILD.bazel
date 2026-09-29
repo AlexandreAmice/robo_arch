@@ -11,6 +11,7 @@ buildifier(
         "./.git/*",
         "./.venv*/*",
         "./deployment/*/.venv*/*",
+        "./third_party/*/.venv*/*",
         "./bazel-*/*",
     ],
     lint_mode = "warn",

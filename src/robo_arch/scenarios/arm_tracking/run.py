@@ -39,7 +39,7 @@ def _json_value(value: object) -> object:
 def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
     args = ["uv", "run", "--locked"]
     if run.world == "isaac":
-        args.extend(["--project", "deployment/isaac"])
+        args.extend(["--project", "third_party/isaac"])
     args.extend(
         [
             "python",

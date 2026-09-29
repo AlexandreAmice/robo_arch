@@ -33,7 +33,10 @@ Application source belongs under `src/robo_arch/`. Reusable declarations and con
 - Keep C++, Python bindings, YAML and assets beside their owner. Put tests in that owner's `tests/`; root `tests/` is for cross-package integration and installed artifacts.
 - Device-specific `drake/`, `isaac/` and `real/` code stays with the device. Generic world/transport services belong under `core/worlds/`. Do not duplicate algorithms between these locations.
 - Keep robot-independent inverse dynamics in `core/controllers/`; keep robot model selection, gains and specializations with the robot, system or scenario that owns those assumptions.
-- Root `tools/` contains developer/build utilities; `third_party/` contains dependency metadata and patches; `deployment/` contains runtime environments and launch material. None is a second home for device implementations.
+- Root `tools/` contains developer/build utilities and diagnostics;
+  `third_party/` contains dependency metadata, independently locked vendor
+  profiles and patches; `deployment/` contains deployable runtime images and
+  launch material. None is a second home for device implementations.
 - Put maintained design/user documentation in the existing `docs/` pages or an owning package's README. Create directories only when they have content; avoid catch-all `utils/` and duplicate asset/configuration trees.
 
 ## Cleanup and maintained documentation

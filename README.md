@@ -81,7 +81,7 @@ those live. The current UR7e still has simplified visuals and no collision model
 Isaac supports headless CPU/GPU PhysX with TGS/PGS and the same controller and
 gains; sensors must currently be disabled explicitly. Live viewing and native
 recording are rejected. The native viewport is deferred until rendering and
-shutdown are validated. See [Isaac setup](deployment/isaac/README.md) for physics
+shutdown are validated. See [Isaac setup](third_party/isaac/README.md) for physics
 commands and measured limits.
 
 Every CLI run writes effective configuration, package versions and an inspection
@@ -108,7 +108,7 @@ bazel test //src/robo_arch/... //tests/build:core //tests/build:drake
 ```
 
 See the [dependency baseline](third_party/compatibility.md) for pins and ABI
-boundaries, and [Isaac setup](deployment/isaac/README.md) for the isolated
+boundaries, and [Isaac setup](third_party/isaac/README.md) for the isolated
 vendor environment and measured results. Native wheel installation and the
 C++ edit–run helper are not implemented yet.
 

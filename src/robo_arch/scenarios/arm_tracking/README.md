@@ -32,7 +32,7 @@ missing collision geometry.
 `--world drake|isaac|real` replaces the whole world configuration with native
 defaults, including viewer `off`. `--world-config` accepts a complete file or
 package URI. Isaac currently supports only `off`; live viewing and `--record`
-are rejected. See [Isaac setup](../../../../deployment/isaac/README.md).
+are rejected. See [Isaac setup](../../../../third_party/isaac/README.md).
 Real-world declarations are inspectable, but this scenario has no hardware runner.
 
 The CLI saves a JSON report with full effective inputs, configuration hashes,

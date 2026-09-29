@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import replace
@@ -126,6 +127,21 @@ def test_failed_run_retains_effective_configuration(tmp_path, monkeypatch):
     saved = json.loads(metadata.with_suffix(".world.json").read_text())
     assert saved == run.world_config.model_dump(mode="json")
     assert load_inspection(metadata) == run
+
+
+def test_isaac_inspection_uses_vendor_dependency_profile(tmp_path, monkeypatch):
+    import robo_arch.scenarios.arm_tracking.run as runner
+
+    monkeypatch.setattr(runner, "_run_isaac", lambda *args: {"success": True})
+    run = replace(
+        load_run(default_run()), world_config=IsaacWorld(), sensors_enabled=False
+    )
+    metadata = tmp_path / "result.json"
+    run_scenario(run, metadata=metadata)
+    command = shlex.split(json.loads(metadata.read_text())["inspection_command"])
+    assert command[:5] == ["uv", "run", "--locked", "--project", "third_party/isaac"]
+    assert command[command.index("--inspect") + 1] == str(metadata.resolve())
+    assert command[-2:] == ["--visualization", "off"]
 
 
 def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, capsys):

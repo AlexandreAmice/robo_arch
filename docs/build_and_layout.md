@@ -37,7 +37,12 @@ src/robo_arch/
 
 Add device-specific IK, controllers, calibration and other world implementations beside their owner when needed. Actuated tools such as Robotiq belong under `robots/`; mounting calibration and coordinated autonomy belong with the robot system. Scenario fixture calibration stays with the scenario. Tests and BUILD targets remain local to their package.
 
-Root build files, `tools/`, `third_party/`, `deployment/` and cross-package `tests/` retain their roles. The old top-level `assets/` and `configs/` trees are replaced by resources beside their owners. Deployment contains runtime/launch environments, not a second copy of device drivers or calibration. `plans/` remains ignored scratch space.
+Root build files, `tools/`, `third_party/`, `deployment/` and cross-package
+`tests/` retain their roles. The old top-level `assets/` and `configs/` trees are
+replaced by resources beside their owners. Independently locked vendor dependency
+profiles belong under `third_party/`; deployable runtime images and process-launch
+material belong under `deployment/`. Neither is a second copy of device drivers
+or calibration. `plans/` remains ignored scratch space.
 
 ## What belongs where
 
@@ -59,7 +64,7 @@ Use explicit supported-world implementations. Device-specific wrappers live in t
 
 Robot-system composition describes the physical assembly and its available interfaces. Autonomy composition describes computation. A system may provide convenient autonomy presets, but does not require one fixed controller or policy. Both model-based and pixel-to-command stacks can target the same robot system.
 
-The [world configuration](architecture.md#world-configuration-and-visualization) stays inline in the scenario until reuse warrants a package-referenced file. Scenario-specific solver/viewer choices belong with that scenario; reusable parameter defaults belong to the corresponding SDK-independent world schema. Device material/contact profiles stay beside device assets, assembly-specific RViz views belong with the system, and task-specific views belong with the scenario. Deployment owns runtime environments and process-launch material. Keep native settings adapters and viewer lifecycle in the world package; scenario runners select them instead of constructing Meshcat or RViz directly. The real-world launcher owns only RViz; ROS publishers and hardware drivers remain separate work.
+The [world configuration](architecture.md#world-configuration-and-visualization) stays inline in the scenario until reuse warrants a package-referenced file. Scenario-specific solver/viewer choices belong with that scenario; reusable parameter defaults belong to the corresponding SDK-independent world schema. Device material/contact profiles stay beside device assets, assembly-specific RViz views belong with the system, and task-specific views belong with the scenario. Third-party profiles pin incompatible vendor environments; deployment owns deployable images and process-launch material. Keep native settings adapters and viewer lifecycle in the world package; scenario runners select them instead of constructing Meshcat or RViz directly. The real-world launcher owns only RViz; ROS publishers and hardware drivers remain separate work.
 
 ## Composition, placement and calibration
 
@@ -97,7 +102,7 @@ Use Bzlmod, committed module lockfiles, Bazelisk, explicit rule loads, narrow ta
 
 **uv is the everyday Python interface; Bazel is the native build and primary CI/test interface.** Use an editable Python package in `.venv` for scripts, pytest, notebooks and IDE debugging. Editing Python requires no Bazel invocation. Bazel tests use the same source and pytest cases through declared targets, with their own pinned interpreter, dependencies and runfiles; they do not consume `.venv`.
 
-Keep `uv.lock` authoritative for each supported environment. Bazel reads the root lock directly through rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)`, preserving locked artifact hashes and resolution markers. The shared `@python_deps` repository exposes locked packages; explicit target dependencies keep core tests independent of Drake and formatting tools. uv dependency groups select development environments, not Bazel targets. CI checks that the uv and Bzlmod locks are current. Pin compatible Python runtimes and native ABI settings in both workflows. Shared package versions alone do not establish native compatibility. Keep incompatible ROS/vendor environments separately pinned under `deployment/`. [rules_python lockfile input](https://rules-python.readthedocs.io/en/latest/api/rules_python/python/extensions/pip.html)
+Keep `uv.lock` authoritative for each supported environment. Bazel reads the root lock directly through rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)`, preserving locked artifact hashes and resolution markers. The shared `@python_deps` repository exposes locked packages; explicit target dependencies keep core tests independent of Drake and formatting tools. uv dependency groups select development environments, not Bazel targets. CI checks that the uv and Bzlmod locks are current. Pin compatible Python runtimes and native ABI settings in both workflows. Shared package versions alone do not establish native compatibility. Keep incompatible ROS/vendor environments in independently locked profiles under `third_party/`. [rules_python lockfile input](https://rules-python.readthedocs.io/en/latest/api/rules_python/python/extensions/pip.html)
 
 Use thin **nanobind** bindings around project C++, with explicit ownership, array layout, device and GIL behavior. Call existing pydrake APIs directly where appropriate. Exchanging bound Drake objects requires compatible Drake libraries, compiler/C++ ABI and nanobind ABI/domain/Python-ABI settings, even though both projects use nanobind. Pin that combination in build tooling. [nanobind Bazel integration](https://nanobind.readthedocs.io/en/latest/bazel.html), [interoperability requirements](https://nanobind.readthedocs.io/en/latest/faq.html#how-can-i-avoid-conflicts-with-other-projects-using-nanobind)
 
@@ -131,7 +136,7 @@ CI runs Bazel test suites against declared Python libraries, data and native tar
 
 Pin compiler/runtime inputs and execution environments. Core and Drake tests target hermetic execution; GPU/Isaac and hardware integrations need explicit worker/container/driver requirements and suitable test caching policies. Invoking those through Bazel does not make external devices hermetic. ROS dependencies may retain their supported ament/colcon build, supplied as an identified underlay.
 
-Build Linux native wheels in a pinned manylinux-compatible environment and inspect their dependencies with auditwheel. Accurate wheel tags do not establish pydrake ABI compatibility. Simulator SDKs and GPU drivers stay in the deployment environment. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
+Build Linux native wheels in a pinned manylinux-compatible environment and inspect their dependencies with auditwheel. Accurate wheel tags do not establish pydrake ABI compatibility. Simulator SDKs stay in their third-party dependency profiles, while GPU drivers remain host runtime requirements. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
 
 ## Testability
 
