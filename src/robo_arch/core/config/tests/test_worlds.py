@@ -13,6 +13,10 @@ from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld, pars
     "value",
     [
         {"type": "unknown"},
+        {"type": "drake", "physics": {"discrete_contact_approximation": "tamsi"}},
+        {"type": "drake", "physics": {"sap_near_rigid_threshold": -0.1}},
+        {"type": "drake", "target_realtime_rate": -1},
+        {"type": "drake", "target_realtime_rate": float("inf")},
         {"type": "drake", "physics": {"solver": "tgs"}},
         {"type": "isaac", "physics": {"contact_model": "point"}},
         {"type": "real", "physics": {"time_step": 0.001}},

@@ -32,7 +32,10 @@ class DrakePhysics(_Schema):
     contact_model: Literal["point", "hydroelastic", "hydroelastic_with_fallback"] = (
         "hydroelastic_with_fallback"
     )
-    discrete_contact_approximation: Literal["sap", "tamsi", "similar", "lagged"] = "sap"
+    discrete_contact_approximation: Literal["sap", "similar", "lagged"] = "sap"
+
+    # Dimensionless SAP near-rigid regularization; zero disables it.
+    sap_near_rigid_threshold: float = Field(default=1.0, ge=0)
 
 
 class DrakeVisualization(_Schema):
@@ -48,6 +51,8 @@ class DrakeVisualization(_Schema):
 
 class DrakeWorld(_Schema):
     type: Literal["drake"] = "drake"
+    # Wall-clock pacing is independent of the physics and viewer publication step.
+    target_realtime_rate: float = Field(default=0.0, ge=0)
     physics: DrakePhysics = Field(default_factory=DrakePhysics)
     visualization: DrakeVisualization = Field(default_factory=DrakeVisualization)
 
