@@ -1,18 +1,18 @@
 [package]
-title = "robo_arch camera-free PhysX probe"
+title = "robo_arch camera-free arm physics"
 version = "0.0.0"
 
 [dependencies]
-"omni.physx.tensors" = {}
+"omni.physx.tensors" = { version = "110.3.2", exact = true }
 "omni.kit.usd.layers" = {}
 "omni.kit.loop-isaac" = {}
 "omni.usd" = {}
-"omni.physics.tensors" = {}
+"omni.physics.tensors" = { version = "110.3.2", exact = true }
 "omni.physx" = { version = "110.3.2", exact = true }
 "omni.kit.renderer.init" = { version = "1.0.1", exact = true }
 
 [settings.app]
-name = "robo_arch_isaac_probe"
+name = "robo_arch_isaac"
 window.enabled = false
 settings.persistent = false
 

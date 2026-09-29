@@ -2,8 +2,8 @@
 
 A shared autonomy stack across Drake, hardware and batched simulation. The first
 runnable example tracks a joint target with a UR7e in Drake and renders a box
-through an idealized wrist RGB-D camera. Cross-world controller reuse remains
-future work.
+through an idealized wrist RGB-D camera. A camera-free Isaac run uses the same
+controller and task, with scalar CPU control and GPU PhysX dynamics.
 
 - [Architecture](docs/architecture.md): scenario, autonomy, world, composition and shared execution.
 - [Build and layout](docs/build_and_layout.md): device-owned code/assets, recursive robot systems, scenarios, core libraries, and Python/C++ packaging.
@@ -66,6 +66,22 @@ Only the reusable physical assembly lives in a separate YAML file. The
 [configuration guide](src/robo_arch/scenarios/arm_tracking/README.md) explains
 the fields, units, defaults and file references.
 
+Run the same task in the isolated Isaac environment (explicitly without sensors):
+
+```sh
+uv sync --project deployment/isaac --locked
+env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
+  deployment/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+  --world isaac --no-sensors --no-browser
+xdg-open recordings/arm_tracking_isaac.html
+```
+
+The environment variable accepts NVIDIA's runtime EULA. Isaac playback renders
+recorded Isaac joint positions using Drake geometry; it does not rerun Drake
+physics or depict Isaac camera output. The controller selection, gains and task
+remain unchanged. See the [Isaac environment](deployment/isaac/README.md) for
+requirements and measured limits.
+
 The example exercises each owner:
 
 - `robots/ur7e/`: nominal model and Drake adapter.
@@ -83,7 +99,7 @@ bazel test //src/robo_arch/... //tests/build:core //tests/build:drake
 ```
 
 See the [dependency baseline](third_party/compatibility.md) for pins and ABI
-boundaries, and [Isaac feasibility](deployment/isaac/README.md) for the isolated
+boundaries, and [Isaac setup](deployment/isaac/README.md) for the isolated
 vendor environment and measured results. Native wheel installation and the
 C++ edit–run helper are not implemented yet.
 
@@ -98,7 +114,7 @@ Controller implementations wire their robot observations and commands once;
 scenario Python supplies task references through the exposed native ports. YAML
 supplies selections and parameters, not an execution graph. Device definitions
 are discovered from the selected packages rather than listed in each scenario. Measured
-calibration, batched execution and performance warnings remain planned. Unsupported
-worlds fail explicitly; the Drake example does not establish hardware or Isaac
-support. Camera rendering requires an OpenGL context; headless EGL works on the
+calibration and batched execution remain planned. Isaac reports the cost of its
+scalar CPU controller explicitly. Unsupported devices/worlds fail before
+construction; hardware drivers and Isaac cameras are not implemented. Camera rendering requires an OpenGL context; headless EGL works on the
 development host.

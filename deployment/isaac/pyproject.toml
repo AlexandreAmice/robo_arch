@@ -5,7 +5,6 @@ requires-python = "==3.12.*"
 dependencies = [
     "drake==1.57.0",
     "isaacsim-core==6.1.0.0",
-    "isaacsim-robot-setup==6.1.0.0",
     "isaacsim[compatibility-check]==6.1.0.0",
     "opencv-python-headless-noffmpeg==4.14.0.94rc1",
     "packaging==26.0",

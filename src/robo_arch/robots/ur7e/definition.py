@@ -22,6 +22,9 @@ DEFINITION = RobotDefinition(
     joints=JOINT_NAMES,
     default_positions=DEFAULT_POSITIONS,
     implementations={
+        "isaac": FactoryReference(
+            module="robo_arch.robots.ur7e.isaac", attribute="add_to_stage"
+        ),
         "drake": FactoryReference(
             module="robo_arch.robots.ur7e.drake", attribute="add_to_plant"
         ),

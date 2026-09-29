@@ -890,19 +890,6 @@ wheels = [
 ]
 
 [[package]]
-name = "isaacsim-gui"
-version = "6.1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "isaacsim-core" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/f9/ea3ace72509dbe39f11751ed76febfc4dee560fa5c00f4cb35c81c6abc04/isaacsim_gui-6.1.0.0-cp312-none-manylinux_2_35_aarch64.whl", hash = "sha256:782e41a351a7564d5490143a5ff7bf17471eea6829e28e07beb89107e93394bf", size = 654587, upload-time = "2026-09-09T19:28:50.389Z" },
-    { url = "https://files.pythonhosted.org/packages/dd/fd/b75c29a20ecc619e841287968b21ec72a8fdd98cef88ed5d53534be47d97/isaacsim_gui-6.1.0.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:9a911be5d95d9451b5403a6d3040767fcd95e1309b51a10a0457daafb7e021af", size = 2359072, upload-time = "2026-09-09T19:29:13.29Z" },
-    { url = "https://files.pythonhosted.org/packages/24/2d/4e06a95222cfb442c5c087c0648dc3da58aeb15fe9417dc5416689e5ff62/isaacsim_gui-6.1.0.0-cp312-none-win_amd64.whl", hash = "sha256:2d76a5475e10a311f07208bd8f9204971b71e97a953964d44fb099f7cdbf5b6a", size = 1235439, upload-time = "2026-09-09T19:29:35.061Z" },
-]
-
-[[package]]
 name = "isaacsim-kernel"
 version = "6.1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -952,32 +939,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/23/916ffe50c843d256bd5fa7381a3c82410a4d1636f46ae004211424851808/isaacsim_kernel-6.1.0.0-cp312-none-manylinux_2_35_aarch64.whl", hash = "sha256:f8beb7f2f0c5d4fce6ae80850987e0a93fb950adaad8cb1b2faac8ebd46c3e31", size = 71833186, upload-time = "2026-09-09T19:28:53.264Z" },
     { url = "https://files.pythonhosted.org/packages/8d/71/7aa06d66aaafe1488cdaeb27916b9306ac530d91664fb780f610e67b231d/isaacsim_kernel-6.1.0.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:fe795f2d965e8fb82befa71071a13687aba519d61f980820117b02261ae3cec7", size = 74350007, upload-time = "2026-09-09T19:29:30.824Z" },
     { url = "https://files.pythonhosted.org/packages/4c/bb/97f0303b2e1f83c53cd76dfeefdf5fc4ec2c0e4f871b1a61fb63c06bb8f4/isaacsim_kernel-6.1.0.0-cp312-none-win_amd64.whl", hash = "sha256:d34ed3dc12e32068de7572d670c5da518a521c6b9c8d0e3ff656862cce9fded7", size = 58132177, upload-time = "2026-09-09T19:30:02.379Z" },
-]
-
-[[package]]
-name = "isaacsim-robot-motion"
-version = "6.1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "isaacsim-gui" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/f0/18252915f9e2256b8fdcebb23587bcc50fcd974a66a881935067e12482b8/isaacsim_robot_motion-6.1.0.0-cp312-none-manylinux_2_35_aarch64.whl", hash = "sha256:f770d01601bb24536bdf25aa00de13cfcc82993d5dedd5fe97b0ee7b39c17694", size = 20407869, upload-time = "2026-09-09T19:28:55.667Z" },
-    { url = "https://files.pythonhosted.org/packages/1a/1b/5e98917acdaaceda1c8e7069c76d5ccce80e54e53dd635ce332540367660/isaacsim_robot_motion-6.1.0.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:e807b6879b6fb680f8348edfd3507da4f5971b3b8d1dc39142b6eaabae3b9856", size = 109486141, upload-time = "2026-09-09T19:29:25.312Z" },
-    { url = "https://files.pythonhosted.org/packages/0b/49/30b6e65ea6c2c1c2d8e95427acd5d0cf2193c63f18788669479e780404c3/isaacsim_robot_motion-6.1.0.0-cp312-none-win_amd64.whl", hash = "sha256:43911d5a26959306ae20f6066d76b65b279a4a2cb8186b361d191f5047a82322", size = 14824202, upload-time = "2026-09-09T19:29:50.545Z" },
-]
-
-[[package]]
-name = "isaacsim-robot-setup"
-version = "6.1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "isaacsim-robot-motion" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/4b/e9dcdfdfee0b8005204b1ca1adc8e6744d511a0c045eea0d2602f969fb5e/isaacsim_robot_setup-6.1.0.0-cp312-none-manylinux_2_35_aarch64.whl", hash = "sha256:8a14a483c6e9861ba8badf178f864a15dbc35ccb88d78ef9a07965d2ae6acfcb", size = 5497959, upload-time = "2026-09-09T19:28:58.386Z" },
-    { url = "https://files.pythonhosted.org/packages/02/42/c3586019d71812faa3dca324022065329d9f4a29bf91b16ca33a4c3f0c1a/isaacsim_robot_setup-6.1.0.0-cp312-none-manylinux_2_35_x86_64.whl", hash = "sha256:c20c36e8db72166ef0d2089a13ce5476658ff1f89589db531fb2bc1092e47f44", size = 9881983, upload-time = "2026-09-09T19:29:20.945Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/89/0fb7eee39b893884e69944cc4d3944da0b760fb00f86fb339a36fddb06fe/isaacsim_robot_setup-6.1.0.0-cp312-none-win_amd64.whl", hash = "sha256:fd24b352c960c7f63342601b2a8e1effb27ab6d1614b15ccdae01dfa0555dd44", size = 6702114, upload-time = "2026-09-09T19:29:43.394Z" },
 ]
 
 [[package]]
@@ -1898,7 +1859,6 @@ dependencies = [
     { name = "drake" },
     { name = "isaacsim", extra = ["compatibility-check"] },
     { name = "isaacsim-core" },
-    { name = "isaacsim-robot-setup" },
     { name = "opencv-python-headless-noffmpeg" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -1910,7 +1870,6 @@ requires-dist = [
     { name = "drake", specifier = "==1.57.0" },
     { name = "isaacsim", extras = ["compatibility-check"], specifier = "==6.1.0.0" },
     { name = "isaacsim-core", specifier = "==6.1.0.0" },
-    { name = "isaacsim-robot-setup", specifier = "==6.1.0.0" },
     { name = "opencv-python-headless-noffmpeg", specifier = "==4.14.0.94rc1", index = "https://pypi.nvidia.com/" },
     { name = "packaging", specifier = "==26.0" },
     { name = "pyyaml", specifier = "==6.0.3" },

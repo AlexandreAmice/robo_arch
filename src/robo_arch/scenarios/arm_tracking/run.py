@@ -5,6 +5,7 @@ import json
 import sys
 import webbrowser
 from dataclasses import replace
+from importlib.util import find_spec
 from pathlib import Path
 from types import ModuleType
 
@@ -51,13 +52,6 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
         meshcat = Meshcat(MeshcatParams(host="localhost"))
         meshcat.SetCameraPose([0.9, -0.9, 0.8], [0.25, 0.0, 0.3])
         meshcat.StartRecording()
-    simulator, scene = build_simulation(
-        run,
-        definitions,
-        parameters,
-        desired_positions=task.target,
-        meshcat=meshcat,
-    )
 
     def positions() -> np.ndarray:
         context = scene.plant.GetMyContextFromRoot(simulator.get_context())
@@ -69,6 +63,13 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
         return camera.depth_image_32F_output_port().Eval(context).data
 
     try:
+        simulator, scene = build_simulation(
+            run,
+            definitions,
+            parameters,
+            desired_positions=task.target,
+            meshcat=meshcat,
+        )
         initial = positions()
         initial_depth = {
             sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
@@ -120,6 +121,12 @@ def _run_isaac(
     recording: Path | None,
 ) -> dict:
     """Supply this task's reference to the same controller evaluated on the CPU."""
+    if find_spec("isaacsim") is None:
+        raise RuntimeError(
+            "Isaac needs the isolated deployment/isaac environment. "
+            "Run uv sync --project deployment/isaac --locked, then use "
+            "deployment/isaac/.venv/bin/python for this command."
+        )
     import warnings
 
     import numpy as np
@@ -157,14 +164,25 @@ def _run_isaac(
     try:
         trace = run_scene(run, definitions, command, trace_path=trace_path)
     finally:
+        execution_failed = sys.exc_info()[0] is not None
         if trace_path is not None and trace_path.exists():
             from robo_arch.core.worlds.drake.visualization import replay_positions
 
-            replay_positions(run, definitions, trace_path, recording)
-            print(
-                f"Isaac trajectory playback: {recording.resolve().as_uri()}",
-                file=sys.stderr,
-            )
+            try:
+                replay_positions(run, definitions, trace_path, recording)
+                print(
+                    f"Isaac trajectory playback: {recording.resolve().as_uri()}",
+                    file=sys.stderr,
+                )
+            except Exception as error:
+                if not execution_failed:
+                    raise
+                warnings.warn(
+                    f"Playback failed; original simulation error follows. "
+                    f"Trace retained at {trace_path}: {error}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
     return {
         "world": run.world,
         "duration_seconds": float(trace["times"][-1]),

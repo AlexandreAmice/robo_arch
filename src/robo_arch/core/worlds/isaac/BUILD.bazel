@@ -1,0 +1,18 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+# Kit/PhysX are supplied by deployment/isaac, not the core Bazel environment.
+py_library(
+    name = "isaac",
+    srcs = [
+        "__init__.py",
+        "simulation.py",
+    ],
+    data = ["physics.kit"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        requirement("numpy"),
+    ],
+)

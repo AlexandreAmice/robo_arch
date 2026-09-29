@@ -7,6 +7,7 @@ uv run python -m robo_arch.scenarios.arm_tracking.run
 ```
 
 This saves `recordings/arm_tracking_drake.html` and opens scene playback in a browser.
+It also saves the final wrist-camera image beside the playback as a PNG.
 Use **Open Controls → Animations → default** to pause or scrub time. The arm
 moves only 0.05 rad from its starting pose. The model uses simplified visuals
 without robot collision geometry; the ideal wrist camera has no visual geometry.
