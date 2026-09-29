@@ -425,9 +425,16 @@ def main() -> None:
             else destination / f"arm_tracking_{run.world}.json"
         )
     )
+    recording = args.record
+    if (
+        args.inspect
+        and recording is None
+        and run.world_config.visualization.mode in {"record", "live_and_record"}
+    ):
+        recording = metadata.with_suffix(".html")
     result = run_scenario(
         run,
-        recording=args.record,
+        recording=recording,
         trace_path=args.trace,
         metadata=metadata,
         keep_viewer_open=True,

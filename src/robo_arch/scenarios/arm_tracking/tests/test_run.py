@@ -315,5 +315,29 @@ def test_output_failure_preserves_simulation_exception(tmp_path, monkeypatch):
     assert "disk full" in caught.value.__notes__[0]
 
 
+def test_inspection_preserves_original_failure_recording(tmp_path, monkeypatch):
+    original = tmp_path / "failure.html"
+    run = replace(load_run(default_run()), duration=0.001)
+    assert not run_scenario(run, recording=original)["success"]
+    saved = original.read_bytes()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "arm_tracking",
+            "--inspect",
+            str(original.with_suffix(".json")),
+            "--visualization",
+            "record",
+            "--no-browser",
+        ],
+    )
+    with pytest.raises(SystemExit, match="1"):
+        main()
+    assert original.read_bytes() == saved
+    assert (tmp_path / "failure_inspection.html").is_file()
+    assert (tmp_path / "failure_inspection.json").is_file()
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
