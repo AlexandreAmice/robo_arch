@@ -1,7 +1,7 @@
 """Native Drake assembly for the arm-tracking task."""
 
 import numpy as np
-from pydrake.geometry import Meshcat, MeshcatVisualizer
+from pydrake.geometry import Meshcat
 from pydrake.systems.analysis import Simulator
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.primitives import ConstantVectorSource
@@ -10,6 +10,7 @@ from robo_arch.core.config.loading import RunConfiguration
 from robo_arch.core.controllers import definition
 from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
 from robo_arch.core.worlds.drake.scene import DrakeScene, build_scene
+from robo_arch.core.worlds.drake.visualization import add_visualization
 from robo_arch.core.worlds.registry import Registry
 
 
@@ -57,8 +58,9 @@ def build_simulation(
         raise ValueError("Joint tracking task requires a desired_state reference port")
     builder.Connect(goal.get_output_port(), ports["desired_state"])
     if meshcat is not None:
-        MeshcatVisualizer.AddToBuilder(builder, scene.scene_graph, meshcat)
+        add_visualization(builder, scene, run.world_config.visualization, meshcat)
     simulator = Simulator(builder.Build())
+    simulator.set_target_realtime_rate(run.world_config.target_realtime_rate)
     plant_context = scene.plant.GetMyMutableContextFromRoot(
         simulator.get_mutable_context()
     )
