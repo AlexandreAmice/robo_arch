@@ -37,8 +37,8 @@ nanobind ABI/domain and ownership conventions. Matching nanobind version numbers
 alone is insufficient. The native wheel and this interoperability are not yet
 implemented.
 
-Isaac uses an [independent environment](../deployment/isaac/README.md) rather than
-the root Python dependency resolution. The initial LLVM download/extraction can
+Isaac uses an [independent dependency profile](isaac/README.md) rather than the
+root Python dependency resolution. The initial LLVM download/extraction can
 consume approximately 13 GB of cache storage.
 
 Build references: [Drake dependencies](https://github.com/RobotLocomotion/drake/blob/v1.57.0/MODULE.bazel),

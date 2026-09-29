@@ -1,7 +1,7 @@
 load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library")
 
-# Kit/PhysX are supplied by deployment/isaac, not the core Bazel environment.
+# Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
 py_library(
     name = "isaac",
     srcs = [

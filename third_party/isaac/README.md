@@ -1,7 +1,9 @@
-# Local Isaac environment
+# Isaac dependency profile
 
-This isolated Python 3.12 environment runs the UR7e with Isaac SimulationApp,
-PhysX with GPU dynamics enabled and the same Drake inverse-dynamics controller used in the Drake run.
+This independently locked Python 3.12 profile supplies the external Isaac Sim
+runtime without adding its vendor dependencies to the root environment. It runs
+the UR7e with Isaac SimulationApp, PhysX with GPU dynamics enabled and the same
+Drake inverse-dynamics controller used in the Drake run.
 The robot adapter converts the canonical URDF with NVIDIA's USD converter; the
 world loop supplies measured joint state and applies effort with drives disabled.
 
@@ -10,9 +12,9 @@ world loop supplies measured joint state and applies effort with drives disabled
 From the repository root:
 
 ```sh
-uv sync --project deployment/isaac --locked
+uv sync --project third_party/isaac --locked
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  deployment/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+  third_party/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
   --world isaac --no-sensors --no-browser \
   --record recordings/arm_tracking_isaac.html
 ```
@@ -48,12 +50,12 @@ renderer/Replicator integration; no camera memory-capacity conclusion was obtain
 Isaac Sim is pinned to 6.1.0.0, PhysX/tensors to 110.3.2. `uv.lock` pins Python
 packages; Kit downloads further extensions into its user cache, so this profile
 is not offline/hermetic. Root dependencies remain independent. The special
-OpenCV wheel uses an explicit NVIDIA index. The optional `probe.py`/`probe.kit`
-remain a small independent GPU free-fall diagnostic:
+OpenCV wheel uses an explicit NVIDIA index. The optional diagnostic under
+`tools/isaac/` remains a small independent GPU free-fall check:
 
 ```sh
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  deployment/isaac/.venv/bin/python deployment/isaac/probe.py
+  third_party/isaac/.venv/bin/python tools/isaac/probe.py
 ```
 
 References: [NVIDIA Python installation](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_python.html),

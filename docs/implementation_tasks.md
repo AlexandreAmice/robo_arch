@@ -97,7 +97,7 @@ Completed first batch, retained here as the foundation. Current continuation poi
 
 **B0 — Build and dependency baseline**
 
-Own root build metadata and toolchain configuration. Establish Bzlmod, pinned C++23/Python toolchains, editable Python packaging, Ruff, Drake-derived clang-format settings, and Buildifier. Read the uv lock directly into Bazel's Python dependency repository. Establish separate core, Drake, and Isaac environment profiles. Select exact dependency revisions through compatibility checks and commit the successful matrix; dependent packages consume those pins. Do not silently relax C++23 or the Python baseline. Coordinate the Isaac profile's runtime requirements with G0; G0 owns the vendor-environment files.
+Own root build metadata and toolchain configuration. Establish Bzlmod, pinned C++23/Python toolchains, editable Python packaging, Ruff, Drake-derived clang-format settings, and Buildifier. Read the uv lock directly into Bazel's Python dependency repository. Establish separate core, Drake, and Isaac environment profiles. Select exact dependency revisions through compatibility checks and commit the successful matrix; dependent packages consume those pins. Do not silently relax C++23 or the Python baseline. Coordinate the Isaac profile's runtime requirements with G0; G0 owns the vendor dependency-profile files.
 
 **I0 — Shared interfaces**
 
@@ -105,7 +105,7 @@ Implement the interface package described above. It can develop alongside B0; it
 
 **G0 — Local Isaac feasibility**
 
-Own the pinned vendor-environment description. Check the selected Isaac runtime's Python, driver, memory and GPU requirements, then attempt a minimal headless physics example without cameras. Record exact versions and startup/resource results. Use a separate environment from base development. Stop runtime expansion on a demonstrated compatibility/resource failure; report the blocker and continue non-GPU work. Do not change system drivers or the base development environment to force the probe to pass.
+Own the pinned vendor dependency profile. Check the selected Isaac runtime's Python, driver, memory and GPU requirements, then attempt a minimal headless physics example without cameras. Record exact versions and startup/resource results. Use a separate environment from base development. Stop runtime expansion on a demonstrated compatibility/resource failure; report the blocker and continue non-GPU work. Do not change system drivers or the base development environment to force the probe to pass.
 
 ### Wave B — Infrastructure using the shared baseline
 
@@ -315,7 +315,7 @@ reorganization.
 
 The coordinator reproduced G0's 30-step free-fall result and nonzero GPU solver
 allocation. The 6 GB GPU fails the vendor VRAM check; full Core/SimulationApp,
-robot scenes and batching are untested. [G0 evidence](../deployment/isaac/README.md)
+robot scenes and batching are untested. [G0 evidence](../third_party/isaac/README.md)
 records exact commands and measurements. The controller-reuse milestone is
 **not complete**. Next batch: integrate the current changes, then continue the remaining I1/S0 interfaces alongside B1 and C0. The earlier first-batch handoff prompt is superseded for subsequent work.
 

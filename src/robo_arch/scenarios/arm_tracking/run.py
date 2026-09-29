@@ -124,9 +124,9 @@ def _run_isaac(
     """Supply this task's reference to the same controller evaluated on the CPU."""
     if find_spec("isaacsim") is None:
         raise RuntimeError(
-            "Isaac needs the isolated deployment/isaac environment. "
-            "Run uv sync --project deployment/isaac --locked, then use "
-            "deployment/isaac/.venv/bin/python for this command."
+            "Isaac needs the isolated third_party/isaac dependency profile. "
+            "Run uv sync --project third_party/isaac --locked, then use "
+            "third_party/isaac/.venv/bin/python for this command."
         )
     import warnings
 
