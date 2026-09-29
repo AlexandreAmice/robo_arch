@@ -1,4 +1,4 @@
-"""Run a fixed-base arm with explicit external effort feedback in GPU PhysX."""
+"""Run a fixed-base arm with explicit external effort feedback in configured native PhysX."""
 
 import math
 import time
@@ -11,6 +11,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 
 from robo_arch.core.config.declarations import Pose, RunConfiguration
+from robo_arch.core.config.worlds import IsaacPhysics, IsaacWorld
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
 
@@ -59,6 +60,21 @@ def _add_objects(stage, run: RunConfiguration, definitions: DeviceDefinitions) -
         UsdPhysics.CollisionAPI.Apply(box.GetPrim())
 
 
+def apply_physics(scene, config: IsaacPhysics):
+    """Author native scene settings before attaching the stage to PhysX.
+
+    CPU uses the native MBP broadphase. GPU dynamics uses the GPU broadphase on
+    CUDA device zero. Articulation solver limits remain owned by the robot asset.
+    """
+    from pxr import PhysxSchema
+
+    physics = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
+    physics.CreateSolverTypeAttr(config.solver.upper())
+    physics.CreateEnableGPUDynamicsAttr(config.device == "cuda:0")
+    physics.CreateBroadphaseTypeAttr("GPU" if config.device == "cuda:0" else "MBP")
+    return physics
+
+
 def run_scene(
     run: RunConfiguration,
     definitions: DeviceDefinitions,
@@ -68,13 +84,16 @@ def run_scene(
 ) -> dict:
     """Sample [q,v] and apply effort in registered joint order every physics step.
 
-    This initial adapter accepts one fixed-base robot and no sensors. NumPy
-    state/commands cross the GPU boundary at each step; this is scalar control,
+    This initial adapter accepts one fixed-base robot and no sensors. With GPU
+    physics, NumPy state/commands cross the GPU boundary each step. Control is scalar,
     not a tensor-efficient training loop. Partial measured traces survive errors.
     """
     devices = resolve_devices(run)
     if run.world != "isaac" or len(devices.robots) != 1 or devices.sensors:
         raise ValueError("Isaac runner requires one robot and explicitly no sensors")
+    world = run.world_config
+    if not isinstance(world, IsaacWorld):
+        raise ValueError("Isaac runner requires Isaac world configuration")
     from isaacsim import SimulationApp
 
     started = time.monotonic()
@@ -84,6 +103,7 @@ def run_scene(
         app = SimulationApp(
             {
                 "headless": True,
+                "physics_gpu": 0,
                 "multi_gpu": False,
                 "renderer": "MinimalRendering",
                 "create_new_stage": False,
@@ -94,7 +114,7 @@ def run_scene(
     try:
         import omni.physics.tensors as tensors
         from omni.physx import get_physx_simulation_interface
-        from pxr import Gf, PhysxSchema, Usd, UsdGeom, UsdPhysics, UsdUtils
+        from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdUtils
 
         stage = Usd.Stage.CreateInMemory()
         UsdGeom.SetStageMetersPerUnit(stage, 1.0)
@@ -102,9 +122,7 @@ def run_scene(
         scene = UsdPhysics.Scene.Define(stage, "/physics")
         scene.CreateGravityDirectionAttr(Gf.Vec3f(0, 0, -1))
         scene.CreateGravityMagnitudeAttr(9.81)
-        physics = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
-        physics.CreateEnableGPUDynamicsAttr(True)
-        physics.CreateBroadphaseTypeAttr("GPU")
+        physics = apply_physics(scene, world.physics)
         robot = devices.robots[0]
         definition = definitions.robots[robot.model]
         X_WB = np.eye(4)
@@ -169,19 +187,29 @@ def run_scene(
                     times.append(min((step + 1) * run.time_step, run.duration))
                     positions.append(measured)
             finally:
-                simulation.detach_stage()
-                cache.Erase(stage)
+                # Preserve measured samples before detaching the native stage.
+                try:
+                    if trace_path is not None and times:
+                        trace_path.parent.mkdir(parents=True, exist_ok=True)
+                        np.savez(
+                            trace_path,
+                            times=np.asarray(times),
+                            positions=np.asarray(positions),
+                        )
+                finally:
+                    try:
+                        simulation.detach_stage()
+                    finally:
+                        cache.Erase(stage)
         return {
             "times": np.asarray(times),
             "positions": np.asarray(positions),
             "wall_seconds": time.monotonic() - started,
+            "physics_settings": {
+                "solver": physics.GetSolverTypeAttr().Get(),
+                "gpu_dynamics": physics.GetEnableGPUDynamicsAttr().Get(),
+                "broadphase": physics.GetBroadphaseTypeAttr().Get(),
+            },
         }
     finally:
-        try:
-            if trace_path is not None and len(times) >= 1:
-                trace_path.parent.mkdir(parents=True, exist_ok=True)
-                np.savez(
-                    trace_path, times=np.asarray(times), positions=np.asarray(positions)
-                )
-        finally:
-            app.close()
+        app.close()

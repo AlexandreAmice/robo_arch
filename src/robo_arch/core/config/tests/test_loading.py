@@ -16,9 +16,8 @@ def package_resources(tmp_path, monkeypatch):
 def _bundle(root: Path) -> Path:
     (root / "systems").mkdir()
     files = {
-        "scenario.yaml": """world: drake
+        "scenario.yaml": """world: {type: drake, physics: {time_step: 0.001}}
 duration: 1.0
-time_step: 0.001
 robot_system:
   definition: package://robo_arch/systems/pair.yaml
   pose: {translation: [1, 0, 0]}
@@ -169,6 +168,67 @@ def test_schema_and_yaml_errors_keep_original_types(tmp_path):
     with pytest.raises(YAMLError) as failure:
         load_run(run_path)
     assert str(run_path) in str(failure.value)
+
+
+def test_world_profile_resolves_from_package_after_scenario_moves(tmp_path):
+    scenario = _bundle(tmp_path)
+    profile = tmp_path / "world.yaml"
+    profile.write_text(
+        "type: isaac\nphysics: {time_step: 0.002, solver: pgs, device: cpu}\n"
+        'visualization: {mode: "off"}\n'
+    )
+    scenario.write_text(
+        scenario.read_text().replace(
+            "world: {type: drake, physics: {time_step: 0.001}}",
+            "world: package://robo_arch/world.yaml",
+        )
+    )
+    moved = tmp_path / "elsewhere.yaml"
+    scenario.rename(moved)
+    run = load_run(moved)
+    assert run.world == "isaac"
+    assert run.time_step == 0.002
+    assert run.world_config.physics.solver == "pgs"
+    assert profile in run.resources
+    assert loading.load_world("package://robo_arch/world.yaml") == run.world_config
+
+
+@pytest.mark.parametrize(
+    "reference",
+    ["drake", "world.yaml", "/tmp/world.yaml", "package://other/world.yaml"],
+)
+def test_world_selection_rejects_bare_names_and_file_references(tmp_path, reference):
+    scenario = _bundle(tmp_path)
+    scenario.write_text(
+        scenario.read_text().replace(
+            "world: {type: drake, physics: {time_step: 0.001}}",
+            f"world: {reference}",
+        )
+    )
+    with pytest.raises(ValueError, match="must use package://robo_arch"):
+        load_run(scenario)
+
+
+def test_world_profile_does_not_accept_inheritance_or_duplicate_keys(tmp_path):
+    profile = tmp_path / "world.yaml"
+    profile.write_text("type: drake\ntype: isaac\n")
+    with pytest.raises(ValueError, match="Duplicate YAML key"):
+        loading.load_world(profile)
+    profile.write_text("type: drake\nextends: package://robo_arch/base.yaml\n")
+    with pytest.raises(ValueError, match="Extra inputs"):
+        loading.load_world(profile)
+
+
+def test_isaac_profile_with_viewer_off_loads_from_yaml(tmp_path):
+    profile = tmp_path / "world.yaml"
+    profile.write_text(
+        "type: isaac\nphysics: {time_step: 0.001, solver: pgs, device: cpu}\n"
+        'visualization: {type: isaac, mode: "off"}\n'
+    )
+    world = loading.load_world(profile)
+    assert world.physics.device == "cpu"
+    assert world.physics.solver == "pgs"
+    assert world.visualization.mode == "off"
 
 
 if __name__ == "__main__":

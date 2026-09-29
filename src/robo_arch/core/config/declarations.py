@@ -12,6 +12,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
 
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.worlds import WorldConfiguration
 
 Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
 
@@ -77,9 +78,8 @@ class _Object(_Schema):
 
 
 class _Scenario(_Schema):
-    world: Name
+    world: WorldConfiguration | str
     duration: float = Field(gt=0)
-    time_step: float = Field(gt=0)
     sensors_enabled: bool = True
     robot_system: _RobotSystemSelection
     objects: dict[Name, _Object] = Field(default_factory=dict)
@@ -138,14 +138,39 @@ class RunConfiguration:
     """
 
     source: Path
-    world: str
+    world_config: WorldConfiguration
     duration: float
-    time_step: float
     robot_system: RobotSystem
     sensors_enabled: bool
     objects: tuple[ObjectInstance, ...]
     task: TaskSelection
     autonomy: AutonomySelection
+    world_source: Path | None = None
+
+    @property
+    def world(self) -> str:
+        return self.world_config.type
+
+    @property
+    def time_step(self) -> float:
+        if self.world_config.type == "real":
+            raise ValueError("The real world has no simulated physics time step")
+        return self.world_config.physics.time_step
+
+    @property
+    def resources(self) -> tuple[Path, ...]:
+        """Source documents used by this composition and its selected world."""
+        paths = [self.source]
+        if self.world_source is not None:
+            paths.append(self.world_source)
+
+        def visit(system: RobotSystem) -> None:
+            paths.append(system.source)
+            for child in system.systems:
+                visit(child)
+
+        visit(self.robot_system)
+        return tuple(dict.fromkeys(paths))
 
 
 @dataclass(frozen=True, kw_only=True)

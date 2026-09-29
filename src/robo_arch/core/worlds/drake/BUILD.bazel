@@ -1,5 +1,5 @@
 load("@python_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 py_library(
     name = "drake",
@@ -14,5 +14,18 @@ py_library(
         "//src/robo_arch/core/worlds",
         requirement("drake"),
         requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "visualization_test",
+    srcs = ["tests/test_visualization.py"],
+    main = "tests/test_visualization.py",
+    deps = [
+        ":drake",
+        "//src/robo_arch/core/config",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
     ],
 )

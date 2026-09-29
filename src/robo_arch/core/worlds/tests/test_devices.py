@@ -19,6 +19,7 @@ from robo_arch.core.config.declarations import (
     TaskSelection,
 )
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
 from robo_arch.core.worlds.devices import load_definitions, load_device_module
 
 
@@ -29,9 +30,8 @@ class TrackingParameters(Parameters):
 def _run() -> RunConfiguration:
     return RunConfiguration(
         source=Path("unused.yaml"),
-        world="drake",
+        world_config=DrakeWorld(),
         duration=1.0,
-        time_step=0.001,
         robot_system=RobotSystem(
             name="",
             source=Path("system.yaml"),
@@ -107,10 +107,12 @@ def test_unknown_device_and_unsupported_world_fail_before_adapter_loading():
             )
         )
     with pytest.raises(ValueError, match="Robot arm has no real implementation"):
-        load_definitions(replace(run, world="real"))
+        load_definitions(replace(run, world_config=RealWorld()))
     with pytest.raises(ValueError, match="Sensor camera has no isaac implementation"):
-        load_definitions(replace(run, world="isaac"))
-    definitions = load_definitions(replace(run, world="isaac", sensors_enabled=False))
+        load_definitions(replace(run, world_config=IsaacWorld()))
+    definitions = load_definitions(
+        replace(run, world_config=IsaacWorld(), sensors_enabled=False)
+    )
     assert definitions.sensors == {}
     assert tuple(definitions.robots) == ("ur7e",)
     with pytest.raises(ValidationError):

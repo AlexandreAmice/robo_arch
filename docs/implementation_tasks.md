@@ -12,7 +12,7 @@ Establish **`AlexandreAmice/robo_arch` as a private GitHub repository**, then de
 - Independently composable scenario, autonomy, and world configurations.
 - The same configured controller running in Drake and Isaac, including independent state and reset in an Isaac batch.
 
-R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration and a minimal Drake arm-tracking example are implemented locally. Integrate these changes before further parallel work. Do not repeat repository setup or discard the build baseline.
+R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Native Isaac viewing remains deferred. Do not repeat repository setup or discard the build baseline.
 
 **Defaults:** Linux x86-64, Python 3.12 minimum, Python-first implementation, ordinary YAML with PyYAML/Pydantic, and local GPU execution first. Preserve the agreed architecture and existing user edits.
 
@@ -67,7 +67,7 @@ Check robot/joint identity, command modes and model dimensions at construction b
 
 ### L0 — Migrate existing source ownership
 
-**Owner:** one migration agent. **Dependencies:** completed B0/I0. **Status:** implemented and reviewed locally; not committed.
+**Owner:** one migration agent. **Dependencies:** completed B0/I0. **Status:** implemented; integration PR pending.
 
 Move the existing `contracts/` and `config/` packages under `src/robo_arch/core/`, keeping their tests beside them. Update imports, Bazel labels, package exports, build smoke-test references and README commands in one change. Record semantics are handled separately from the layout migration. There are no robot/sensor implementations to relocate yet. Do not scaffold empty device directories or keep a second copy of the old packages.
 
@@ -146,7 +146,7 @@ Keep GPU jobs explicitly selected; a selected integration job must fail if its r
 
 Own configuration loading and resolution under `core/config/`.
 
-Proposed extension: implement the typed, SDK-independent [world configuration](architecture.md#world-configuration-and-visualization-proposal), with native physics/transport and viewer selections. Resolve a complete inline or package-referenced configuration and record effective defaults/explicit overrides; reject foreign world settings. Exact schema and solver choices remain design decisions.
+Typed, SDK-independent [world configuration](architecture.md#world-configuration-and-visualization) is implemented with complete inline/package profiles, effective settings and rejection of foreign fields. Calibration and deployment-specific tuning remain.
 
 Implement safe YAML loading, package resource references, parameter validation, recursive physical assembly and explicit supported-world checks. Autonomy is assembled in Python using native runtime APIs; do not implement graph parsing or port inference. Reject recursive definition inclusion, missing instances/frames, conflicting attachments, incompatible calibration, missing world implementations and incompatible commands. Report supported slow execution as a warning. Load only selected device packages through the fixed package convention; world assembly calls their explicit native construction functions when needed.
 
@@ -195,7 +195,7 @@ Construct simulation models, measurement sources and accepted command ports. Com
 
 Provide a Python-authored tracking run. Record configured rates, controller identity and effective parameters.
 
-Apply selected Drake physics settings at construction and use the standard visualization configuration for illustration, proximity, inertia and contact publication. Keep viewer lifecycle in the world package and verify contact diagnostics with explicit geometry/properties; UR7e mesh/contact assets remain A0 work. Follow the [inspection requirements](architecture.md#viewer-lifecycle-and-inspection-proposal).
+Apply selected Drake physics settings at construction and use the standard visualization configuration for illustration, proximity, inertia and contact publication. Keep viewer lifecycle in the world package and verify contact diagnostics with explicit geometry/properties; UR7e mesh/contact assets remain A0 work. Follow the [inspection requirements](architecture.md#viewer-lifecycle-and-inspection).
 
 **Complete when:** the declared position stack runs, followed by inverse dynamics, without per-demo wiring inside the world implementation.
 
@@ -282,7 +282,7 @@ If local Isaac cannot run, publish the completed repository, development workflo
 
 ## Work-package status
 
-Status as of 2026-09-29. The migration and minimal Drake example are local, uncommitted changes. Partial packages below retain their broader acceptance gates.
+Status as of 2026-09-29. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. Partial packages below retain their broader acceptance gates.
 
 | Package | Status |
 |---|---|
@@ -290,14 +290,14 @@ Status as of 2026-09-29. The migration and minimal Drake example are local, unco
 | B0 | Complete: [PR #2](https://github.com/AlexandreAmice/robo_arch/pull/2); pinned uv/Bazel baseline and separate core/Drake profiles |
 | I0 | Original records landed in [PR #1](https://github.com/AlexandreAmice/robo_arch/pull/1); graph/context records superseded by native runtime assembly |
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
-| L0 | Complete locally, uncommitted: core package migration reviewed; no schema changes |
+| L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1, C0 | Ready after L0 integration; parallel with I1 |
-| S0 | Partial: strict package-resource YAML loading and device selection; calibration and batched performance diagnostics remain |
+| B1, C0 | Ready; parallel with remaining I1 work |
+| S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
 | A0 | Partial: nominal UR7e, ideal RGB-D camera, box and arm-with-camera system; collision models, gripper and calibration remain |
-| K0 | Partial: configurable Drake inverse-dynamics joint tracking; cross-world shared execution remains |
-| D0 | Partial: single-arm tracking with native Diagram wiring, camera rendering and standalone Meshcat playback; deployment reuse remains |
-| X0 | Await S0, A0, K0; must validate its required full Isaac API environment and arm workload |
+| K0 | Partial: shared inverse-dynamics controller executes in Drake and scalar CPU Isaac; batch execution remains |
+| D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
+| X0 | Partial: CPU PGS/GPU TGS arm execution; native viewport deferred pending rendering, collision display and shutdown validation; cameras remain unsupported |
 | X1, M0 | Await listed dependencies |
 
 Foundation validation passed: 11 pytest cases, five Bazel test targets (core,
@@ -313,11 +313,12 @@ Migration review confirmed unchanged record structure after import renaming,
 Concurrent dependency-input changes were preserved and are separate from this
 reorganization.
 
-The coordinator reproduced G0's 30-step free-fall result and nonzero GPU solver
-allocation. The 6 GB GPU fails the vendor VRAM check; full Core/SimulationApp,
-robot scenes and batching are untested. [G0 evidence](../third_party/isaac/README.md)
-records exact commands and measurements. The controller-reuse milestone is
-**not complete**. Next batch: integrate the current changes, then continue the remaining I1/S0 interfaces alongside B1 and C0. The earlier first-batch handoff prompt is superseded for subsequent work.
+The camera-free Isaac arm workload now runs with the shared CPU controller. The
+6 GB GPU still fails the vendor VRAM check; successful physics does not establish
+native rendering, camera support or batching capacity. See [Isaac evidence](../third_party/isaac/README.md).
+The independent RViz launcher is unit-tested with a fake process; no installed
+RViz or hardware driver was exercised. The controller-reuse milestone remains
+incomplete until the native bridge, CI and independent batch/reset gates pass.
 
 The minimal Drake run reaches its joint target and renders the fixed box. It
 exercises all six source owners without claiming nut manipulation or hardware

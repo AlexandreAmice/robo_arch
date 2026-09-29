@@ -3,7 +3,7 @@
 Run the packaged [scenario.yaml](scenario.yaml) from the repository root:
 
 ```sh
-uv run python -m robo_arch.scenarios.arm_tracking.run
+uv run --locked python -m robo_arch.scenarios.arm_tracking.run
 ```
 
 This saves `recordings/arm_tracking_drake.html` and opens scene playback in a browser.
@@ -13,11 +13,37 @@ moves only 0.05 rad from its starting pose. The model uses simplified visuals
 without robot collision geometry; the ideal wrist camera has no visual geometry.
 
 Use `--record path/to/playback.html` to choose an output, `--no-browser` to save
-without opening it, or `--headless` for automated JSON-only execution.
-`--headless --record path/to/playback.html` also records the run. `--world`
-overrides the configured runtime; its implementation and environment must be available. Playback remains
-viewable after Python exits. Failures after simulation initialization retain the
-partial recording; invalid configuration is reported before a scene exists.
+without opening it, or `--headless` to disable visualization while preserving
+sensor observations. `--headless --record path/to/playback.html` records without
+requiring a live view. Native Drake modes are `off`, `live`, `record` and
+`live_and_record`; for example:
+
+```sh
+uv run --locked python -m robo_arch.scenarios.arm_tracking.run \
+  --visualization live_and_record
+```
+
+Live inspection keeps the final scene open until **Close inspection** or Ctrl-C.
+Drake's standard viewer provides separate illustration, proximity, inertia and
+contact layers. HTML preserves transforms and force arrows; changing hydroelastic
+surfaces and pressure need live inspection. The display does not add the UR7e's
+missing collision geometry.
+
+`--world drake|isaac|real` replaces the whole world configuration with native
+defaults, including viewer `off`. `--world-config` accepts a complete file or
+package URI. Isaac currently supports only `off`; live viewing and `--record`
+are rejected. See [Isaac setup](../../../../third_party/isaac/README.md).
+Real-world declarations are inspectable, but this scenario has no hardware runner.
+
+The CLI saves a JSON report with full effective inputs, configuration hashes,
+package versions, result/error and a copyable inspection command. Use `--metadata`
+to select its destination. `--inspect <report.json>` restores the resolved inputs;
+viewer overrides affect only inspection. Code and assets are not snapshotted:
+recorded hashes/versions identify the original environment. Drake runtime failures
+retain partial playback where available; `--trace output.npz` retains measured
+Isaac positions. Isaac inspection reruns the resolved inputs headlessly; native
+viewing is deferred. Invalid configuration fails before
+a scene is constructed.
 
 ## Configuration
 
@@ -25,7 +51,9 @@ partial recording; invalid configuration is reported before a scene exists.
 
 | Setting | Meaning |
 | --- | --- |
-| `world`, `duration`, `time_step` | Selected runtime, end time and discrete plant step in seconds. The step is not a separate controller update period. |
+| `world.type`, `world.physics`, `world.visualization` | Native world settings and viewer; world may instead be a complete package URI profile. See the [world schemas](../../core/config/worlds.py). |
+| `duration`, `world.physics.time_step` | Scenario end time and discrete physics step in seconds; independent of controller/display intent. |
+| `world.target_realtime_rate` | Drake wall-clock pacing, independent of viewer mode; zero runs unpaced. |
 | `robot_system.definition`, `robot_system.pose` | Reusable physical assembly and optional placement in world. |
 | `robot_system.autonomy` | Controller selection and gains; `kp` is in s⁻² and `kd` in s⁻¹, with one positive finite value per joint. |
 | `objects` | Named model instances with their world poses; these objects are fixed fixtures. |
@@ -97,11 +125,11 @@ Tests normally run headless. Rerun the tracking test with the same inputs and
 visualization enabled:
 
 ```sh
-ROBO_ARCH_VISUALIZE=1 uv run pytest \
+ROBO_ARCH_VISUALIZE=1 uv run --locked pytest \
   src/robo_arch/scenarios/arm_tracking/tests/test_run.py -k test_headless_tracking
 ```
 
-This saves and opens `recordings/test_tracking.html`. The command is also included
+This saves and opens `recordings/test_tracking.html`, with effective input metadata beside it. The command is also included
 in failure output. For Bazel:
 
 ```sh
