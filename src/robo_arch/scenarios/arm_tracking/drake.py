@@ -6,28 +6,34 @@ from pydrake.systems.analysis import Simulator
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.primitives import ConstantVectorSource
 
-from robo_arch.core.config.loading import RunConfiguration
-from robo_arch.core.controllers import definition
+from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
+from robo_arch.core.controllers.joint_tracking.drake import connect
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions
 from robo_arch.core.worlds.drake.scene import DrakeScene, build_scene
-from robo_arch.core.worlds.registry import Registry
 
 
 def build_simulation(
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
     parameters: JointTrackingParameters,
     *,
     desired_positions: tuple[float, ...],
     meshcat: Meshcat | None = None,
 ) -> tuple[Simulator, DrakeScene]:
     """Connect ideal joint measurements, a constant target, and effort control."""
-    if len(run.robots) != 1:
+    if run.autonomy.controller != "joint_tracking":
+        raise ValueError(
+            f"Unsupported arm-tracking controller: {run.autonomy.controller}"
+        )
+    devices = resolve_devices(run)
+    if len(devices.robots) != 1:
         raise ValueError("Arm tracking requires exactly one actuated robot")
     builder = DiagramBuilder()
-    scene = build_scene(builder, run, registry)
-    robot = run.robots[0]
-    joints = registry.robots[robot.model].joints
+    scene = build_scene(builder, run, definitions)
+    robot = devices.robots[0]
+    joints = definitions.robots[robot.model].joints
     model = scene.controller_models[robot.name]
     if (
         len(desired_positions) != len(joints)
@@ -42,16 +48,12 @@ def build_simulation(
     goal = builder.AddSystem(
         ConstantVectorSource([*desired_positions, *np.zeros(len(joints))])
     )
-    ports = (
-        definition(run.autonomy.controller)
-        .IMPLEMENTATIONS["drake"]
-        .load()(
-            builder,
-            scene,
-            robot=robot.name,
-            parameters=parameters,
-            joints=joints,
-        )
+    ports = connect(
+        builder,
+        scene,
+        robot=robot.name,
+        parameters=parameters,
+        joints=joints,
     )
     if set(ports) != {"desired_state"}:
         raise ValueError("Joint tracking task requires a desired_state reference port")

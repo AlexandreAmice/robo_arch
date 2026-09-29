@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from robo_arch.core.config.loading import load_run
-from robo_arch.core.worlds.registry import discover
+from robo_arch.core.worlds.devices import load_definitions
 from robo_arch.scenarios.arm_tracking.run import (
     default_run,
     main,
@@ -112,7 +112,7 @@ def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, cap
 def test_world_switch_rejects_missing_support():
     run = replace(load_run(default_run()), world="real")
     with pytest.raises(ValueError, match="no real implementation"):
-        discover(run)
+        load_definitions(run)
 
 
 def test_configuration_checks_need_no_simulator_sdk():
@@ -127,15 +127,12 @@ sys.meta_path.insert(0, RejectSDK())
 from dataclasses import replace
 from robo_arch.scenarios.arm_tracking.run import default_run, run_scenario
 from robo_arch.core.config.loading import load_run
-from robo_arch.core.worlds.registry import discover
+from robo_arch.core.worlds.devices import load_definitions
 run = load_run(default_run())
-discover(run)
-try:
+load_definitions(run)
+import pytest
+with pytest.raises(ValueError, match='no real implementation'):
     run_scenario(replace(run, world='real'))
-except ValueError as error:
-    assert 'no real implementation' in str(error), str(error)
-else:
-    raise AssertionError('Unsupported world was accepted')
 """
     result = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True
@@ -144,16 +141,24 @@ else:
 
 
 @pytest.mark.parametrize(
-    ("changes", "message"),
+    ("changes", "error_type", "message"),
     [
-        ({"controller": "unknown"}, "Unknown controller"),
-        ({"parameters": {"kp": [1.0], "kd": [-1.0]}}, "finite positive gains"),
+        (
+            {"controller": "unknown"},
+            ValueError,
+            "Unsupported arm-tracking controller: unknown",
+        ),
+        (
+            {"parameters": {"kp": [1.0], "kd": [-1.0]}},
+            ValueError,
+            "finite positive gains",
+        ),
     ],
 )
-def test_invalid_autonomy_selection(changes, message):
+def test_invalid_autonomy_selection(changes, error_type, message):
     run = load_run(default_run())
     run = replace(run, autonomy=run.autonomy.model_copy(update=changes))
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(error_type, match=message):
         run_scenario(run)
 
 

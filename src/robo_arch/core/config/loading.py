@@ -1,138 +1,30 @@
-"""Load physical assemblies and autonomy settings without simulator SDKs.
+"""Load declared physical assemblies and run settings from strict YAML.
 
 Mounts are nominal transforms, not measured calibration. Robot bases are fixed
 relative to their containing system in this initial schema. Autonomy wiring
 lives in Python; measured calibration profiles are not yet supported.
 """
 
-from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
-from typing import Annotated
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
+from pydantic import BaseModel
 
-Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
-
-
-class _Schema(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
-
-
-class Pose(_Schema):
-    """Child frame in parent frame; translation in metres, fixed-axis RPY radians."""
-
-    translation: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    rpy: tuple[float, float, float] = (0.0, 0.0, 0.0)
-
-
-class _Robot(_Schema):
-    model: Name
-    pose: Pose = Field(default_factory=Pose)
-    initial_positions: tuple[float, ...] | None = None
-
-
-class _Sensor(_Schema):
-    model: Name
-    parent: str
-    pose: Pose = Field(default_factory=Pose)
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class _ChildSystem(_Schema):
-    definition: str
-    pose: Pose = Field(default_factory=Pose)
-
-
-class _System(_Schema):
-    robots: dict[Name, _Robot] = Field(default_factory=dict)
-    sensors: dict[Name, _Sensor] = Field(default_factory=dict)
-    systems: dict[Name, _ChildSystem] = Field(default_factory=dict)
-
-
-class TaskSelection(_Schema):
-    """The scenario evaluator validates task-specific parameters."""
-
-    type: Name
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class AutonomySelection(_Schema):
-    """Select scenario-supported autonomy; its owner validates parameters."""
-
-    controller: Name
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class _RobotSystemSelection(_Schema):
-    definition: str
-    pose: Pose = Field(default_factory=Pose)
-    autonomy: AutonomySelection
-
-
-class _Object(_Schema):
-    model: Name
-    pose: Pose = Field(default_factory=Pose)
-
-
-class _Scenario(_Schema):
-    world: Name
-    duration: float = Field(gt=0)
-    time_step: float = Field(gt=0)
-    sensors_enabled: bool = True
-    robot_system: _RobotSystemSelection
-    objects: dict[Name, _Object] = Field(default_factory=dict)
-    task: TaskSelection
-
-
-@dataclass(frozen=True, kw_only=True)
-class RobotInstance:
-    name: str
-    model: str
-    poses: tuple[Pose, ...]
-    initial_positions: tuple[float, ...] | None
-
-
-@dataclass(frozen=True, kw_only=True)
-class SensorInstance:
-    name: str
-    model: str
-    parent: str
-    pose: Pose
-    parameters: dict[str, JsonValue]
-
-
-@dataclass(frozen=True, kw_only=True)
-class ObjectInstance:
-    name: str
-    model: str
-    pose: Pose
-
-
-@dataclass(frozen=True, kw_only=True)
-class RunConfiguration:
-    """Validated selections and names; device compatibility is checked at assembly.
-
-    Pose chains compose left to right from world to robot base. Sensors reference
-    a fully namespaced robot/body pair. Objects are fixed scene fixtures in this
-    first runtime. Parameters remain caller-owned; do not mutate after loading.
-    """
-
-    source: Path
-    world: str
-    duration: float
-    time_step: float
-    robots: tuple[RobotInstance, ...]
-    sensors: tuple[SensorInstance, ...]
-    objects: tuple[ObjectInstance, ...]
-    task: TaskSelection
-    autonomy: AutonomySelection
-    resources: tuple[Path, ...]
+from robo_arch.core.config.declarations import (
+    ObjectInstance,
+    Pose,
+    RobotInstance,
+    RobotSystem,
+    RunConfiguration,
+    SensorInstance,
+    _Scenario,
+    _System,
+)
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
-    pass
+    """Safe YAML parsing with string keys and duplicate-key rejection."""
 
 
 def _mapping(loader: _UniqueKeyLoader, node: yaml.MappingNode) -> dict:
@@ -154,19 +46,15 @@ _UniqueKeyLoader.add_constructor(
 )
 
 
-def _read[T: BaseModel](path: Path, schema: type[T], resources: list[Path]) -> T:
-    try:
-        with path.open(encoding="utf-8") as stream:
-            document = yaml.load(stream, Loader=_UniqueKeyLoader)
-        value = schema.model_validate(document)
-    except (OSError, ValueError, yaml.YAMLError) as error:
-        raise ValueError(f"Invalid configuration {path}: {error}") from error
-    if path not in resources:
-        resources.append(path)
-    return value
+def _read_validated_yaml[T: BaseModel](path: Path, schema: type[T]) -> T:
+    """Parse strict YAML and validate its fields; preserve original exceptions."""
+    with path.open(encoding="utf-8") as stream:
+        document = yaml.load(stream, Loader=_UniqueKeyLoader)
+    return schema.model_validate(document)
 
 
-def _reference(owner: Path, reference: str) -> Path:
+def _resolve_package_reference(owner: Path, reference: str) -> Path:
+    """Resolve an installed resource; owner identifies the referring file in errors."""
     prefix = "package://robo_arch/"
     parts = reference.removeprefix(prefix).split("/")
     if (
@@ -186,87 +74,77 @@ def _reference(owner: Path, reference: str) -> Path:
 def load_run(path: str | Path) -> RunConfiguration:
     """Load a file or package URI; YAML references use installed package resources."""
     source = (
-        _reference(Path("<run>"), path)
+        _resolve_package_reference(Path("<run>"), path)
         if isinstance(path, str) and path.startswith("package:")
         else Path(path).resolve()
     )
-    resources: list[Path] = []
-    scenario = _read(source, _Scenario, resources)
-    robots: list[RobotInstance] = []
-    sensors: list[SensorInstance] = []
+    scenario = _read_validated_yaml(source, _Scenario)
 
-    def expand(
+    def load_system(
         file: Path,
-        prefix: str,
-        poses: tuple[Pose, ...],
+        name: str,
+        pose: Pose,
         ancestors: tuple[Path, ...],
-    ) -> None:
+    ) -> RobotSystem:
         if file in ancestors:
             chain = " -> ".join(str(item) for item in (*ancestors, file))
             raise ValueError(f"Recursive robot system inclusion: {chain}")
-        system = _read(file, _System, resources)
+        system = _read_validated_yaml(file, _System)
         names = [*system.robots, *system.sensors, *system.systems]
         if len(set(names)) != len(names):
             raise ValueError(f"Device and child-system names must be unique in {file}")
-        for name, robot in system.robots.items():
-            robots.append(
+        return RobotSystem(
+            name=name,
+            source=file,
+            pose=pose,
+            robots=tuple(
                 RobotInstance(
-                    name=prefix + name,
+                    name=name,
                     model=robot.model,
-                    poses=(*poses, robot.pose),
+                    pose=robot.pose,
                     initial_positions=robot.initial_positions,
                 )
-            )
-        for name, sensor in system.sensors.items():
-            sensors.append(
+                for name, robot in system.robots.items()
+            ),
+            sensors=tuple(
                 SensorInstance(
-                    name=prefix + name,
+                    name=name,
                     model=sensor.model,
-                    parent=prefix + sensor.parent,
+                    parent=sensor.parent,
                     pose=sensor.pose,
                     parameters=sensor.parameters,
                 )
-            )
-        for name, child in system.systems.items():
-            expand(
-                _reference(file, child.definition),
-                prefix + name + "/",
-                (*poses, child.pose),
-                (*ancestors, file),
-            )
+                for name, sensor in system.sensors.items()
+            ),
+            systems=tuple(
+                load_system(
+                    _resolve_package_reference(file, child.definition),
+                    name,
+                    child.pose,
+                    (*ancestors, file),
+                )
+                for name, child in system.systems.items()
+            ),
+        )
 
-    expand(
-        _reference(source, scenario.robot_system.definition),
+    robot_system = load_system(
+        _resolve_package_reference(source, scenario.robot_system.definition),
         "",
-        (scenario.robot_system.pose,),
+        scenario.robot_system.pose,
         (),
     )
-    robot_names = {robot.name for robot in robots}
-    device_names = robot_names | {sensor.name for sensor in sensors}
-    conflicts = device_names.intersection(scenario.objects)
-    if conflicts:
-        raise ValueError(
-            f"Object and device names must be distinct: {sorted(conflicts)}"
-        )
-    for sensor in sensors:
-        robot, separator, body = sensor.parent.rpartition("/")
-        if not separator or not body or robot not in robot_names:
-            raise ValueError(
-                f"Sensor {sensor.name!r} parent {sensor.parent!r} must name a robot/body"
-            )
 
     return RunConfiguration(
         source=source,
         world=scenario.world,
         duration=scenario.duration,
         time_step=scenario.time_step,
-        robots=tuple(robots),
-        sensors=tuple(sensors) if scenario.sensors_enabled else (),
+        robot_system=robot_system,
+        sensors_enabled=scenario.sensors_enabled,
         objects=tuple(
             ObjectInstance(name=name, model=obj.model, pose=obj.pose)
             for name, obj in scenario.objects.items()
         ),
         task=scenario.task,
         autonomy=scenario.robot_system.autonomy,
-        resources=tuple(resources),
     )

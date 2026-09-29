@@ -2,7 +2,7 @@
 
 from math import pi
 
-from robo_arch.core.worlds.registry import FactoryReference, RobotDefinition
+from robo_arch.core.config.declarations import RobotDefinition
 
 BASE_FRAME = "base_link"
 TOOL_FRAME = "tool0"
@@ -17,16 +17,12 @@ JOINT_NAMES = (
 # Radians, in JOINT_NAMES order; a bent arm for the tracking example.
 DEFAULT_POSITIONS = (0.0, -pi / 2, pi / 2, -pi / 2, -pi / 2, 0.0)
 
-DEFINITION = RobotDefinition(
-    base_frame=BASE_FRAME,
-    joints=JOINT_NAMES,
-    default_positions=DEFAULT_POSITIONS,
-    implementations={
-        "isaac": FactoryReference(
-            module="robo_arch.robots.ur7e.isaac", attribute="add_to_stage"
-        ),
-        "drake": FactoryReference(
-            module="robo_arch.robots.ur7e.drake", attribute="add_to_plant"
-        ),
-    },
-)
+
+def describe() -> RobotDefinition:
+    """Nominal model metadata; adapters are in this package's world submodules."""
+    return RobotDefinition(
+        base_frame=BASE_FRAME,
+        joints=JOINT_NAMES,
+        default_positions=DEFAULT_POSITIONS,
+        supported_worlds=("drake", "isaac"),
+    )

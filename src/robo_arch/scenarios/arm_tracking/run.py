@@ -7,12 +7,12 @@ import webbrowser
 from dataclasses import replace
 from importlib.util import find_spec
 from pathlib import Path
-from types import ModuleType
 
-from robo_arch.core.config.loading import RunConfiguration, load_run
-from robo_arch.core.config.parameters import Parameters
-from robo_arch.core.controllers import definition
-from robo_arch.core.worlds.registry import Registry, discover
+from robo_arch.core.config.declarations import RunConfiguration
+from robo_arch.core.config.loading import load_run
+from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions, load_definitions
 from robo_arch.scenarios.arm_tracking.evaluation import TrackingTask, evaluate
 
 
@@ -22,20 +22,22 @@ def default_run() -> str:
 
 def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dict:
     """Run the task, optionally saving scene playback even after a runtime failure."""
-    definitions = discover(run)
-    if len(run.robots) != 1:
+    devices = resolve_devices(run)
+    definitions = load_definitions(run)
+    if len(devices.robots) != 1:
         raise ValueError("Arm tracking requires exactly one actuated robot")
-    controller = definition(run.autonomy.controller)
-    if run.world not in controller.IMPLEMENTATIONS:
-        raise ValueError(f"Controller has no {run.world} implementation")
-    parameters = controller.PARAMETERS.model_validate(run.autonomy.parameters)
+    if run.autonomy.controller != "joint_tracking":
+        raise ValueError(
+            f"Unsupported arm-tracking controller: {run.autonomy.controller}"
+        )
+    parameters = JointTrackingParameters.model_validate(run.autonomy.parameters)
     if run.task.type != "joint_tracking":
         raise ValueError(f"Unsupported task evaluator: {run.task.type}")
     task = TrackingTask.model_validate(run.task.parameters)
-    if task.robot != run.robots[0].name:
+    if task.robot != devices.robots[0].name:
         raise ValueError("Task must select the configured robot")
     if run.world == "isaac":
-        return _run_isaac(run, definitions, controller, parameters, task, recording)
+        return _run_isaac(run, definitions, parameters, task, recording)
     if run.world != "drake":
         raise ValueError(f"No runner for world {run.world}")
 
@@ -73,7 +75,7 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
         initial = positions()
         initial_depth = {
             sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-            for sensor in run.sensors
+            for sensor in devices.sensors
         }
         simulator.AdvanceTo(run.duration)
         if meshcat is not None:
@@ -100,7 +102,7 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
             "initial_finite_depth_pixels": initial_depth,
             "final_finite_depth_pixels": {
                 sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-                for sensor in run.sensors
+                for sensor in devices.sensors
             },
             **evaluate(task, tuple(final)),
         }
@@ -114,9 +116,8 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
 
 def _run_isaac(
     run: RunConfiguration,
-    definitions: Registry,
-    controller: ModuleType,
-    parameters: Parameters,
+    definitions: DeviceDefinitions,
+    parameters: JointTrackingParameters,
     task: TrackingTask,
     recording: Path | None,
 ) -> dict:
@@ -131,18 +132,19 @@ def _run_isaac(
 
     import numpy as np
 
+    from robo_arch.core.controllers.joint_tracking.drake import make_policy
     from robo_arch.core.worlds.drake.scene import build_controller_model
     from robo_arch.core.worlds.isaac.simulation import run_scene
 
-    if controller.EXECUTION["isaac"] != "tensor":
-        warnings.warn(
-            f"{run.autonomy.controller} in Isaac uses "
-            f"{controller.EXECUTION['isaac']} execution; it has no tensor "
-            "implementation and will require per-environment work in a batch.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    robot = run.robots[0]
+    warnings.warn(
+        "joint_tracking in Isaac evaluates Drake inverse dynamics on the CPU; "
+        "state and commands cross the GPU boundary each step, with per-environment "
+        "work in a batch.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    devices = resolve_devices(run)
+    robot = devices.robots[0]
     robot_definition = definitions.robots[robot.model]
     model = build_controller_model(robot, robot_definition)
     target = np.asarray(task.target)
@@ -152,7 +154,7 @@ def _run_isaac(
     ):
         raise ValueError("Task target must match the robot's joints and limits")
     reference = np.r_[target, np.zeros_like(target)]
-    command = controller.IMPLEMENTATIONS["isaac"].load()(
+    command = make_policy(
         model=model,
         parameters=parameters,
         joints=robot_definition.joints,
@@ -164,25 +166,14 @@ def _run_isaac(
     try:
         trace = run_scene(run, definitions, command, trace_path=trace_path)
     finally:
-        execution_failed = sys.exc_info()[0] is not None
         if trace_path is not None and trace_path.exists():
             from robo_arch.core.worlds.drake.visualization import replay_positions
 
-            try:
-                replay_positions(run, definitions, trace_path, recording)
-                print(
-                    f"Isaac trajectory playback: {recording.resolve().as_uri()}",
-                    file=sys.stderr,
-                )
-            except Exception as error:
-                if not execution_failed:
-                    raise
-                warnings.warn(
-                    f"Playback failed; original simulation error follows. "
-                    f"Trace retained at {trace_path}: {error}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+            replay_positions(run, definitions, trace_path, recording)
+            print(
+                f"Isaac trajectory playback: {recording.resolve().as_uri()}",
+                file=sys.stderr,
+            )
     return {
         "world": run.world,
         "duration_seconds": float(trace["times"][-1]),
@@ -224,7 +215,7 @@ def main() -> None:
     if args.world is not None:
         run = replace(run, world=args.world)
     if args.no_sensors:
-        run = replace(run, sensors=())
+        run = replace(run, sensors_enabled=False)
     recording = args.record
     if recording is None and not args.headless:
         recording = Path(f"recordings/arm_tracking_{run.world}.html")

@@ -49,22 +49,27 @@ sensors:
     return root / "scenario.yaml"
 
 
-def test_nested_instances_keep_namespace_and_pose_chain(tmp_path, monkeypatch):
+def test_nested_instances_keep_composition_and_relative_poses(tmp_path, monkeypatch):
     run_path = _bundle(tmp_path)
     monkeypatch.chdir(tmp_path.parent)
     run = load_run("package://robo_arch/scenario.yaml")
-    assert [robot.name for robot in run.robots] == ["left/arm", "right/arm"]
-    assert [sensor.parent for sensor in run.sensors] == [
-        "left/arm/tool0",
-        "right/arm/tool0",
-    ]
-    assert run.robots[0].poses[0].translation == (1, 0, 0)
-    assert run.robots[0].poses[1].translation == (0, 1, 0)
-    assert run.robots[1].poses[1].translation == (0, -1, 0)
-    assert run.sensors[0].pose.translation == (0, 0, 0.08)
-    assert run.sensors[0].parameters is not run.sensors[1].parameters
-    assert run.resources.count(tmp_path / "systems/arm.yaml") == 1
-    assert len(run.resources) == 3
+    system = run.robot_system
+    assert system.name == ""
+    assert system.source == tmp_path / "systems/pair.yaml"
+    assert system.pose.translation == (1, 0, 0)
+    assert system.robots == ()
+    left, right = system.systems
+    assert (left.name, right.name) == ("left", "right")
+    assert left.source == right.source == tmp_path / "systems/arm.yaml"
+    assert left is not right
+    assert left.pose.translation == (0, 1, 0)
+    assert right.pose.translation == (0, -1, 0)
+    assert left.robots[0].name == right.robots[0].name == "arm"
+    assert left.robots[0].pose.translation == (0, 0, 0)
+    assert left.sensors[0].parent == right.sensors[0].parent == "arm/tool0"
+    assert left.sensors[0].pose.translation == (0, 0, 0.08)
+    left.sensors[0].parameters["width"] = 128
+    assert "width" not in right.sensors[0].parameters
     assert run.objects[0].pose.translation == (0.4, 0, 0.1)
     assert run.autonomy.parameters["kp"] == [100]
     assert run.source == run_path
@@ -76,30 +81,15 @@ def test_nested_instances_keep_namespace_and_pose_chain(tmp_path, monkeypatch):
         ("scenario.yaml", "objects: {}\nobjects: {}\n", "Duplicate YAML key"),
         ("scenario.yaml", "objects: {}\nunknown: true\n", "Extra inputs"),
         (
-            "systems/pair.yaml",
-            "robots: {box: {model: example_arm}}\n",
-            "Object and device names must be distinct",
-        ),
-        (
             "systems/arm.yaml",
             "systems: {again: {definition: package://robo_arch/systems/pair.yaml}}\n",
             "Recursive robot system inclusion",
         ),
         (
             "systems/arm.yaml",
-            "sensors: {camera: {model: ideal_camera, parent: missing/tool0}}\n",
-            "must name a robot/body",
-        ),
-        (
-            "systems/arm.yaml",
             "robots: {arm: {model: example_arm}}\n"
             "sensors: {arm: {model: ideal_camera, parent: arm/tool0}}\n",
             "names must be unique",
-        ),
-        (
-            "systems/arm.yaml",
-            "systems: {missing: {definition: package://robo_arch/systems/absent.yaml}}\n",
-            "absent.yaml",
         ),
     ],
 )
@@ -152,9 +142,33 @@ def test_sensors_can_be_disabled_without_changing_the_system(tmp_path):
     scenario = _bundle(tmp_path)
     scenario.write_text(scenario.read_text() + "sensors_enabled: false\n")
     run = load_run(scenario)
-    assert run.sensors == ()
-    assert len(run.robots) == 2
+    assert not run.sensors_enabled
+    assert len(run.robot_system.systems) == 2
+    assert len(run.robot_system.systems[0].sensors) == 1
     assert len(run.objects) == 1
+
+
+def test_missing_system_preserves_file_error(tmp_path):
+    run_path = _bundle(tmp_path)
+    missing = tmp_path / "systems/arm.yaml"
+    missing.unlink()
+    with pytest.raises(FileNotFoundError) as failure:
+        load_run(run_path)
+    assert failure.value.filename == str(missing)
+
+
+def test_schema_and_yaml_errors_keep_original_types(tmp_path):
+    from pydantic import ValidationError
+    from yaml import YAMLError
+
+    run_path = _bundle(tmp_path)
+    run_path.write_text(run_path.read_text().replace("duration: 1.0", "duration: -1"))
+    with pytest.raises(ValidationError, match="duration"):
+        load_run(run_path)
+    run_path.write_text("robot_system: [")
+    with pytest.raises(YAMLError) as failure:
+        load_run(run_path)
+    assert str(run_path) in str(failure.value)
 
 
 if __name__ == "__main__":

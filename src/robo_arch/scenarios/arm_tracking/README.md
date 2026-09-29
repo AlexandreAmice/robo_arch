@@ -34,7 +34,7 @@ partial recording; invalid configuration is reported before a scene exists.
 
 The separate [system.yaml](../../robot_system/ur7e_ideal_camera/system.yaml)
 defines robot/sensor instances and mounts. Selecting an assembly does not fix its
-controller. Model identifiers discover package-owned `DEFINITION` values in
+controller. Model identifiers select typed `describe()` functions in
 `robo_arch.<category>.<model>.definition`; no device list lives in the scenario.
 YAML cannot specify Python import paths. Native controller connections remain in
 Python: the controller wires its robot and exposes a desired-state port; the
@@ -56,6 +56,40 @@ data. Duplicate keys, unknown fields, invalid references and recursive inclusion
 are rejected. Nested systems use `systems.<name>.definition` and an optional
 `pose`; a child `left` namespaces `arm` as `left/arm`. The loader supports nested
 assemblies; this tracking task currently requires one fixed-base arm.
+
+## How the packaged example is assembled
+
+The shared types are together in
+[`core/config/declarations.py`](../../core/config/declarations.py).
+[`load_run()`](../../core/config/loading.py) reads the scenario and its referenced
+system into a `RunConfiguration`. Its `robot_system` retains the arm and camera,
+local names, and relative mounts; nested child systems remain explicit.
+
+For the packaged UR7e scenario:
+
+1. [`resolve_devices()`](../../core/worlds/assembly.py) resolves `arm`, `camera`,
+   and the camera parent `arm/tool0`. A child named `left` would produce
+   `left/arm`, `left/camera`, and `left/arm/tool0`.
+2. [`load_definitions()`](../../core/worlds/devices.py) calls `describe()` in
+   [`robots/ur7e/definition.py`](../../robots/ur7e/definition.py),
+   [`sensors/ideal_camera/definition.py`](../../sensors/ideal_camera/definition.py),
+   and [`objects/box/definition.py`](../../objects/box/definition.py). These return
+   model metadata and supported worlds without importing either simulator.
+3. [`build_scene()`](../../core/worlds/drake/scene.py) imports the selected world
+   adapters. It calls the UR7e's `add_to_plant(plant, name="arm")`, places its base,
+   adds the box, and calls the camera's `add_to_builder()` with the tool frame and
+   wrist mount. Each physical instance gets its own runtime state.
+4. [`build_simulation()`](drake.py) directly calls
+   [`joint_tracking.drake.connect()`](../../core/controllers/joint_tracking/drake.py)
+   and connects the task's desired joint state to its returned input port.
+5. [`run_scenario()`](run.py) advances the simulator and evaluates tracking error.
+
+Controller selection is explicit in the scenario. This example accepts only
+`joint_tracking`; another name raises an error before construction. In Isaac,
+`_run_isaac()` calls the same controller's `make_policy()` CPU wrapper and warns
+about the per-step state/command transfers. The robot adapter uses `add_to_stage()`.
+The ideal camera has no Isaac adapter, so that run requires `--no-sensors`.
+There are no implementation dictionaries or configurable Python function names.
 
 ## Inspecting test failures
 

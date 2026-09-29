@@ -43,7 +43,7 @@ Bazel uses its own pinned Python dependencies and C++23 toolchain:
 
 ```sh
 bazel test //tests/build:core //tests/build:cxx23 \
-  //src/robo_arch/core/worlds:registry_test \
+  //src/robo_arch/core/worlds:devices_test \
   //src/robo_arch/core/config:loading_test
 bazel run //:buildifier
 ```

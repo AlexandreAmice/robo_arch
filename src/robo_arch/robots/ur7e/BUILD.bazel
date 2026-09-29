@@ -18,7 +18,7 @@ py_library(
     data = [":assets"],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/config",
         "//src/robo_arch/robots",
     ],
 )

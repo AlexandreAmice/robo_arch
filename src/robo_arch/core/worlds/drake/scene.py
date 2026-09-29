@@ -12,15 +12,16 @@ from pydrake.multibody.tree import ModelInstanceIndex
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.sensors import RgbdSensor
 
-from robo_arch.core.config.loading import Pose, RobotInstance, RunConfiguration
-from robo_arch.core.worlds.registry import Registry, RobotDefinition
+from robo_arch.core.config.declarations import Pose, RobotDefinition, RunConfiguration
+from robo_arch.core.worlds.assembly import PlacedRobot, resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
 
 
 def _transform(pose: Pose) -> RigidTransform:
     return RigidTransform(RollPitchYaw(pose.rpy), pose.translation)
 
 
-def base_pose(robot: RobotInstance) -> RigidTransform:
+def base_pose(robot: PlacedRobot) -> RigidTransform:
     result = RigidTransform()
     for pose in robot.poses:
         result = result @ _transform(pose)
@@ -28,11 +29,13 @@ def base_pose(robot: RobotInstance) -> RigidTransform:
 
 
 def build_controller_model(
-    robot: RobotInstance, definition: RobotDefinition
+    robot: PlacedRobot, definition: RobotDefinition
 ) -> MultibodyPlant:
     """Independent nominal dynamics, also usable when another world supplies state."""
     model = MultibodyPlant(0.0)
-    instance = definition.implementations["drake"].load()(model, name=robot.name)
+    instance = load_device_module("robots", robot.model, "drake").add_to_plant(
+        model, name=robot.name
+    )
     model.WeldFrames(
         model.world_frame(),
         model.GetFrameByName(definition.base_frame, instance),
@@ -61,7 +64,7 @@ class DrakeScene:
 def build_scene(
     builder: DiagramBuilder,
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
 ) -> DrakeScene:
     """Add the physical scene; the caller supplies autonomy and builds the diagram.
 
@@ -71,14 +74,15 @@ def build_scene(
     if run.world != "drake":
         raise ValueError(f"This scene builder cannot execute world {run.world}")
 
+    devices = resolve_devices(run)
     plant, scene_graph = AddMultibodyPlantSceneGraph(builder, run.time_step)
     robot_instances = {}
     controller_models = {}
     initial_positions = {}
-    for robot in run.robots:
-        definition = registry.robots[robot.model]
-        add_robot = definition.implementations[run.world].load()
-        instance = add_robot(plant, name=robot.name)
+    for robot in devices.robots:
+        definition = definitions.robots[robot.model]
+        adapter = load_device_module("robots", robot.model, "drake")
+        instance = adapter.add_to_plant(plant, name=robot.name)
         X_WB = base_pose(robot)
         plant.WeldFrames(
             plant.world_frame(),
@@ -103,7 +107,7 @@ def build_scene(
         initial_positions[robot.name] = positions
 
     for obj in run.objects:
-        definition = registry.objects[obj.model]
+        definition = definitions.objects[obj.model]
         parser = Parser(plant)
         parser.SetAutoRenaming(True)
         with as_file(files(definition.package).joinpath(definition.resource)) as path:
@@ -117,11 +121,12 @@ def build_scene(
     plant.Finalize()
 
     cameras = {}
-    for sensor in run.sensors:
+    for sensor in devices.sensors:
         robot_name, frame_name = sensor.parent.rsplit("/", 1)
         frame = plant.GetFrameByName(frame_name, robot_instances[robot_name])
-        definition = registry.sensors[sensor.model]
-        camera = definition.implementations[run.world].load()(
+        definition = definitions.sensors[sensor.model]
+        adapter = load_device_module("sensors", sensor.model, "drake")
+        camera = adapter.add_to_builder(
             builder,
             scene_graph,
             parent_frame_id=plant.GetBodyFrameIdOrThrow(frame.body().index()),

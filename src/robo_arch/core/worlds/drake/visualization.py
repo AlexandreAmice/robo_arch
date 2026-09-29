@@ -7,14 +7,15 @@ import numpy as np
 from pydrake.geometry import Meshcat, MeshcatParams, MeshcatVisualizer
 from pydrake.systems.framework import DiagramBuilder
 
-from robo_arch.core.config.loading import RunConfiguration
+from robo_arch.core.config.declarations import RunConfiguration
+from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.worlds.devices import DeviceDefinitions
 from robo_arch.core.worlds.drake.scene import build_scene
-from robo_arch.core.worlds.registry import Registry
 
 
 def replay_positions(
     run: RunConfiguration,
-    registry: Registry,
+    definitions: DeviceDefinitions,
     trace_path: Path,
     recording: Path,
 ) -> None:
@@ -23,8 +24,11 @@ def replay_positions(
         times, positions = trace["times"], trace["positions"]
     if len(times) == 0:
         return
+    devices = resolve_devices(run)
     builder = DiagramBuilder()
-    scene = build_scene(builder, replace(run, world="drake", sensors=()), registry)
+    scene = build_scene(
+        builder, replace(run, world="drake", sensors_enabled=False), definitions
+    )
     meshcat = Meshcat(MeshcatParams(host="localhost"))
     meshcat.SetCameraPose([0.9, -0.9, 0.8], [0.25, 0.0, 0.3])
     visualizer = MeshcatVisualizer.AddToBuilder(builder, scene.scene_graph, meshcat)
@@ -39,7 +43,7 @@ def replay_positions(
     for index in indices:
         context.SetTime(times[index])
         scene.plant.SetPositions(
-            plant_context, scene.robots[run.robots[0].name], positions[index]
+            plant_context, scene.robots[devices.robots[0].name], positions[index]
         )
         visualizer.ForcedPublish(visualizer_context)
     meshcat.StopRecording()
