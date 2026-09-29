@@ -1,41 +1,74 @@
 # Local Isaac environment
 
 This isolated Python 3.12 environment runs the UR7e with Isaac SimulationApp,
-PhysX with GPU dynamics enabled and the same Drake inverse-dynamics controller used in the Drake run.
+configurable CPU/GPU PhysX and the same Drake inverse-dynamics controller used in the Drake run.
 The robot adapter converts the canonical URDF with NVIDIA's USD converter; the
 world loop supplies measured joint state and applies effort with drives disabled.
 
-## Run arm tracking
+## Physics and native viewing
 
-From the repository root:
+From the repository root, this automated physics check uses the GPU/TGS defaults:
 
 ```sh
 uv sync --project deployment/isaac --locked
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
   deployment/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
-  --world isaac --no-sensors --no-browser \
-  --record recordings/arm_tracking_isaac.html
+  --world isaac --no-sensors --headless \
+  --trace recordings/arm_tracking_isaac.npz
 ```
 
-Open `recordings/arm_tracking_isaac.html` for playback of **measured Isaac joint
-positions rendered with Drake geometry**. The adjacent NPZ contains the measured
-trace, including the last valid state on a runtime failure. Rendering is separate
-from Isaac physics; this does not exercise an Isaac camera. `--no-sensors` is an
-explicit change to the scenario, required because camera support is unavailable.
-`OMNI_KIT_ACCEPT_EULA=YES` accepts NVIDIA's runtime EULA. Unsetting display
-variables prevents a vendor warning dialog from blocking headless startup.
+`OMNI_KIT_ACCEPT_EULA=YES` accepts NVIDIA's runtime EULA. The JSON report retains
+the effective configuration, results and inspection command; NPZ stores measured
+joint positions and times, including partial traces after runtime errors. There is
+no automatic Drake HTML playback. Native Isaac recording is unsupported.
 
-The initial runner supports one fixed-base arm and fixed single-link SDF box
-fixtures. Control uses scalar CPU evaluation and copies NumPy state/effort each
-step; it is not a tensor-efficient batched implementation. The URDF converter
-runs in a child process because its USD libraries conflict with Kit's in one
-process. Temporary converted assets are removed after the run.
+For a complete Isaac profile, select `--world-config /absolute/path/world.yaml`
+or a package URI. References inside YAML always use `package://robo_arch/...`:
+
+```yaml
+type: isaac
+physics:
+  time_step: 0.001
+  solver: pgs                    # pgs or tgs; native PhysX scene solver
+  device: cpu                    # cpu or cuda:0
+visualization:
+  type: isaac
+  mode: off                     # off or live
+  publish_period: 0.03333333333333333  # display seconds; independent of physics
+  collision_geometry: false
+```
+
+CPU/PGS and GPU/TGS physics execution were verified. Native rendering remains
+**experimental**: a desktop viewer attempt timed out at the first stage render,
+so no successful native viewport/collision-overlay evidence is claimed. Its launch
+path, on a desktop with `DISPLAY` or `WAYLAND_DISPLAY` set, is:
+
+```sh
+OMNI_KIT_ACCEPT_EULA=YES deployment/isaac/.venv/bin/python \
+  -m robo_arch.scenarios.arm_tracking.run \
+  --world isaac --no-sensors --visualization live
+```
+
+The viewer uses the same USD stage as PhysX. Collision overlay is requested with
+`visualization.collision_geometry: true` in a live profile. It cannot show missing
+UR7e collision geometry. Closing the viewport hides it; quitting Kit interrupts
+execution. Mouse force interaction is disabled. This path needs successful render
+validation on a supported graphics environment before routine visual inspection.
+
+The initial runner supports one fixed-base arm and fixed single-link SDF boxes.
+`--no-sensors` is required because the camera adapter is unavailable; turning the
+viewer off does not change sensor selection. Control uses the same scalar CPU
+inverse-dynamics controller as Drake and copies NumPy state/effort each step.
+It is not a tensor-efficient batch implementation. The URDF converter runs in a
+child process because its USD libraries conflict with Kit's in one process;
+temporary converted assets are removed after the run.
 
 ## Compatibility and measured limits
 
 On September 29, 2026, the 2-second, 2,000-step arm run on an RTX 3060 Laptop
 (6 GB, driver 610.57.04; Ubuntu 24.04.4) reached a maximum final joint error of
-0.000169 rad. Startup, conversion, simulation and HTML generation took 10.48 s;
+0.000169 rad. The earlier geometry-replay workflow, including startup,
+conversion, simulation and HTML generation, took 10.48 s;
 peak RSS was 2.58 GiB. Observed GPU memory peaked at 396 MiB with 0.5-second
 sampling, from 2 MiB idle. These are one-arm measurements, not batching capacity.
 
