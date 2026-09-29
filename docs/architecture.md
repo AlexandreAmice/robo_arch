@@ -1,6 +1,6 @@
 # Architecture
 
-Current design proposal; nothing here claims implemented support. File placement and build details are in [build_and_layout.md](build_and_layout.md).
+Target design; implemented support and remaining work are recorded in the [implementation plan](implementation_tasks.md). File placement and build details are in [build_and_layout.md](build_and_layout.md).
 
 ## Purpose
 
@@ -12,30 +12,26 @@ The first application is a UR7e with a Robotiq gripper placing nuts onto a pin. 
 
 | Selection | Describes                                                                    |
 | --------- | ---------------------------------------------------------------------------- |
-| Scenario  | Robot, sensors, object instances, task and layout; references models and calibration |
-| Autonomy  | Components, their connections and configured parameters                      |
+| Scenario  | Selected robot system, object instances, task and layout; references models and calibration |
+| Autonomy  | Python assembly functions and configured parameters                      |
 | World     | Real installation or supported simulator setup, including execution settings |
 
-For example, `configs/runs/nut_on_pin/drake.yaml` could contain:
+The runnable `scenarios/arm_tracking/scenario.yaml` contains world/timing settings, a robot-system selection with its autonomy settings, object models and poses, and task parameters. The reusable physical assembly remains in `robot_system/ur7e_ideal_camera/system.yaml`. Selecting the system and autonomy together makes their compatibility visible without fixing an autonomy stack inside the assembly definition.
 
-```yaml
-scenario: ../../scenarios/nut_on_pin/ur7e.yaml
-autonomy: ../../autonomy/nut_on_pin_ur7e/stack.yaml
-world: drake
-```
+The scenario selects a **robot system**: a composition of robots, actuated tools and sensors, or other robot systems. For example, a bimanual system can instantiate the same arm-with-wrist-camera definition twice. Each instance has distinct names, hardware bindings and runtime state. Internal mounts belong to the system; the scenario layout places whole systems and external objects. Simulation uses those placements as initial/setup conditions; hardware uses calibrated relationships or nominal conditions to verify, not commands to reposition reality.
 
-This is illustrative syntax. A longer world description can be referenced from another file.
+Swapping robot systems, or selecting another device within a system definition, can retain the same scenario objects and task. It may require different calibration, layout or configured autonomy. Robot-system composition and autonomy composition remain separate: physical assembly does not force a particular control stack.
 
-The scenario independently selects a robot description, sensor package, object instances, task and layout. Swapping robot or sensors can retain the same objects and task; it may require a different layout, calibration or configured autonomy. Layout describes robot/object placement and sensor attachments relative to named frames. Simulation uses these as initial/setup conditions; hardware uses them as calibrated relationships or nominal conditions to verify, not commands to reposition reality.
+Robot and sensor packages own their assets, device-specific controllers/IK/drivers, calibration profiles and tests. Actuated tools belong under `robots/`. System packages own assembly-specific logic and relationships; scenario packages own task descriptions/evaluation and task-specific autonomy. Reusable numerical algorithms, configuration loading and world assembly live under `core/`. A UR7e inverse-dynamics controller should configure or specialize shared code rather than duplicate it.
 
-Measured calibration belongs to the selected installation: particular devices and their assembled relationships, potentially spanning the whole scenario. It is separate from reusable assets and nominal layout. Record which robot, sensors and mounting arrangement it applies to; a device or mounting change must not silently reuse incompatible calibration.
+Measured calibration lives with the relationship it describes: within a robot/sensor, between members of a robot system, or between that system and scenario fixtures. Record the relevant units, mounting arrangement and revision, and select the effective profile explicitly. Nominal assets/layout and measured corrections remain distinct. Nested instances must not silently share incompatible calibration or conflicting definitions of the same transform.
 
 ```mermaid
 flowchart LR
-    S[Scenario] --> C[Resolve and check compatibility]
-    A[Autonomy description] --> C
+    S[Scenario] --> C[Validate selections]
+    A[Autonomy settings] --> C
     W[World selection] --> C
-    C --> E[Configured autonomy]
+    C --> E[Python autonomy assembly]
     C --> R[Configured world]
     R -->|Measurements and status| E
     E -->|Driver-compatible commands| R
@@ -43,38 +39,32 @@ flowchart LR
 
 Robot and sensor descriptions establish available observations; the robot and selected world jointly establish accepted commands. The stack may also need a robot dynamics model, calibration, object geometry and task goals. A compatible interface is necessary, but does not establish that a controller is suitably tuned for that robot.
 
-Keep reusable algorithms separate from configured instances. Inverse dynamics can serve many manipulators; its model, joint selection and gains belong to the selected setup. Gains can depend on tool, payload, command interface and control rate. Application configurations keep those choices together; reusable asset bundles hold intrinsic defaults.
+Keep reusable algorithms separate from configured instances. Inverse dynamics can serve many manipulators; its model, joint selection and gains belong to the selected setup. Gains can depend on tool, payload, command interface and control rate. Keep them with the robot, system or scenario whose assumptions they encode; each device owns its intrinsic asset defaults.
 
 The task specifies the outcome and evidence for success, referring only to participating object instances: a nut and pin can be task participants while the table and background objects remain part of the scene. A task description is not an autonomy component or a mandatory planning strategy. Object geometry and nominal placement do not provide its measured current pose: that needs a measurement, estimator or explicit known-pose assumption. Simulation ground truth remains distinct from deployable observations. Preserve the nut's hole in collision geometry.
 
 ## Composing autonomy
 
-A description selects either one component, such as a pixel-to-torque policy, or a composition. Compositions contain named children, parameters, connections and exposed ports. Children can reference other compositions. There are no mandatory perception/planner/controller slots.
+Compose autonomy in Python using the selected runtime's native facilities. In Drake, ordinary construction functions add Systems to a DiagramBuilder, connect native ports and return Systems or Diagrams. Reuse those functions across scenarios. There is no project-wide component object, graph schema, port-type system or universal factory context. A policy can remain one System; a model-based stack can be a Diagram.
 
-A component declares its logical inputs and outputs once. A composition exposes selected child ports and derives their types recursively; input fan-out must satisfy every destination. For example, a task-space trajectory generator can connect through IK to a position controller, whose output connects directly to a position-command driver.
+Keep scene/device assembly reusable under `core/worlds/`; put task-specific connections in the scenario and reusable stacks with their robot, system or shared algorithm owner. Controller `connect` functions wire robot observations and commands, then return native task-reference ports. The arm-tracking scenario supplies the desired state and returns a Drake `Simulator` and scene, without another simulation wrapper. Construction code checks robot identity, joint order, units, command mode and frames where they matter; equal vector lengths alone do not establish compatibility.
 
-Validate meaning, not just vector length: robot/joint identities, command mode, units, frames, shapes and timestamp conventions. Resolve model-dependent dimensions after selecting the robot. Device and batch restrictions come from the selected implementation. Ambiguous measurement bindings need an explicit mapping. Transport adapters serialize commands and map channels; an extra controller must appear in the stack.
+YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.
 
-Use ordinary YAML with safe loading and typed validation, initially PyYAML and Pydantic. Resolve references relative to their declaring file; reject duplicate keys, unknown fields and recursive inclusion. Use parameter defaults and explicit values without generic deep-merge inheritance. YAML contains no executable behavior. Hydra can later supply training sweeps outside this loader.
+## World implementations
 
-The composition describes connections; it does not recreate Drake's scheduling or dynamics machinery. Drake implementations construct Systems/Diagrams. Batched implementations can execute native operations without a Diagram per environment. Reject feedback dependencies the selected execution cannot support.
+Use explicit implementations for supported worlds, preferably thin wrappers around shared algorithms. A world switch reuses algorithm code and parameters; it need not reuse a parsed execution graph. Drake owns its Systems, Diagrams, scheduling and state. Batched execution uses appropriate native operations without requiring a Diagram per environment.
 
-## Component implementations
+Read parameters and device metadata without importing simulator SDKs. Device discovery imports only selected `robo_arch.<category>.<model>.definition` modules and reads their package-owned `DEFINITION`. This fixed convention replaces scenario-maintained device lists; YAML model identifiers cannot supply import paths. World factories remain lazy, and autonomy assembly selects its supported implementation explicitly. Missing world support is an error. When a batched world supports scalar or CPU execution, warn about that cost and known transfers. Never silently substitute a different controller. Name intentional approximations, including privileged ground truth.
 
-Each component has a declaration and explicit implementations for supported worlds, preferably thin wrappers around shared algorithm code. Several worlds may use the same factory. Read declarations without importing simulator SDKs; load implementations only after selection.
+Implementations own timing, initialization and reset behavior. World integration coordinates physical reset; each controller or policy resets its own state. Resetting a real controller does not reposition the robot. Add timing, reset and execution metadata only when an implemented consumer needs it; no universal scheduler or performance framework is required.
 
-Missing world support is an error. An explicitly registered CPU implementation in Isaac is allowed with a performance warning. Never silently substitute a different controller. Named variants can intentionally simplify a component or replace an entire declared subsystem while preserving its public interface. Record the chosen variant and its additional requirements, including privileged ground truth where applicable.
+## Constructing and running
 
-Implementations own algorithm state, timing and reset behavior. Expose the hooks and requirements the world needs: triggers/rates, timestamps, immediate dependencies, initialization and selective reset. The world coordinates execution and physical reset; components reset their own state. Resetting a real controller does not reposition the robot. Different worlds need not share identical schedules or physics.
+Before construction, check that the scenario/world supplies required measurements and accepts the stack's commands, the selected autonomy has a supported implementation, and timing/reset requirements are supported. Record effective parameters, model/calibration versions and selected implementations. A world switch preserves the stack only when these checks succeed; simulated torque access does not establish torque access on hardware.
 
-For batching, declare native tensor, CPU batch or scalar execution, supported devices and known transfers. Warn about per-environment work and synchronization. Keep this metadata simple; do not build an abstract performance predictor. A tensor annotation cannot convert Drake code into a GPU kernel.
-
-## Resolving and running
-
-Before construction, check that the scenario/world supplies required measurements and accepts the stack's commands, every component has a selected implementation, and timing/reset requirements are supported. Record effective parameters, model/calibration versions and selected implementations. A world switch preserves the stack only when these checks succeed; simulated torque access does not establish torque access on hardware.
-
-Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access and shared execution services; wrappers own component-specific adaptation. Controller models remain separate from simulation state, so algorithms cannot accidentally read perfect simulated state.
+Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state, so algorithms cannot accidentally read perfect simulated state.
 
 The decisive example is the same inverse-dynamics controller in Drake and Isaac, first singly, then in a batch with independent state. An explicit CPU wrapper is a valid first step. Match controller outputs for matching inputs/state; do not require identical physics trajectories. Optimize demonstrated bottlenecks while retaining shared code and parameters. The [implementation plan](implementation_tasks.md) starts with simpler position control.
 
-The composition from components into a Drake or Isaac simulation or deployment onto a real robot should not be ad-hoc. We should have code that works on all compositions in a DRY manner. The Drake code and the real world code should be extremely similar, ideally quite close in design to Russ Tedrake's HardwareStation if possible.
+Share physical assembly and control construction functions across simulation and deployment, following the separation illustrated by HardwareStation. Runtime-specific application wiring stays ordinary code; reuse does not require reimplementing Drake's Diagram architecture in a parser.

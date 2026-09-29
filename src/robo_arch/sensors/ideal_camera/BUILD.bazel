@@ -1,0 +1,17 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "ideal_camera",
+    srcs = [
+        "__init__.py",
+        "definition.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/sensors",
+        requirement("pydantic"),
+    ],
+)

@@ -1,41 +1,46 @@
-# Dependency baseline
+# Dependency compatibility
 
-B0 validation host: Ubuntu 24.04.4, Linux x86-64, glibc 2.39.
+Development baseline: Ubuntu 24.04, Linux x86-64. The current native build uses
+host glibc; it is not yet a portable manylinux release build.
 
-| Input/profile | Pin | Evidence and boundary |
+| Dependency | Pinned version | Configuration |
 |---|---|---|
-| uv | 0.12.17 | Required by `pyproject.toml`; lock/export producer |
-| Python | CPython 3.12.13 | `.python-version` and Bazel toolchain; shared source minimum 3.12 |
-| Core | Pydantic 2.13.5, PyYAML 6.0.3 | Editable uv and Bazel use the same source and versions |
-| Drake | 1.57.0 | Separate `.venv-drake`; import and minimal Diagram construction; no world integration |
-| Bazel | 9.2.0 | Matches Drake v1.57.0 `.bazelversion` |
-| C++ | LLVM 22.1.8, C++23 | `std::expected` compile/run passes with bundled libc++; glibc remains a host dependency |
-| nanobind | 3.0.1 | Bazel library compiles; matches Drake v1.57.0 module pin; regular CPython ABI |
-| Formatting | Ruff 0.16.9, clang-format 22.1.8, Buildifier 10.1.0 | Pinned in uv/Bzlmod; clang-format settings adapted from Drake v1.57.0 |
-| Isaac | Separate vendor environment | See `deployment/isaac/`; never resolved into the core/Drake lock |
+| uv | 0.12.17 | `pyproject.toml` |
+| CPython | 3.12.13 | `.python-version` and Bazel Python toolchain |
+| Pydantic / PyYAML | 2.13.5 / 6.0.3 | `pyproject.toml` and `uv.lock` |
+| Drake | 1.57.0 | Optional uv dependency group and explicit Bazel target dependencies |
+| Bazel | 9.2.0 | `.bazelversion` |
+| LLVM / C++ | 22.1.8 / C++23 | `MODULE.bazel` and `.bazelrc`; bundled libc++ |
+| nanobind | 3.0.1 | `MODULE.bazel`; regular CPython ABI |
+| Ruff / clang-format / Buildifier | 0.16.9 / 22.1.8 / 10.1.0 | uv and Bzlmod configuration |
 
-`uv.lock` is authoritative for core and Drake Python dependencies.
-`tools/export_requirements.py` preserves uv's hashes and platform/Python markers;
-`--check` compares without modifying files. `@pip` consumes the core/test export;
-`@pip_drake` consumes the separate Drake/test export. Formatting packages stay out
-of these runtime/test exports. `MODULE.bazel.lock` captures Bzlmod resolution.
+`uv.lock` is authoritative for core and Drake Python dependencies. In
+`MODULE.bazel`, rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)` reads its
+package versions, artifact URLs, hashes and resolution markers directly into
+`@python_deps`. The extension is named `pip`; this path requires no requirements
+export or separate dependency resolution. Our editable package remains a local
+Bazel source target rather than an external wheel.
 
-Passed on this host: editable core pytest; the same core test plus C++23 and
-Drake smoke tests through Bazel; `@nanobind//:nanobind` library build; pinned
-Buildifier/Ruff/clang-format checks; deterministic export check including a
-deliberately stale export; pure Python wheel build and isolated installed import.
+Direct ingestion exposes the whole lockfile, including development and Drake
+packages; it does not select uv dependency groups. Each BUILD target declares
+its actual dependencies through `@python_deps//:requirements.bzl`. Core targets
+therefore have no Drake or formatter dependencies; the Drake test explicitly
+depends on Drake. uv groups still select the separate development environments.
+After editing dependencies, run `uv lock`, then the relevant Bazel tests to
+refresh `MODULE.bazel.lock`. Use `uv lock --check` and Bazel's
+`--lockfile_mode=error` to check committed locks without updating them.
 
-B0 establishes Python-level Drake compatibility only. Equal nanobind versions do
-not establish C++ interoperability with wheel-bound Drake objects. Native Drake
-libraries, compiler/stdlib ABI, nanobind domain and ownership must be checked in
-B1 before exchanging objects. No native development wheel exists yet. This
-baseline is not a manylinux release build or a simulator integration. The first
-LLVM fetch/extraction uses about 13 GB of cache space on this host.
+Drake's Python package can be imported and used to construct a Diagram with this
+setup. Passing Drake C++ objects between project extensions and pydrake still
+requires a compatible native Drake build, compiler/standard-library ABI,
+nanobind ABI/domain and ownership conventions. Matching nanobind version numbers
+alone is insufficient. The native wheel and this interoperability are not yet
+implemented.
 
-Sources used when choosing pins:
-[Drake v1.57.0 module](https://github.com/RobotLocomotion/drake/blob/v1.57.0/MODULE.bazel),
-[Drake version](https://github.com/RobotLocomotion/drake/blob/v1.57.0/.bazelversion),
-[Drake format settings](https://github.com/RobotLocomotion/drake/blob/v1.57.0/.clang-format),
-[nanobind Bazel instructions](https://nanobind.readthedocs.io/en/latest/bazel.html),
-[LLVM toolchains](https://github.com/bazel-contrib/toolchains_llvm/tree/v1.10.0),
-[uv lock exports](https://docs.astral.sh/uv/concepts/projects/export/).
+Isaac uses an [independent environment](../deployment/isaac/README.md) rather than
+the root Python dependency resolution. The initial LLVM download/extraction can
+consume approximately 13 GB of cache storage.
+
+Build references: [Drake dependencies](https://github.com/RobotLocomotion/drake/blob/v1.57.0/MODULE.bazel),
+[nanobind with Bazel](https://nanobind.readthedocs.io/en/latest/bazel.html),
+[LLVM toolchains](https://github.com/bazel-contrib/toolchains_llvm/tree/v1.10.0).

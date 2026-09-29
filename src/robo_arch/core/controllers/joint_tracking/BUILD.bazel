@@ -1,0 +1,53 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "joint_tracking",
+    srcs = [
+        "__init__.py",
+        "definition.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers",
+        "//src/robo_arch/core/worlds",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "drake",
+    srcs = ["drake.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":joint_tracking",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("numpy"),
+        requirement("drake"),
+    ],
+)
+
+py_test(
+    name = "definition_test",
+    srcs = ["tests/test_definition.py"],
+    main = "tests/test_definition.py",
+    deps = [
+        ":joint_tracking",
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "drake_test",
+    srcs = ["tests/test_drake.py"],
+    main = "tests/test_drake.py",
+    deps = [
+        ":drake",
+        ":joint_tracking",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

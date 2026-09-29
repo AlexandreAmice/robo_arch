@@ -1,12 +1,27 @@
 [project]
-name = "robo-arch-isaac-probe"
+name = "robo-arch-isaac"
 version = "0.0.0"
 requires-python = "==3.12.*"
 dependencies = [
+    "drake==1.57.0",
+    "isaacsim-core==6.1.0.0",
+    "isaacsim-robot-setup==6.1.0.0",
     "isaacsim[compatibility-check]==6.1.0.0",
+    "opencv-python-headless-noffmpeg==4.14.0.94rc1",
     "packaging==26.0",
+    "pyyaml==6.0.3",
+    "robo-arch",
 ]
 
 [tool.uv]
 package = false
 required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com/"
+explicit = true
+
+[tool.uv.sources]
+opencv-python-headless-noffmpeg = { index = "nvidia" }
+robo-arch = { path = "../../", editable = true }

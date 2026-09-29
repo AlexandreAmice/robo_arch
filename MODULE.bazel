@@ -19,16 +19,11 @@ python.toolchain(
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
-    hub_name = "pip",
+    hub_name = "python_deps",
     python_version = "3.12.13",
-    requirements_lock = "//third_party/python:core.txt",
+    uv_lock = "//:uv.lock",
 )
-pip.parse(
-    hub_name = "pip_drake",
-    python_version = "3.12.13",
-    requirements_lock = "//third_party/python:drake.txt",
-)
-use_repo(pip, "pip", "pip_drake")
+use_repo(pip, "python_deps")
 
 llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
 llvm.toolchain(
