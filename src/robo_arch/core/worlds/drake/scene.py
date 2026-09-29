@@ -7,12 +7,18 @@ import numpy as np
 from pydrake.geometry import SceneGraph
 from pydrake.math import RigidTransform, RollPitchYaw
 from pydrake.multibody.parsing import Parser
-from pydrake.multibody.plant import AddMultibodyPlantSceneGraph, MultibodyPlant
+from pydrake.multibody.plant import (
+    AddMultibodyPlantSceneGraph,
+    ApplyMultibodyPlantConfig,
+    MultibodyPlant,
+    MultibodyPlantConfig,
+)
 from pydrake.multibody.tree import ModelInstanceIndex
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.sensors import RgbdSensor
 
 from robo_arch.core.config.declarations import Pose, RobotDefinition, RunConfiguration
+from robo_arch.core.config.worlds import DrakePhysics
 from robo_arch.core.worlds.assembly import PlacedRobot, resolve_devices
 from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
 
@@ -61,6 +67,23 @@ class DrakeScene:
     initial_positions: dict[str, tuple[float, ...]]
 
 
+def add_plant(
+    builder: DiagramBuilder, physics: DrakePhysics
+) -> tuple[MultibodyPlant, SceneGraph]:
+    """Apply native numerical settings before loading or finalizing models."""
+    plant, scene_graph = AddMultibodyPlantSceneGraph(builder, physics.time_step)
+    ApplyMultibodyPlantConfig(
+        MultibodyPlantConfig(
+            time_step=physics.time_step,
+            contact_model=physics.contact_model,
+            discrete_contact_approximation=physics.discrete_contact_approximation,
+            sap_near_rigid_threshold=physics.sap_near_rigid_threshold,
+        ),
+        plant,
+    )
+    return plant, scene_graph
+
+
 def build_scene(
     builder: DiagramBuilder,
     run: RunConfiguration,
@@ -75,7 +98,7 @@ def build_scene(
         raise ValueError(f"This scene builder cannot execute world {run.world}")
 
     devices = resolve_devices(run)
-    plant, scene_graph = AddMultibodyPlantSceneGraph(builder, run.time_step)
+    plant, scene_graph = add_plant(builder, run.world_config.physics)
     robot_instances = {}
     controller_models = {}
     initial_positions = {}

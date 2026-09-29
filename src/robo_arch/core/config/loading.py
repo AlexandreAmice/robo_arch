@@ -9,7 +9,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from robo_arch.core.config.declarations import (
     ObjectInstance,
@@ -21,6 +21,7 @@ from robo_arch.core.config.declarations import (
     _Scenario,
     _System,
 )
+from robo_arch.core.config.worlds import WorldConfiguration, validate_package_reference
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -55,20 +56,30 @@ def _read_validated_yaml[T: BaseModel](path: Path, schema: type[T]) -> T:
 
 def _resolve_package_reference(owner: Path, reference: str) -> Path:
     """Resolve an installed resource; owner identifies the referring file in errors."""
-    prefix = "package://robo_arch/"
-    parts = reference.removeprefix(prefix).split("/")
-    if (
-        not reference.startswith(prefix)
-        or any(part in {"", ".", ".."} for part in parts)
-        or any(character in reference for character in "\\%?#")
-    ):
-        raise ValueError(
-            f"Reference {reference!r} in {owner} must use "
-            "package://robo_arch/<resource> without path traversal"
-        )
+    validate_package_reference(reference, owner=owner)
+    parts = reference.removeprefix("package://robo_arch/").split("/")
     # Editable installs, unpacked wheels and Bazel runfiles expose resource files.
     # Resolve only the application package; YAML cannot import Python modules.
     return Path(str(files("robo_arch").joinpath(*parts))).resolve()
+
+
+def resolve_resource(reference: str) -> Path:
+    """Resolve a validated application-package URI independently of the cwd."""
+    return _resolve_package_reference(Path("<resource>"), reference)
+
+
+class _WorldProfile(RootModel[WorldConfiguration]):
+    """Validate a complete world profile without inheritance or implicit merges."""
+
+
+def load_world(path: str | Path) -> WorldConfiguration:
+    """Load a profile from an explicit file or package URI at the Python/CLI boundary."""
+    source = (
+        _resolve_package_reference(Path("<world>"), path)
+        if isinstance(path, str) and path.startswith("package:")
+        else Path(path).resolve()
+    )
+    return _read_validated_yaml(source, _WorldProfile).root
 
 
 def load_run(path: str | Path) -> RunConfiguration:
@@ -79,6 +90,14 @@ def load_run(path: str | Path) -> RunConfiguration:
         else Path(path).resolve()
     )
     scenario = _read_validated_yaml(source, _Scenario)
+    world_source = (
+        _resolve_package_reference(source, scenario.world)
+        if isinstance(scenario.world, str)
+        else None
+    )
+    world_config = (
+        load_world(world_source) if world_source is not None else scenario.world
+    )
 
     def load_system(
         file: Path,
@@ -136,9 +155,9 @@ def load_run(path: str | Path) -> RunConfiguration:
 
     return RunConfiguration(
         source=source,
-        world=scenario.world,
+        world_config=world_config,
+        world_source=world_source,
         duration=scenario.duration,
-        time_step=scenario.time_step,
         robot_system=robot_system,
         sensors_enabled=scenario.sensors_enabled,
         objects=tuple(

@@ -15,6 +15,7 @@ from robo_arch.core.config.declarations import (
     SensorInstance,
     TaskSelection,
 )
+from robo_arch.core.config.worlds import DrakeWorld
 from robo_arch.core.worlds.assembly import resolve_devices
 
 
@@ -40,9 +41,8 @@ def _run() -> RunConfiguration:
     )
     return RunConfiguration(
         source=Path("scenario.yaml"),
-        world="drake",
+        world_config=DrakeWorld(),
         duration=1,
-        time_step=0.001,
         robot_system=RobotSystem(
             name="",
             source=Path("pair.yaml"),

@@ -3,7 +3,7 @@
 A shared autonomy stack across Drake, hardware and batched simulation. The first
 runnable example tracks a joint target with a UR7e in Drake and renders a box
 through an idealized wrist RGB-D camera. A camera-free Isaac run uses the same
-controller and task, with scalar CPU control and GPU PhysX dynamics.
+controller and task, with scalar CPU control and configurable CPU/GPU PhysX dynamics.
 
 - [Architecture](docs/architecture.md): scenario, autonomy, world, composition and shared execution.
 - [Build and layout](docs/build_and_layout.md): device-owned code/assets, recursive robot systems, scenarios, core libraries, and Python/C++ packaging.
@@ -62,25 +62,34 @@ playback without opening it, or `--headless` for automated checks. Select anothe
 run with `--run path/to/run.yaml` or a `package://robo_arch/...` URI. The packaged
 [scenario](src/robo_arch/scenarios/arm_tracking/scenario.yaml) keeps the world,
 robot-system and controller selection, object poses, task target and gains together.
-Only the reusable physical assembly lives in a separate YAML file. The
+World profiles may also be complete package-referenced YAML files. The
 [configuration guide](src/robo_arch/scenarios/arm_tracking/README.md) explains
 the fields, units, defaults and file references.
 
-Run the same task in the isolated Isaac environment (explicitly without sensors):
+World configuration selects native physics and visualization separately. Drake's
+standard viewer exposes illustration, proximity, inertia and contact layers:
 
 ```sh
-uv sync --project deployment/isaac --locked
-env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  deployment/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
-  --world isaac --no-sensors --no-browser
-xdg-open recordings/arm_tracking_isaac.html
+uv run --locked python -m robo_arch.scenarios.arm_tracking.run \
+  --visualization live_and_record
 ```
 
-The environment variable accepts NVIDIA's runtime EULA. Isaac playback renders
-recorded Isaac joint positions using Drake geometry; it does not rerun Drake
-physics or depict Isaac camera output. The controller selection, gains and task
-remain unchanged. See the [Isaac environment](deployment/isaac/README.md) for
-requirements and measured limits.
+Use **Close inspection** or Ctrl-C to release the live viewer. HTML recordings
+cannot faithfully replay changing hydroelastic pressure/contact surfaces; inspect
+those live. The current UR7e still has simplified visuals and no collision model.
+
+Isaac supports headless CPU/GPU PhysX with TGS/PGS and the same controller and
+gains; sensors must currently be disabled explicitly. Live viewing and native
+recording are rejected. The native viewport is deferred until rendering and
+shutdown are validated. See [Isaac setup](deployment/isaac/README.md) for physics
+commands and measured limits.
+
+Every CLI run writes effective configuration, package versions and an inspection
+command beside its results. `--inspect <report.json>` restores all resolved run
+inputs; source code and assets still come from the current installation. `--world` replaces all world settings with that
+world's defaults; `--world-config` selects a complete file or package URI.
+The [world configuration guide](docs/architecture.md#world-configuration-and-visualization)
+also describes the independent RViz launcher. Hardware execution is unavailable.
 
 The example exercises each owner:
 

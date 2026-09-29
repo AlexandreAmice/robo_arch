@@ -8,7 +8,9 @@ py_library(
         "__init__.py",
         "simulation.py",
     ],
-    data = ["physics.kit"],
+    data = [
+        "physics.kit",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
         "//src/robo_arch/core/config",
