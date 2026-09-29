@@ -1,3 +1,13 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "ltex.enabled": [
+        "bibtex",
+        "context",
+        "context.tex",
+        "latex",
+        "markdown",
+        "org",
+        "restructuredtext",
+        "rsweave"
+    ]
 }
