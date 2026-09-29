@@ -1,10 +1,16 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 
+exports_files(
+    ["uv.lock"],
+    visibility = ["//visibility:private"],
+)
+
 buildifier(
     name = "buildifier",
     exclude_patterns = [
         "./.git/*",
         "./.venv*/*",
+        "./deployment/*/.venv*/*",
         "./bazel-*/*",
     ],
     lint_mode = "warn",

@@ -1,0 +1,32 @@
+# Simulation duration and discrete plant time step, in seconds.
+world: drake
+duration: 2.0
+time_step: 0.001
+sensors_enabled: true
+
+robot_system:
+  definition: package://robo_arch/robot_system/ur7e_ideal_camera/system.yaml
+  # Omitted system pose is identity in world; robot bases are fixed.
+  autonomy:
+    controller: joint_tracking
+    parameters:
+      # Acceleration-feedback gains in UR7e joint order: kp in s^-2, kd in s^-1.
+      kp: [100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+      kd: [20.0, 20.0, 20.0, 20.0, 20.0, 20.0]
+
+objects:
+  box:
+    model: box
+    # Fixed fixture underneath the wrist camera. World translation is in metres;
+    # omitted fixed-axis roll/pitch/yaw is zero.
+    pose:
+      translation: [0.4919, 0.1333, 0.025]
+
+task:
+  type: joint_tracking
+  parameters:
+    robot: arm
+    # Radians, in robots/ur7e/definition.py joint order.
+    target: [0.05, -1.5207963267948965, 1.5207963267948965, -1.5707963267948966, -1.5707963267948966, 0.05]
+    # Maximum absolute joint-position error at the end of the run, in radians.
+    tolerance: 0.02

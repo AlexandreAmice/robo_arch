@@ -1,0 +1,18 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "drake",
+    srcs = [
+        "__init__.py",
+        "scene.py",
+        "visualization.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        requirement("drake"),
+        requirement("numpy"),
+    ],
+)

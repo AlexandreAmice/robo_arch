@@ -1,0 +1,52 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "arm_tracking",
+    srcs = [
+        "__init__.py",
+        "drake.py",
+        "evaluation.py",
+        "run.py",
+    ],
+    data = glob(["**/*.yaml"]) + ["//src/robo_arch/robot_system/ur7e_ideal_camera:resources"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers",
+        "//src/robo_arch/core/controllers/joint_tracking",
+        "//src/robo_arch/core/controllers/joint_tracking:drake",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/core/worlds/isaac",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/robots/ur7e/drake",
+        "//src/robo_arch/robots/ur7e/isaac",
+        "//src/robo_arch/scenarios",
+        "//src/robo_arch/sensors/ideal_camera",
+        "//src/robo_arch/sensors/ideal_camera/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pydantic"),
+    ],
+)
+
+py_binary(
+    name = "run",
+    srcs = ["run.py"],
+    main = "run.py",
+    deps = [":arm_tracking"],
+)
+
+py_test(
+    name = "run_test",
+    srcs = ["tests/test_run.py"],
+    main = "tests/test_run.py",
+    deps = [
+        ":arm_tracking",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        requirement("pytest"),
+    ],
+)

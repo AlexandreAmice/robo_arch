@@ -1,5 +1,4 @@
-load("@pip//:requirements.bzl", "requirement")
-load("@pip_drake//:requirements.bzl", drake_requirement = "requirement")
+load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_python//python:defs.bzl", "py_test")
 
@@ -29,7 +28,7 @@ py_test(
     main = "smoke_drake.py",
     tags = ["manual"],
     deps = [
-        drake_requirement("drake"),
-        drake_requirement("pytest"),
+        requirement("drake"),
+        requirement("pytest"),
     ],
 )

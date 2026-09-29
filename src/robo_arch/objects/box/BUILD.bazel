@@ -1,0 +1,21 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+filegroup(
+    name = "assets",
+    srcs = ["model.sdf"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+)
+
+py_library(
+    name = "box",
+    srcs = [
+        "__init__.py",
+        "definition.py",
+    ],
+    data = [":assets"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/objects",
+    ],
+)

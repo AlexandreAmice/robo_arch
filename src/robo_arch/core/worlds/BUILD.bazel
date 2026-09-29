@@ -1,0 +1,31 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "worlds",
+    srcs = [
+        "__init__.py",
+        "registry.py",
+        "selection.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core",
+        "//src/robo_arch/core/config",
+    ],
+)
+
+py_test(
+    name = "registry_test",
+    srcs = ["tests/test_registry.py"],
+    main = "tests/test_registry.py",
+    deps = [
+        ":worlds",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/sensors/ideal_camera",
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)
