@@ -31,8 +31,8 @@ missing collision geometry.
 
 `--world drake|isaac|real` replaces the whole world configuration with native
 defaults, including viewer `off`. `--world-config` accepts a complete file or
-package URI. Isaac currently supports only `off`; live viewing and `--record`
-are rejected. See [Isaac setup](../../../../deployment/isaac/README.md).
+package URI. Isaac supports `off`/`live` only, with experimental native rendering;
+`--record` is rejected. See [Isaac setup](../../../../deployment/isaac/README.md).
 Real-world declarations are inspectable, but this scenario has no hardware runner.
 
 The CLI saves a JSON report with full effective inputs, configuration hashes,
@@ -41,8 +41,7 @@ to select its destination. `--inspect <report.json>` restores the resolved input
 viewer overrides affect only inspection. Code and assets are not snapshotted:
 recorded hashes/versions identify the original environment. Drake runtime failures
 retain partial playback where available; `--trace output.npz` retains measured
-Isaac positions. Isaac inspection reruns the resolved inputs headlessly; native
-viewing is deferred. Invalid configuration fails before
+Isaac positions independently of native viewing. Invalid configuration fails before
 a scene is constructed.
 
 ## Configuration

@@ -48,7 +48,7 @@ def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
             "--inspect",
             str(metadata.resolve()),
             "--visualization",
-            "live_and_record" if run.world == "drake" else "off",
+            "live_and_record" if run.world == "drake" else "live",
         ]
     )
     return shlex.join(args)
@@ -173,6 +173,7 @@ def run_scenario(
                 parameters,
                 task,
                 trace_path,
+                keep_viewer_open,
             )
         else:
             raise ValueError("No hardware execution runner for arm tracking")
@@ -286,6 +287,7 @@ def _run_isaac(
     parameters: JointTrackingParameters,
     task: TrackingTask,
     trace_path: Path | None,
+    keep_viewer_open: bool,
 ) -> dict:
     """Use the same CPU control algorithm with measured Isaac joint state."""
     import warnings
@@ -330,6 +332,7 @@ def _run_isaac(
         definitions,
         command,
         trace_path=trace_path,
+        keep_viewer_open=keep_viewer_open,
     )
     return {
         "world": run.world,

@@ -68,8 +68,9 @@ class IsaacPhysics(_Schema):
 
 class IsaacVisualization(_Schema):
     type: Literal["isaac"] = "isaac"
-    # Native live viewing is deferred until rendering and shutdown are validated.
-    mode: Literal["off"] = "off"
+    mode: Literal["off", "live"] = "off"
+    collision_geometry: bool = False
+    publish_period: float = Field(default=1 / 30, gt=0)
 
 
 class IsaacWorld(_Schema):

@@ -78,11 +78,12 @@ Use **Close inspection** or Ctrl-C to release the live viewer. HTML recordings
 cannot faithfully replay changing hydroelastic pressure/contact surfaces; inspect
 those live. The current UR7e still has simplified visuals and no collision model.
 
-Isaac supports headless CPU/GPU PhysX with TGS/PGS and the same controller and
-gains; sensors must currently be disabled explicitly. Live viewing and native
-recording are rejected. The native viewport is deferred until rendering and
-shutdown are validated. See [Isaac setup](deployment/isaac/README.md) for physics
-commands and measured limits.
+Isaac uses its own Kit viewer, with configurable CPU/GPU PhysX and TGS/PGS.
+Native viewer rendering is experimental: live physics advanced, but native image
+capture and clean viewer shutdown remain unverified. See [Isaac setup](deployment/isaac/README.md) for verified physics
+commands and the viewer launch path. The runner rejects unsupported native
+recording instead of automatically producing Drake playback. The same controller
+and gains are reused; sensors must currently be disabled explicitly.
 
 Every CLI run writes effective configuration, package versions and an inspection
 command beside its results. `--inspect <report.json>` restores all resolved run

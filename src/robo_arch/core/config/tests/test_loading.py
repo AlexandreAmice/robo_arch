@@ -175,7 +175,7 @@ def test_world_profile_resolves_from_package_after_scenario_moves(tmp_path):
     profile = tmp_path / "world.yaml"
     profile.write_text(
         "type: isaac\nphysics: {time_step: 0.002, solver: pgs, device: cpu}\n"
-        'visualization: {mode: "off"}\n'
+        "visualization: {mode: live, collision_geometry: true}\n"
     )
     scenario.write_text(
         scenario.read_text().replace(

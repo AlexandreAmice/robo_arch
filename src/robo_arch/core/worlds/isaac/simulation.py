@@ -14,6 +14,10 @@ from robo_arch.core.config.declarations import Pose, RunConfiguration
 from robo_arch.core.config.worlds import IsaacPhysics, IsaacWorld
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
+from robo_arch.core.worlds.isaac.visualization import (
+    NativeViewport,
+    validate_visualization,
+)
 
 
 def _transform(pose: Pose) -> np.ndarray:
@@ -81,6 +85,7 @@ def run_scene(
     command: Callable[[np.ndarray, float], np.ndarray],
     *,
     trace_path: Path | None = None,
+    keep_viewer_open: bool = False,
 ) -> dict:
     """Sample [q,v] and apply effort in registered joint order every physics step.
 
@@ -94,15 +99,18 @@ def run_scene(
     world = run.world_config
     if not isinstance(world, IsaacWorld):
         raise ValueError("Isaac runner requires Isaac world configuration")
+    validate_visualization(world)
+    live = world.visualization.mode == "live"
     from isaacsim import SimulationApp
 
     started = time.monotonic()
     times, positions = [], []
-    experience = files(__package__).joinpath("physics.kit")
+    experience = files(__package__).joinpath("viewer.kit" if live else "physics.kit")
+    viewer = None
     with as_file(experience) as path:
         app = SimulationApp(
             {
-                "headless": True,
+                "headless": not live,
                 "physics_gpu": 0,
                 "multi_gpu": False,
                 "renderer": "MinimalRendering",
@@ -137,6 +145,8 @@ def run_scene(
             cache = UsdUtils.StageCache.Get()
             stage_id = cache.Insert(stage).ToLongInt()
             simulation = get_physx_simulation_interface()
+            if live:
+                viewer = NativeViewport(app, stage_id, world)
             simulation.attach_stage(stage_id)
             try:
                 # Initialize PhysX before obtaining tensor views; then reset q,v.
@@ -164,6 +174,7 @@ def run_scene(
                 arm.set_dof_velocities(np.zeros_like(q), indices)
                 times.append(0.0)
                 positions.append(arm.get_dof_positions()[0].copy())
+                next_display = 0.0
                 for step in range(math.ceil(run.duration / run.time_step)):
                     t = times[-1]
                     if t >= run.duration:
@@ -186,8 +197,15 @@ def run_scene(
                         raise RuntimeError("Isaac returned nonfinite joint positions")
                     times.append(min((step + 1) * run.time_step, run.duration))
                     positions.append(measured)
+                    if viewer is not None and times[-1] >= next_display:
+                        viewer.update()
+                        next_display = times[-1] + world.visualization.publish_period
+                if viewer is not None:
+                    viewer.update()
+                    if keep_viewer_open:
+                        viewer.hold()
             finally:
-                # Preserve measured samples before detaching the native stage.
+                # Save before native viewer teardown, which can fail independently.
                 try:
                     if trace_path is not None and times:
                         trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -197,8 +215,11 @@ def run_scene(
                             positions=np.asarray(positions),
                         )
                 finally:
+                    simulation.detach_stage()
                     try:
-                        simulation.detach_stage()
+                        if viewer is not None:
+                            viewer.close()
+                            viewer = None
                     finally:
                         cache.Erase(stage)
         return {
