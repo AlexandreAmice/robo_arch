@@ -12,7 +12,7 @@ Establish **`AlexandreAmice/robo_arch` as a private GitHub repository**, then de
 - Independently composable scenario, autonomy, and world configurations.
 - The same configured controller running in Drake and Isaac, including independent state and reset in an Isaac batch.
 
-R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world/viewer configuration are implemented. Integrate the prerequisite runtime and configuration PRs before dependent work. Do not repeat repository setup or discard the build baseline.
+R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Native Isaac viewing remains deferred. Do not repeat repository setup or discard the build baseline.
 
 **Defaults:** Linux x86-64, Python 3.12 minimum, Python-first implementation, ordinary YAML with PyYAML/Pydantic, and local GPU execution first. Preserve the agreed architecture and existing user edits.
 
@@ -282,7 +282,7 @@ If local Isaac cannot run, publish the completed repository, development workflo
 
 ## Work-package status
 
-Status as of 2026-09-29. Runtime and world configuration changes are prepared for review. Partial packages below retain their broader acceptance gates.
+Status as of 2026-09-29. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. Partial packages below retain their broader acceptance gates.
 
 | Package | Status |
 |---|---|
@@ -290,14 +290,14 @@ Status as of 2026-09-29. Runtime and world configuration changes are prepared fo
 | B0 | Complete: [PR #2](https://github.com/AlexandreAmice/robo_arch/pull/2); pinned uv/Bazel baseline and separate core/Drake profiles |
 | I0 | Original records landed in [PR #1](https://github.com/AlexandreAmice/robo_arch/pull/1); graph/context records superseded by native runtime assembly |
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
-| L0 | Implemented: device-oriented core migration; integration pending |
+| L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1, C0 | Ready after L0 integration; parallel with I1 |
+| B1, C0 | Ready; parallel with remaining I1 work |
 | S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
 | A0 | Partial: nominal UR7e, ideal RGB-D camera, box and arm-with-camera system; collision models, gripper and calibration remain |
 | K0 | Partial: shared inverse-dynamics controller executes in Drake and scalar CPU Isaac; batch execution remains |
 | D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
-| X0 | Partial: CPU PGS/GPU TGS arm execution; native image capture, collision display and clean viewer shutdown unvalidated; cameras remain unsupported |
+| X0 | Partial: CPU PGS/GPU TGS arm execution; native viewport deferred pending rendering, collision display and shutdown validation; cameras remain unsupported |
 | X1, M0 | Await listed dependencies |
 
 Foundation validation passed: 11 pytest cases, five Bazel test targets (core,

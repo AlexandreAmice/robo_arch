@@ -14,10 +14,6 @@ from robo_arch.core.config.declarations import Pose, RunConfiguration
 from robo_arch.core.config.worlds import IsaacPhysics, IsaacWorld
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
-from robo_arch.core.worlds.isaac.visualization import (
-    NativeViewport,
-    validate_visualization,
-)
 
 
 def _transform(pose: Pose) -> np.ndarray:
@@ -85,12 +81,11 @@ def run_scene(
     command: Callable[[np.ndarray, float], np.ndarray],
     *,
     trace_path: Path | None = None,
-    keep_viewer_open: bool = False,
 ) -> dict:
     """Sample [q,v] and apply effort in registered joint order every physics step.
 
-    This initial adapter accepts one fixed-base robot and no sensors. NumPy
-    state/commands cross the GPU boundary at each step; this is scalar control,
+    This initial adapter accepts one fixed-base robot and no sensors. With GPU
+    physics, NumPy state/commands cross the GPU boundary each step. Control is scalar,
     not a tensor-efficient training loop. Partial measured traces survive errors.
     """
     devices = resolve_devices(run)
@@ -99,18 +94,15 @@ def run_scene(
     world = run.world_config
     if not isinstance(world, IsaacWorld):
         raise ValueError("Isaac runner requires Isaac world configuration")
-    validate_visualization(world)
-    live = world.visualization.mode == "live"
     from isaacsim import SimulationApp
 
     started = time.monotonic()
     times, positions = [], []
-    experience = files(__package__).joinpath("viewer.kit" if live else "physics.kit")
-    viewer = None
+    experience = files(__package__).joinpath("physics.kit")
     with as_file(experience) as path:
         app = SimulationApp(
             {
-                "headless": not live,
+                "headless": True,
                 "physics_gpu": 0,
                 "multi_gpu": False,
                 "renderer": "MinimalRendering",
@@ -145,8 +137,6 @@ def run_scene(
             cache = UsdUtils.StageCache.Get()
             stage_id = cache.Insert(stage).ToLongInt()
             simulation = get_physx_simulation_interface()
-            if live:
-                viewer = NativeViewport(app, stage_id, world)
             simulation.attach_stage(stage_id)
             try:
                 # Initialize PhysX before obtaining tensor views; then reset q,v.
@@ -174,7 +164,6 @@ def run_scene(
                 arm.set_dof_velocities(np.zeros_like(q), indices)
                 times.append(0.0)
                 positions.append(arm.get_dof_positions()[0].copy())
-                next_display = 0.0
                 for step in range(math.ceil(run.duration / run.time_step)):
                     t = times[-1]
                     if t >= run.duration:
@@ -197,15 +186,8 @@ def run_scene(
                         raise RuntimeError("Isaac returned nonfinite joint positions")
                     times.append(min((step + 1) * run.time_step, run.duration))
                     positions.append(measured)
-                    if viewer is not None and times[-1] >= next_display:
-                        viewer.update()
-                        next_display = times[-1] + world.visualization.publish_period
-                if viewer is not None:
-                    viewer.update()
-                    if keep_viewer_open:
-                        viewer.hold()
             finally:
-                # Save before native viewer teardown, which can fail independently.
+                # Preserve measured samples before detaching the native stage.
                 try:
                     if trace_path is not None and times:
                         trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -215,11 +197,8 @@ def run_scene(
                             positions=np.asarray(positions),
                         )
                 finally:
-                    simulation.detach_stage()
                     try:
-                        if viewer is not None:
-                            viewer.close()
-                            viewer = None
+                        simulation.detach_stage()
                     finally:
                         cache.Erase(stage)
         return {

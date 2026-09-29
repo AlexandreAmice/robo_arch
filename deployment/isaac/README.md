@@ -5,7 +5,7 @@ configurable CPU/GPU PhysX and the same Drake inverse-dynamics controller used i
 The robot adapter converts the canonical URDF with NVIDIA's USD converter; the
 world loop supplies measured joint state and applies effort with drives disabled.
 
-## Physics and native viewing
+## Physics and inspection
 
 From the repository root, this automated physics check uses the GPU/TGS defaults:
 
@@ -33,28 +33,16 @@ physics:
   device: cpu                    # cpu or cuda:0
 visualization:
   type: isaac
-  mode: "off"                     # off or live
-  publish_period: 0.03333333333333333  # display seconds; independent of physics
-  collision_geometry: false
+  mode: "off"                    # live viewing is not yet supported
 ```
 
-CPU/PGS and GPU/TGS physics execution were verified. Native rendering remains
-**experimental**: a desktop run advanced physics, but image capture did not
-complete and shutdown blocked in native stage closure. No successful native
-viewport/collision-overlay evidence is claimed. Its launch
-path, on a desktop with `DISPLAY` or `WAYLAND_DISPLAY` set, is:
-
-```sh
-OMNI_KIT_ACCEPT_EULA=YES deployment/isaac/.venv/bin/python \
-  -m robo_arch.scenarios.arm_tracking.run \
-  --world isaac --no-sensors --visualization live
-```
-
-The viewer uses the same USD stage as PhysX. Collision overlay is requested with
-`visualization.collision_geometry: true` in a live profile. It cannot show missing
-UR7e collision geometry. Closing the viewport hides it; quitting Kit interrupts
-execution. Mouse force interaction is disabled. This path needs successful render
-validation on a supported graphics environment before routine visual inspection.
+CPU/PGS and GPU/TGS physics execution were verified. Native live viewing is
+deferred: earlier viewport experiments advanced physics, but image capture did
+not complete and shutdown blocked in native stage closure. Live viewing,
+collision overlays and native recording are therefore rejected by the current
+configuration. No successful native viewport/collision-overlay evidence is
+claimed. `--inspect <report.json>` restores the resolved inputs for a headless
+rerun; use `--trace` to save its measured joint trajectory.
 
 The initial runner supports one fixed-base arm and fixed single-link SDF boxes.
 `--no-sensors` is required because the camera adapter is unavailable; turning the
