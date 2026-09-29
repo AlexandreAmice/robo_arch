@@ -1,7 +1,14 @@
-# Simulation duration and discrete plant time step, in seconds.
-world: drake
+# Scenario duration and discrete plant time step, in seconds.
+world:
+  type: drake
+  physics:
+    time_step: 0.001
+    contact_model: hydroelastic_with_fallback
+    discrete_contact_approximation: sap
+  visualization:
+    type: meshcat
+    mode: record
 duration: 2.0
-time_step: 0.001
 sensors_enabled: true
 
 robot_system:

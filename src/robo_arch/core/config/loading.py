@@ -11,7 +11,16 @@ from pathlib import Path
 from typing import Annotated
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    RootModel,
+    StringConstraints,
+)
+
+from robo_arch.core.config.worlds import WorldConfiguration, validate_package_reference
 
 Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
 
@@ -77,9 +86,8 @@ class _Object(_Schema):
 
 
 class _Scenario(_Schema):
-    world: Name
+    world: WorldConfiguration | str
     duration: float = Field(gt=0)
-    time_step: float = Field(gt=0)
     sensors_enabled: bool = True
     robot_system: _RobotSystemSelection
     objects: dict[Name, _Object] = Field(default_factory=dict)
@@ -120,15 +128,24 @@ class RunConfiguration:
     """
 
     source: Path
-    world: str
+    world_config: WorldConfiguration
     duration: float
-    time_step: float
     robots: tuple[RobotInstance, ...]
     sensors: tuple[SensorInstance, ...]
     objects: tuple[ObjectInstance, ...]
     task: TaskSelection
     autonomy: AutonomySelection
     resources: tuple[Path, ...]
+
+    @property
+    def world(self) -> str:
+        return self.world_config.type
+
+    @property
+    def time_step(self) -> float:
+        if self.world_config.type == "real":
+            raise ValueError("The real world has no simulated physics time step")
+        return self.world_config.physics.time_step
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -167,20 +184,37 @@ def _read[T: BaseModel](path: Path, schema: type[T], resources: list[Path]) -> T
 
 
 def _reference(owner: Path, reference: str) -> Path:
-    prefix = "package://robo_arch/"
-    parts = reference.removeprefix(prefix).split("/")
-    if (
-        not reference.startswith(prefix)
-        or any(part in {"", ".", ".."} for part in parts)
-        or any(character in reference for character in "\\%?#")
-    ):
-        raise ValueError(
-            f"Reference {reference!r} in {owner} must use "
-            "package://robo_arch/<resource> without path traversal"
-        )
+    try:
+        validate_package_reference(reference)
+    except ValueError as error:
+        raise ValueError(f"{error} (in {owner})") from error
+    parts = reference.removeprefix("package://robo_arch/").split("/")
     # Editable installs, unpacked wheels and Bazel runfiles expose resource files.
     # Resolve only the application package; YAML cannot import Python modules.
     return Path(str(files("robo_arch").joinpath(*parts))).resolve()
+
+
+def resolve_resource(reference: str) -> Path:
+    """Resolve a validated application-package URI independently of the cwd."""
+    return _reference(Path("<resource>"), reference)
+
+
+class _WorldProfile(RootModel[WorldConfiguration]):
+    pass
+
+
+def load_world(path: str | Path) -> WorldConfiguration:
+    """Load a complete world profile from an explicit file or package URI.
+
+    File paths are accepted at the Python/CLI entry point. References inside YAML
+    must use package URIs; profiles contain no inheritance or implicit merges.
+    """
+    source = (
+        _reference(Path("<world>"), path)
+        if isinstance(path, str) and path.startswith("package:")
+        else Path(path).resolve()
+    )
+    return _read(source, _WorldProfile, []).root
 
 
 def load_run(path: str | Path) -> RunConfiguration:
@@ -192,6 +226,11 @@ def load_run(path: str | Path) -> RunConfiguration:
     )
     resources: list[Path] = []
     scenario = _read(source, _Scenario, resources)
+    world_config = (
+        _read(_reference(source, scenario.world), _WorldProfile, resources).root
+        if isinstance(scenario.world, str)
+        else scenario.world
+    )
     robots: list[RobotInstance] = []
     sensors: list[SensorInstance] = []
 
@@ -257,9 +296,8 @@ def load_run(path: str | Path) -> RunConfiguration:
 
     return RunConfiguration(
         source=source,
-        world=scenario.world,
+        world_config=world_config,
         duration=scenario.duration,
-        time_step=scenario.time_step,
         robots=tuple(robots),
         sensors=tuple(sensors) if scenario.sensors_enabled else (),
         objects=tuple(

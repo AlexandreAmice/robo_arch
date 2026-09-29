@@ -7,6 +7,7 @@ py_library(
         "__init__.py",
         "loading.py",
         "parameters.py",
+        "worlds.py",
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
@@ -22,6 +23,17 @@ py_test(
     main = "tests/test_loading.py",
     deps = [
         ":config",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "worlds_test",
+    srcs = ["tests/test_worlds.py"],
+    main = "tests/test_worlds.py",
+    deps = [
+        ":config",
+        requirement("pydantic"),
         requirement("pytest"),
     ],
 )
