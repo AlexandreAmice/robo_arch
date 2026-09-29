@@ -18,6 +18,7 @@ from robo_arch.core.config.loading import (
     TaskSelection,
 )
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.worlds import DrakeWorld, RealWorld
 from robo_arch.core.worlds.registry import FactoryReference, discover
 
 
@@ -28,9 +29,8 @@ class TrackingParameters(Parameters):
 def _run() -> RunConfiguration:
     return RunConfiguration(
         source=Path("unused.yaml"),
-        world="drake",
+        world_config=DrakeWorld(),
         duration=1.0,
-        time_step=0.001,
         robots=(
             RobotInstance(name="arm", model="ur7e", poses=(), initial_positions=None),
         ),
@@ -72,7 +72,7 @@ def test_unknown_device_and_unsupported_world_fail_before_factory_loading():
     with pytest.raises(ValueError, match="Unknown robots model: unknown_robot"):
         discover(replace(run, robots=(replace(run.robots[0], model="unknown_robot"),)))
     with pytest.raises(ValueError, match="Robot arm has no real implementation"):
-        discover(replace(run, world="real"))
+        discover(replace(run, world_config=RealWorld()))
     with pytest.raises(ValidationError):
         discover(
             replace(

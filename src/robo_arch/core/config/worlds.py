@@ -69,6 +69,7 @@ class IsaacVisualization(_Schema):
     type: Literal["isaac"] = "isaac"
     mode: Literal["off", "live"] = "off"
     collision_geometry: bool = False
+    publish_period: float = Field(default=1 / 30, gt=0)
 
 
 class IsaacWorld(_Schema):

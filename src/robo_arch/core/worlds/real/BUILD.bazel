@@ -1,0 +1,31 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "real",
+    srcs = [
+        "__init__.py",
+        "visualization.py",
+    ],
+    data = ["inspection.rviz"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = ["//src/robo_arch/core/config"],
+)
+
+py_test(
+    name = "visualization_test",
+    srcs = ["tests/test_rviz.py"],
+    main = "tests/test_rviz.py",
+    deps = [
+        ":real",
+        "//src/robo_arch/core/config",
+        requirement("pytest"),
+    ],
+)
+
+py_binary(
+    name = "inspect",
+    srcs = ["visualization.py"],
+    main = "visualization.py",
+    deps = [":real"],
+)

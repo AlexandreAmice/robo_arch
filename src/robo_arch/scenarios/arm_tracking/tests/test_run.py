@@ -10,9 +10,11 @@ from pathlib import Path
 import pytest
 
 from robo_arch.core.config.loading import load_run
+from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
 from robo_arch.core.worlds.registry import discover
 from robo_arch.scenarios.arm_tracking.run import (
     default_run,
+    load_inspection,
     main,
     run_scenario,
 )
@@ -60,9 +62,19 @@ def test_headless_tracking(tracking_result):
     assert result["final_finite_depth_pixels"]["camera"] > 0
 
 
+@pytest.fixture(autouse=True)
+def disable_browser(monkeypatch, request):
+    # Test explicit visual reruns through the CLI; other recordings stay unattended.
+    if (
+        os.environ.get("ROBO_ARCH_VISUALIZE") != "1"
+        or request.node.name != "test_headless_tracking"
+    ):
+        monkeypatch.setattr("webbrowser.open", lambda url: True)
+
+
 def test_recording_preserves_tracking_results(tmp_path):
     pytest.importorskip("pydrake")
-    run = replace(load_run(default_run()), duration=0.1)
+    run = replace(load_run(default_run()), duration=0.1, world_config=DrakeWorld())
     recording = tmp_path / "playback.html"
     headless = run_scenario(run)
     visualized = run_scenario(run, recording=recording)
@@ -93,6 +105,29 @@ def test_recording_survives_simulation_failure(tmp_path, monkeypatch):
     assert "<html" in recording.read_text()
 
 
+def test_failed_run_retains_effective_configuration(tmp_path, monkeypatch):
+    pytest.importorskip("pydrake")
+    from pydrake.systems.analysis import Simulator
+
+    def fail(self, time_seconds):
+        raise RuntimeError("injected failure")
+
+    monkeypatch.setattr(Simulator, "AdvanceTo", fail)
+    run = replace(load_run(default_run()), world_config=DrakeWorld())
+    metadata = tmp_path / "failure.json"
+    with pytest.raises(RuntimeError, match="injected failure"):
+        run_scenario(run, metadata=metadata)
+    report = json.loads(metadata.read_text())
+    assert report["status"] == "error"
+    assert report["configuration"]["world_config"]["physics"]["time_step"] == 0.001
+    assert report["application_sha256"]["robots/ur7e/assets/model.urdf"]
+    assert report["configuration_sha256"]
+    assert report["inspection_command"].endswith("--visualization live_and_record")
+    saved = json.loads(metadata.with_suffix(".world.json").read_text())
+    assert saved == run.world_config.model_dump(mode="json")
+    assert load_inspection(metadata) == run
+
+
 def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, capsys):
     pytest.importorskip("pydrake")
     import robo_arch.scenarios.arm_tracking.run as runner
@@ -109,8 +144,66 @@ def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, cap
     assert recording.is_file()
 
 
+def test_cli_world_switch_replaces_configuration_without_dropping_sensors(
+    tmp_path, monkeypatch, capsys
+):
+    import robo_arch.scenarios.arm_tracking.run as runner
+
+    captured = []
+
+    def capture(run, **kwargs):
+        captured.append(run)
+        return {"success": True}
+
+    monkeypatch.setattr(runner, "run_scenario", capture)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "arm_tracking",
+            "--world",
+            "isaac",
+            "--headless",
+            "--metadata",
+            str(tmp_path / "result.json"),
+        ],
+    )
+    main()
+    assert isinstance(captured[0].world_config, IsaacWorld)
+    assert captured[0].world_config.visualization.mode == "off"
+    assert captured[0].world_config.physics.solver == "tgs"
+    assert len(captured[0].sensors) == 1
+    assert json.loads(capsys.readouterr().out)["success"]
+
+
+def test_cli_rejects_unsupported_native_recording_before_execution(
+    tmp_path, monkeypatch
+):
+    from pydantic import ValidationError
+
+    import robo_arch.scenarios.arm_tracking.run as runner
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Unsupported visualization must fail before execution")
+
+    monkeypatch.setattr(runner, "run_scenario", unexpected)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "arm_tracking",
+            "--world",
+            "isaac",
+            "--record",
+            str(tmp_path / "unsupported.html"),
+        ],
+    )
+    with pytest.raises(ValidationError, match="mode"):
+        main()
+
+
 def test_world_switch_rejects_missing_support():
-    run = replace(load_run(default_run()), world="real")
+    run = replace(load_run(default_run()), world_config=RealWorld())
     with pytest.raises(ValueError, match="no real implementation"):
         discover(run)
 
@@ -127,11 +220,12 @@ sys.meta_path.insert(0, RejectSDK())
 from dataclasses import replace
 from robo_arch.scenarios.arm_tracking.run import default_run, run_scenario
 from robo_arch.core.config.loading import load_run
+from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
 from robo_arch.core.worlds.registry import discover
 run = load_run(default_run())
 discover(run)
 try:
-    run_scenario(replace(run, world='real'))
+    run_scenario(replace(run, world_config=RealWorld()))
 except ValueError as error:
     assert 'no real implementation' in str(error), str(error)
 else:
@@ -155,6 +249,70 @@ def test_invalid_autonomy_selection(changes, message):
     run = replace(run, autonomy=run.autonomy.model_copy(update=changes))
     with pytest.raises(ValueError, match=message):
         run_scenario(run)
+
+
+def test_inspection_restores_test_overrides_after_source_changes(tmp_path, monkeypatch):
+    import robo_arch.scenarios.arm_tracking.run as runner
+
+    source = tmp_path / "scenario.yaml"
+    source.write_text("old source")
+    original = load_run(default_run())
+    run = replace(
+        original,
+        source=source,
+        resources=(source,),
+        duration=0.001,
+        sensors=(),
+        world_config=DrakeWorld(),
+        robots=(replace(original.robots[0], initial_positions=(0.1,) * 6),),
+        task=original.task.model_copy(
+            update={
+                "parameters": {"robot": "arm", "target": [0.2] * 6, "tolerance": 0.001}
+            }
+        ),
+    )
+    monkeypatch.setattr(runner, "_run_drake", lambda *args: {"success": False})
+    metadata = tmp_path / "failure.json"
+    run_scenario(run, metadata=metadata)
+    source.unlink()
+    assert load_inspection(metadata) == run
+    captured = []
+    monkeypatch.setattr(
+        runner,
+        "run_scenario",
+        lambda actual, **kwargs: captured.append(actual) or {"success": True},
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["arm_tracking", "--inspect", str(metadata), "--visualization", "live"],
+    )
+    main()
+    assert replace(captured[0], world_config=run.world_config) == run
+
+
+def test_output_failure_preserves_simulation_exception(tmp_path, monkeypatch):
+    import robo_arch.scenarios.arm_tracking.run as runner
+
+    def fail(*args):
+        raise RuntimeError("original simulation error")
+
+    write_text = Path.write_text
+    metadata = tmp_path / "failure.json"
+
+    def cannot_write(self, *args, **kwargs):
+        if self == metadata:
+            raise OSError("disk full")
+        return write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(runner, "_run_drake", fail)
+    monkeypatch.setattr(Path, "write_text", cannot_write)
+    with pytest.raises(RuntimeError, match="original simulation error") as caught:
+        run_scenario(
+            replace(load_run(default_run()), world_config=DrakeWorld()),
+            metadata=metadata,
+        )
+    assert "disk full" in caught.value.__notes__[0]
 
 
 if __name__ == "__main__":

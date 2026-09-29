@@ -1,16 +1,24 @@
-"""Run the packaged arm-tracking scenario; SDK imports follow selection checks."""
+"""Run arm tracking with explicit native world and visualization settings."""
 
 import argparse
+import hashlib
 import json
+import os
+import shlex
 import sys
+import uuid
 import webbrowser
-from dataclasses import replace
-from importlib.util import find_spec
+from dataclasses import asdict, replace
+from importlib.metadata import PackageNotFoundError, version
+from importlib.resources import files
 from pathlib import Path
 from types import ModuleType
 
-from robo_arch.core.config.loading import RunConfiguration, load_run
+from pydantic import BaseModel, TypeAdapter
+
+from robo_arch.core.config.loading import RunConfiguration, load_run, load_world
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, parse_world
 from robo_arch.core.controllers import definition
 from robo_arch.core.worlds.registry import Registry, discover
 from robo_arch.scenarios.arm_tracking.evaluation import TrackingTask, evaluate
@@ -20,56 +28,219 @@ def default_run() -> str:
     return "package://robo_arch/scenarios/arm_tracking/scenario.yaml"
 
 
-def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dict:
-    """Run the task, optionally saving scene playback even after a runtime failure."""
-    definitions = discover(run)
-    if len(run.robots) != 1:
-        raise ValueError("Arm tracking requires exactly one actuated robot")
-    controller = definition(run.autonomy.controller)
-    if run.world not in controller.IMPLEMENTATIONS:
-        raise ValueError(f"Controller has no {run.world} implementation")
-    parameters = controller.PARAMETERS.model_validate(run.autonomy.parameters)
-    if run.task.type != "joint_tracking":
-        raise ValueError(f"Unsupported task evaluator: {run.task.type}")
-    task = TrackingTask.model_validate(run.task.parameters)
-    if task.robot != run.robots[0].name:
-        raise ValueError("Task must select the configured robot")
+def _json_value(value: object) -> object:
+    if isinstance(value, BaseModel):
+        return value.model_dump(mode="json")
+    if isinstance(value, Path):
+        return str(value)
+    raise TypeError(f"Cannot serialize {type(value).__name__}")
+
+
+def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
+    args = ["uv", "run", "--locked"]
     if run.world == "isaac":
-        return _run_isaac(run, definitions, controller, parameters, task, recording)
-    if run.world != "drake":
-        raise ValueError(f"No runner for world {run.world}")
+        args.extend(["--project", "deployment/isaac"])
+    args.extend(
+        [
+            "python",
+            "-m",
+            "robo_arch.scenarios.arm_tracking.run",
+            "--inspect",
+            str(metadata.resolve()),
+            "--visualization",
+            "live_and_record" if run.world == "drake" else "live",
+        ]
+    )
+    return shlex.join(args)
 
-    import numpy as np
 
-    from robo_arch.scenarios.arm_tracking.drake import build_simulation
+def load_inspection(path: Path) -> RunConfiguration:
+    """Restore resolved inputs, including test overrides, without reloading YAML.
 
-    meshcat = None
+    Device assets and executable code still come from the current installation.
+    The report records configuration hashes and installed package versions.
+    """
+    report = json.loads(path.read_text(encoding="utf-8"))
+    run = TypeAdapter(RunConfiguration).validate_python(report["configuration"])
+    if not 0 < run.duration < float("inf"):
+        raise ValueError("Inspection duration must be finite and positive")
+    return run
+
+
+def _prepare_report(run: RunConfiguration, destination: Path) -> dict:
+    """Save the resolved world profile before execution, including on failure."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    profile = destination.with_suffix(".world.json").resolve()
+    profile.write_text(
+        run.world_config.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
+    versions = {}
+    for package in (
+        "robo-arch",
+        "drake",
+        *(("isaacsim",) if run.world == "isaac" else ()),
+    ):
+        try:
+            versions[package] = version(package)
+        except PackageNotFoundError:
+            versions[package] = "not installed"
+    package_root = Path(str(files("robo_arch")))
+    application_hashes = {
+        path.relative_to(package_root).as_posix(): hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+        for path in sorted(package_root.rglob("*"))
+        if path.is_file()
+        and not {"__pycache__", "tests"}.intersection(
+            path.relative_to(package_root).parts
+        )
+        and path.name not in {"BUILD.bazel", "README.md"}
+        and path.suffix not in {".pyc", ".pyo"}
+    }
+    return {
+        "application_sha256": application_hashes,
+        "run_id": str(uuid.uuid4()),
+        "status": "starting",
+        "configuration": asdict(run),
+        "configuration_sha256": {
+            str(path): (
+                hashlib.sha256(path.read_bytes()).hexdigest()
+                if path.is_file()
+                else "unavailable"
+            )
+            for path in run.resources
+        },
+        "package_versions": versions,
+        "inspection_command": _inspection_command(run, destination),
+    }
+
+
+def run_scenario(
+    run: RunConfiguration,
+    *,
+    recording: Path | None = None,
+    trace_path: Path | None = None,
+    metadata: Path | None = None,
+    keep_viewer_open: bool = False,
+) -> dict:
+    """Execute the configured world; optional files retain run and failure evidence.
+
+    Supplying a recording path explicitly requests native recording. Live viewers
+    remain open after execution only when requested by the interactive caller.
+    """
     if recording is not None:
-        from pydrake.geometry import Meshcat, MeshcatParams
-
+        payload = run.world_config.model_dump()
+        mode = payload["visualization"]["mode"]
+        payload["visualization"]["mode"] = (
+            "live_and_record" if mode in {"live", "live_and_record"} else "record"
+        )
+        run = replace(run, world_config=parse_world(payload))
+    visual = run.world_config.visualization
+    if visual.mode in {"record", "live_and_record"} and recording is None:
+        recording = Path(f"recordings/arm_tracking_{run.world}.html")
+    if trace_path is not None and run.world != "isaac":
+        raise ValueError("--trace currently records measured Isaac joint states only")
+    if recording is not None:
         recording = recording.resolve()
         recording.parent.mkdir(parents=True, exist_ok=True)
-        meshcat = Meshcat(MeshcatParams(host="localhost"))
-        meshcat.SetCameraPose([0.9, -0.9, 0.8], [0.25, 0.0, 0.3])
-        meshcat.StartRecording()
+    if metadata is None and recording is not None:
+        metadata = recording.with_suffix(".json")
+    report = _prepare_report(run, metadata) if metadata is not None else None
+    try:
+        definitions = discover(run)
+        if len(run.robots) != 1:
+            raise ValueError("Arm tracking requires exactly one actuated robot")
+        controller = definition(run.autonomy.controller)
+        if run.world not in controller.IMPLEMENTATIONS:
+            raise ValueError(f"Controller has no {run.world} implementation")
+        parameters = controller.PARAMETERS.model_validate(run.autonomy.parameters)
+        if run.task.type != "joint_tracking":
+            raise ValueError(f"Unsupported task evaluator: {run.task.type}")
+        task = TrackingTask.model_validate(run.task.parameters)
+        if task.robot != run.robots[0].name:
+            raise ValueError("Task must select the configured robot")
+        if isinstance(run.world_config, DrakeWorld):
+            result = _run_drake(
+                run, definitions, parameters, task, recording, keep_viewer_open
+            )
+        elif isinstance(run.world_config, IsaacWorld):
+            result = _run_isaac(
+                run,
+                definitions,
+                controller,
+                parameters,
+                task,
+                trace_path,
+                keep_viewer_open,
+            )
+        else:
+            raise ValueError("No hardware execution runner for arm tracking")
+        result["world_configuration"] = run.world_config.model_dump(mode="json")
+        if report is not None:
+            report.update(
+                status="passed" if result["success"] else "failed", result=result
+            )
+        return result
+    except BaseException as error:
+        if report is not None:
+            report.update(status="error", error=f"{type(error).__name__}: {error}")
+        raise
+    finally:
+        if report is not None:
+            failure = sys.exception()
+            try:
+                metadata.write_text(
+                    json.dumps(report, default=_json_value, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                print(f"Run metadata: {metadata.resolve().as_uri()}", file=sys.stderr)
+                print(
+                    f"Inspect this run: {report['inspection_command']}", file=sys.stderr
+                )
+            except Exception as output_error:
+                if failure is None:
+                    raise
+                failure.add_note(f"Could not save run metadata: {output_error}")
 
-    def positions() -> np.ndarray:
-        context = scene.plant.GetMyContextFromRoot(simulator.get_context())
-        return scene.plant.GetPositions(context, scene.robots[task.robot]).copy()
 
-    def depth_image(name: str) -> np.ndarray:
-        camera = scene.cameras[name]
-        context = camera.GetMyContextFromRoot(simulator.get_context())
-        return camera.depth_image_32F_output_port().Eval(context).data
+def _run_drake(
+    run: RunConfiguration,
+    definitions: Registry,
+    parameters: Parameters,
+    task: TrackingTask,
+    recording: Path | None,
+    keep_viewer_open: bool,
+) -> dict:
+    import numpy as np
 
+    from robo_arch.core.worlds.drake.visualization import (
+        create_meshcat,
+        hold_live,
+        save_recording,
+        start_recording,
+    )
+    from robo_arch.scenarios.arm_tracking.drake import build_simulation
+
+    visual = run.world_config.visualization
+    if recording is not None:
+        recording.unlink(missing_ok=True)
+    meshcat = create_meshcat(visual)
+    if meshcat is not None:
+        start_recording(meshcat, visual)
     try:
         simulator, scene = build_simulation(
-            run,
-            definitions,
-            parameters,
-            desired_positions=task.target,
-            meshcat=meshcat,
+            run, definitions, parameters, desired_positions=task.target, meshcat=meshcat
         )
+
+        def positions() -> np.ndarray:
+            context = scene.plant.GetMyContextFromRoot(simulator.get_context())
+            return scene.plant.GetPositions(context, scene.robots[task.robot]).copy()
+
+        def depth_image(name: str) -> np.ndarray:
+            camera = scene.cameras[name]
+            context = camera.GetMyContextFromRoot(simulator.get_context())
+            return camera.depth_image_32F_output_port().Eval(context).data
+
         initial = positions()
         initial_depth = {
             sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
@@ -90,7 +261,6 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
                     f"{recording.stem}_{name.replace('/', '__')}.png"
                 )
                 ImageIo().Save(image, destination)
-                print(f"Camera {name}: {destination.as_uri()}", file=sys.stderr)
         return {
             "world": run.world,
             "duration_seconds": run.duration,
@@ -106,10 +276,19 @@ def run_scenario(run: RunConfiguration, *, recording: Path | None = None) -> dic
         }
     finally:
         if meshcat is not None:
-            meshcat.StopRecording()
-            meshcat.PublishRecording()
-            recording.write_text(meshcat.StaticHtml(), encoding="utf-8")
-            print(f"Scene playback: {recording.as_uri()}", file=sys.stderr)
+            if recording is not None:
+                failure = sys.exception()
+                try:
+                    save_recording(meshcat, recording)
+                    print(f"Scene playback: {recording.as_uri()}", file=sys.stderr)
+                    if visual.mode == "record" and visual.open_browser:
+                        webbrowser.open(recording.as_uri())
+                except Exception as output_error:
+                    if failure is None:
+                        raise
+                    failure.add_note(f"Could not save scene playback: {output_error}")
+            if keep_viewer_open and visual.mode in {"live", "live_and_record"}:
+                hold_live(meshcat)
 
 
 def _run_isaac(
@@ -118,15 +297,10 @@ def _run_isaac(
     controller: ModuleType,
     parameters: Parameters,
     task: TrackingTask,
-    recording: Path | None,
+    trace_path: Path | None,
+    keep_viewer_open: bool,
 ) -> dict:
-    """Supply this task's reference to the same controller evaluated on the CPU."""
-    if find_spec("isaacsim") is None:
-        raise RuntimeError(
-            "Isaac needs the isolated deployment/isaac environment. "
-            "Run uv sync --project deployment/isaac --locked, then use "
-            "deployment/isaac/.venv/bin/python for this command."
-        )
+    """Use the same CPU control algorithm with measured Isaac joint state."""
     import warnings
 
     import numpy as np
@@ -138,7 +312,7 @@ def _run_isaac(
         warnings.warn(
             f"{run.autonomy.controller} in Isaac uses "
             f"{controller.EXECUTION['isaac']} execution; it has no tensor "
-            "implementation and will require per-environment work in a batch.",
+            "implementation and requires per-environment work in a batch.",
             RuntimeWarning,
             stacklevel=2,
         )
@@ -158,80 +332,107 @@ def _run_isaac(
         joints=robot_definition.joints,
         desired_state=lambda time: reference,
     )
-    trace_path = recording.with_suffix(".npz") if recording is not None else None
     if trace_path is not None:
         trace_path.unlink(missing_ok=True)
-    try:
-        trace = run_scene(run, definitions, command, trace_path=trace_path)
-    finally:
-        execution_failed = sys.exc_info()[0] is not None
-        if trace_path is not None and trace_path.exists():
-            from robo_arch.core.worlds.drake.visualization import replay_positions
-
-            try:
-                replay_positions(run, definitions, trace_path, recording)
-                print(
-                    f"Isaac trajectory playback: {recording.resolve().as_uri()}",
-                    file=sys.stderr,
-                )
-            except Exception as error:
-                if not execution_failed:
-                    raise
-                warnings.warn(
-                    f"Playback failed; original simulation error follows. "
-                    f"Trace retained at {trace_path}: {error}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+    trace = run_scene(
+        run,
+        definitions,
+        command,
+        trace_path=trace_path,
+        keep_viewer_open=keep_viewer_open,
+    )
     return {
         "world": run.world,
         "duration_seconds": float(trace["times"][-1]),
         "robot": task.robot,
         "initial_positions_rad": trace["positions"][0].tolist(),
         "final_positions_rad": trace["positions"][-1].tolist(),
+        "physics_settings": trace["physics_settings"],
         **evaluate(task, tuple(trace["positions"][-1])),
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--run", default=str(default_run()), help="Run file or package URI"
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument(
+        "--run", default=default_run(), help="Scenario file or package URI"
+    )
+    inputs.add_argument(
+        "--inspect", type=Path, help="Restore resolved inputs from run metadata"
+    )
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument(
+        "--world",
+        choices=("drake", "isaac", "real"),
+        help="Replace the world configuration with native defaults",
+    )
+    selection.add_argument(
+        "--world-config", help="Complete world configuration file or package URI"
+    )
+    viewing = parser.add_mutually_exclusive_group()
+    viewing.add_argument(
+        "--visualization", choices=("off", "live", "record", "live_and_record")
+    )
+    viewing.add_argument(
+        "--headless", action="store_true", help="Disable the viewer; preserve sensors"
     )
     parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Skip visualization unless --record is set",
+        "--record", type=Path, help="Native recording output (Drake HTML)"
     )
     parser.add_argument(
-        "--record", type=Path, help="Save standalone HTML playback at this path"
+        "--trace", type=Path, help="Measured Isaac joint-state NPZ output"
     )
     parser.add_argument(
-        "--no-browser",
-        action="store_true",
-        help="Save playback without opening a browser",
+        "--metadata", type=Path, help="Effective run configuration and result JSON"
     )
+    parser.add_argument("--no-browser", action="store_true")
     parser.add_argument(
-        "--world", choices=("drake", "isaac"), help="Override the scenario world"
-    )
-    parser.add_argument(
-        "--no-sensors",
-        action="store_true",
-        help="Explicitly omit sensors, e.g. for an initial Isaac physics run",
+        "--no-sensors", action="store_true", help="Explicitly omit configured sensors"
     )
     args = parser.parse_args()
-    run = load_run(args.run)
+    run = load_inspection(args.inspect) if args.inspect else load_run(args.run)
+    world = run.world_config
     if args.world is not None:
-        run = replace(run, world=args.world)
+        world = parse_world({"type": args.world})
+    elif args.world_config is not None:
+        world = load_world(args.world_config)
+    payload = world.model_dump()
+    if args.visualization is not None:
+        payload["visualization"]["mode"] = args.visualization
+    if args.headless:
+        payload["visualization"]["mode"] = "record" if args.record else "off"
+    if args.record is not None:
+        if args.visualization == "off":
+            parser.error("--record conflicts with --visualization off")
+        mode = payload["visualization"]["mode"]
+        payload["visualization"]["mode"] = (
+            "live_and_record" if mode in {"live", "live_and_record"} else "record"
+        )
+    if args.no_browser and isinstance(world, DrakeWorld):
+        payload["visualization"]["open_browser"] = False
+    # Validate overrides as a complete native config, including unsupported modes.
+    run = replace(run, world_config=parse_world(payload))
     if args.no_sensors:
         run = replace(run, sensors=())
-    recording = args.record
-    if recording is None and not args.headless:
-        recording = Path(f"recordings/arm_tracking_{run.world}.html")
-    result = run_scenario(run, recording=recording)
+    destination = Path(os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR", "recordings"))
+    metadata = args.metadata or (
+        args.record.with_suffix(".json")
+        if args.record
+        else (
+            args.inspect.with_name(args.inspect.stem + "_inspection.json")
+            if args.inspect
+            else destination / f"arm_tracking_{run.world}.json"
+        )
+    )
+    result = run_scenario(
+        run,
+        recording=args.record,
+        trace_path=args.trace,
+        metadata=metadata,
+        keep_viewer_open=True,
+    )
     print(json.dumps(result, indent=2))
-    if recording is not None and not args.headless and not args.no_browser:
-        webbrowser.open(recording.resolve().as_uri())
     if not result["success"]:
         raise SystemExit(1)
 

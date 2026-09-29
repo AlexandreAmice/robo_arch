@@ -22,6 +22,7 @@ from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld, pars
         {"type": "real", "physics": {"time_step": 0.001}},
         {"type": "drake", "visualization": {"type": "isaac"}},
         {"type": "isaac", "visualization": {"mode": "record"}},
+        {"type": "isaac", "visualization": {"publish_period": 0}},
         {"type": "real", "visualization": {"mode": "record"}},
         {"type": "drake", "physics": {"time_step": 0}},
         {"type": "isaac", "physics": {"time_step": float("nan")}},
