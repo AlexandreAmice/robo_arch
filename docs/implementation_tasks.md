@@ -146,6 +146,8 @@ Keep GPU jobs explicitly selected; a selected integration job must fail if its r
 
 Own configuration loading and resolution under `core/config/`.
 
+Proposed extension: implement the typed, SDK-independent [world configuration](architecture.md#world-configuration-and-visualization-proposal), with native physics/transport and viewer selections. Resolve a complete inline or package-referenced configuration and record effective defaults/explicit overrides; reject foreign world settings. Exact schema and solver choices remain design decisions.
+
 Implement safe YAML loading, package resource references, parameter validation, recursive physical assembly and explicit supported-world checks. Autonomy is assembled in Python using native runtime APIs; do not implement graph parsing or port inference. Reject recursive definition inclusion, missing instances/frames, conflicting attachments, incompatible calibration, missing world implementations and incompatible commands. Report supported slow execution as a warning. Keep device factories lazy and obtain them from explicit registrations, not a shared module importing every device.
 
 Include fixtures demonstrating:
@@ -193,6 +195,8 @@ Construct simulation models, measurement sources and accepted command ports. Com
 
 Provide a Python-authored tracking run. Record configured rates, controller identity and effective parameters.
 
+Apply selected Drake physics settings at construction and use the standard visualization configuration for illustration, proximity, inertia and contact publication. Keep viewer lifecycle in the world package and verify contact diagnostics with explicit geometry/properties; UR7e mesh/contact assets remain A0 work. Follow the [inspection requirements](architecture.md#viewer-lifecycle-and-inspection-proposal).
+
 **Complete when:** the declared position stack runs, followed by inverse dynamics, without per-demo wiring inside the world implementation.
 
 **X0 — Isaac world and generic assembly**
@@ -204,6 +208,8 @@ Own generic Isaac scene/execution integration under `core/worlds/isaac/` and exp
 Reuse controller algorithms and parameter schemas through an explicit Isaac wrapper. Start with one arm and no camera. Explicitly map joint order and command modes. Disable or account for simulator drives that would add unintended control behavior.
 
 Use explicitly registered scalar/CPU wrappers initially. Preserve implementation identities and report transfers. Do not replace inverse dynamics with an Isaac controller for convenience.
+
+Apply Isaac-specific physics settings and configure its native viewer/debug display independently of sensor rendering. Validate the supported API against the selected environment. Treat optional Drake geometry replay as a labeled secondary inspection path, not evidence of Isaac contact visualization. The real-world counterpart belongs to later ROS 2 integration, with transport settings and a proposed RViz 2 view.
 
 **Complete when:** the same configured controller operates in both worlds and produces corresponding outputs for matched inputs/state.
 

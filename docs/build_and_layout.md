@@ -50,12 +50,16 @@ Root build files, `tools/`, `third_party/`, `deployment/` and cross-package `tes
 | Tool/camera mounting, assembly tuning, bimanual coordination | Owning `robot_system/` package |
 | Nut placement goal, object selection, task-specific behavior and scoring | `scenarios/nut_on_pin/` |
 | Generic ROS transport, configuration loading, world assembly and training support | Appropriate subpackage of `core/` |
+| SDK-independent world/visualizer configuration records | `core/config/` |
+| Native runtime settings, viewer construction, publication and replay | `core/worlds/<world>/` |
 
 Put an implementation at the narrowest scope where its assumptions hold. A UR7e controller can construct a shared inverse-dynamics implementation with its model and gains. Do not copy the equations into each robot, or force genuinely device-specific behavior into a generic interface. Assembly- or task-specific tuning stays with that assembly or scenario. `core/` contains named responsibilities, not an unstructured utility collection.
 
 Use explicit supported-world implementations. Device-specific wrappers live in that device's `drake/`, `isaac/` or `real/` directory and call shared code where appropriate. A reusable wrapper can be registered directly without another device wrapper. Generic world assembly lives under `core/worlds/`; discovery reads `DEFINITION` from only the selected `robo_arch.<category>.<model>.definition` packages and loads world factories when needed. No parallel device implementations belong in the generic world directories.
 
 Robot-system composition describes the physical assembly and its available interfaces. Autonomy composition describes computation. A system may provide convenient autonomy presets, but does not require one fixed controller or policy. Both model-based and pixel-to-command stacks can target the same robot system.
+
+The proposed [world configuration](architecture.md#world-configuration-and-visualization-proposal) stays inline in the scenario until reuse warrants a package-referenced file. Scenario-specific solver/viewer choices belong with that scenario; reusable parameter defaults belong to the corresponding SDK-independent world schema. Device material/contact profiles stay beside device assets, assembly-specific RViz views belong with the system, and task-specific views belong with the scenario. Deployment owns runtime environments and process-launch material. Keep native settings adapters and viewer lifecycle in the world package; scenario runners select them instead of constructing Meshcat or RViz directly. Add files only when those implementations arrive.
 
 ## Composition, placement and calibration
 
