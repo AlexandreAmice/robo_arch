@@ -7,6 +7,9 @@ module(
 bazel_dep(name = "rules_cc", version = "0.2.25")
 bazel_dep(name = "rules_python", version = "2.3.4")
 bazel_dep(name = "nanobind", version = "3.0.1")
+
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2", dev_dependency = True)
+
 bazel_dep(name = "toolchains_llvm", version = "1.10.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "10.1.0", dev_dependency = True)

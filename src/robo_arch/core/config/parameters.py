@@ -1,9 +1,7 @@
-"""Strict configuration parameters shared by owner-specific schemas."""
+"""Base type for parameter schemas owned by controllers, sensors and tasks."""
 
-from pydantic import BaseModel, ConfigDict
+from robo_arch.core.config.schema import Schema
 
 
-class Parameters(BaseModel):
-    """Reject unknown fields and nonfinite numbers; prefer tuples for sequences."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+class Parameters(Schema):
+    """Owner-specific parameters using the common configuration validation policy."""

@@ -1,0 +1,16 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "camera_test",
+    srcs = ["test_camera.py"],
+    main = "test_camera.py",
+    tags = ["drake"],
+    deps = [
+        "//src/robo_arch/sensors/realsense_d435",
+        "//src/robo_arch/sensors/realsense_d435/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

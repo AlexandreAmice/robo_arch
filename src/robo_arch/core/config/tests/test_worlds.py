@@ -6,7 +6,10 @@ import sys
 import pytest
 from pydantic import ValidationError
 
-from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld, parse_world
+from robo_arch.core.config.worlds import parse_world
+from robo_arch.core.worlds.drake.config import DrakeWorld
+from robo_arch.core.worlds.isaac.config import IsaacWorld
+from robo_arch.core.worlds.real.config import RealWorld
 
 
 @pytest.mark.parametrize(
@@ -22,9 +25,10 @@ from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld, pars
         {"type": "real", "physics": {"time_step": 0.001}},
         {"type": "drake", "visualization": {"type": "isaac"}},
         {"type": "isaac", "visualization": {"mode": "record"}},
-        {"type": "isaac", "visualization": {"mode": "live"}},
         {"type": "isaac", "visualization": {"collision_geometry": True}},
         {"type": "isaac", "visualization": {"publish_period": 0}},
+        {"type": "isaac", "visualization": {"width": 0}},
+        {"type": "isaac", "target_realtime_rate": -1},
         {"type": "real", "visualization": {"mode": "record"}},
         {"type": "drake", "physics": {"time_step": 0}},
         {"type": "isaac", "physics": {"time_step": float("nan")}},
@@ -44,6 +48,18 @@ def test_effective_configuration_round_trip_is_complete_and_immutable(world):
     assert parse_world(serialized) == world
     with pytest.raises(ValidationError, match="frozen"):
         world.visualization.mode = "live"
+
+
+def test_isaac_live_settings_round_trip_without_sdk():
+    world = parse_world(
+        {
+            "type": "isaac",
+            "target_realtime_rate": 0.5,
+            "visualization": {"mode": "live", "width": 800, "height": 600},
+        }
+    )
+    assert world.visualization.mode == "live"
+    assert parse_world(world.model_dump()) == world
 
 
 def test_declarations_and_loading_do_not_import_optional_sdks():

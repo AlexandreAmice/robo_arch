@@ -1,0 +1,22 @@
+# Keys name physical instances; model values select registered device definitions.
+robots:
+  arm:
+    model: ur7e
+    # Omitted pose is identity relative to this system; the base is fixed.
+    # Omitted initial_positions uses robots/ur7e/definition.py DEFAULT_POSITIONS.
+sensors:
+  camera:
+    model: realsense_d435
+    parent: arm/tool0  # Robot instance/body frame within this system.
+    # Nominal simulation-only mounting; this is not measured calibration.
+    # Pose locates the D435 bottom screw mount. The fixed optical transforms
+    # then align optical +z with the nominal tool approach direction.
+    # Pose is relative to parent: translation in metres, fixed-axis RPY in radians.
+    pose:
+      translation: [0.0, 0.0, 0.08]
+      rpy: [1.5707963267948966, -1.5707963267948966, 0.0]
+    parameters:
+      # Image dimensions in pixels. Other intrinsics/range use CameraParameters
+      # defaults in sensors/realsense_d435/definition.py.
+      width: 64
+      height: 48

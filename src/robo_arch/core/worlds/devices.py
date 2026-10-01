@@ -9,7 +9,7 @@ from typing import Literal
 from robo_arch.core.config.declarations import (
     ObjectDefinition,
     RobotDefinition,
-    RunConfiguration,
+    SceneConfiguration,
     SensorDefinition,
 )
 from robo_arch.core.worlds.assembly import resolve_devices
@@ -51,9 +51,9 @@ def _describe[T](
     return definition
 
 
-def load_definitions(run: RunConfiguration) -> DeviceDefinitions:
+def load_definitions(scene: SceneConfiguration, world: str) -> DeviceDefinitions:
     """Load selected metadata and check world support before constructing devices."""
-    devices = resolve_devices(run)
+    devices = resolve_devices(scene)
     definitions = DeviceDefinitions(
         robots={
             model: _describe("robots", model, RobotDefinition)
@@ -65,15 +65,22 @@ def load_definitions(run: RunConfiguration) -> DeviceDefinitions:
         },
         objects={
             model: _describe("objects", model, ObjectDefinition)
-            for model in dict.fromkeys(obj.model for obj in run.objects)
+            for model in dict.fromkeys(obj.model for obj in scene.objects)
         },
     )
     for robot in devices.robots:
-        if run.world not in definitions.robots[robot.model].supported_worlds:
-            raise ValueError(f"Robot {robot.name} has no {run.world} implementation")
+        if world not in definitions.robots[robot.model].supported_worlds:
+            raise ValueError(f"Robot {robot.name} has no {world} implementation")
     for sensor in devices.sensors:
         definition = definitions.sensors[sensor.model]
-        if run.world not in definition.supported_worlds:
-            raise ValueError(f"Sensor {sensor.name} has no {run.world} implementation")
+        if world not in definition.physical_worlds:
+            raise ValueError(
+                f"Sensor {sensor.name} has no {world} physical implementation"
+            )
+        if scene.sensors_enabled and world not in definition.supported_worlds:
+            raise ValueError(f"Sensor {sensor.name} has no {world} implementation")
         definition.parameter_schema.model_validate(sensor.parameters)
+    for obj in scene.objects:
+        if world not in definitions.objects[obj.model].supported_worlds:
+            raise ValueError(f"Object {obj.name} has no {world} implementation")
     return definitions

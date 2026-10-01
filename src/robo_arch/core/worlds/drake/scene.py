@@ -14,13 +14,23 @@ from pydrake.multibody.plant import (
     MultibodyPlantConfig,
 )
 from pydrake.multibody.tree import ModelInstanceIndex
-from pydrake.systems.framework import DiagramBuilder
+from pydrake.systems.framework import DiagramBuilder, LeafSystem
 from pydrake.systems.sensors import RgbdSensor
 
-from robo_arch.core.config.declarations import Pose, RobotDefinition, RunConfiguration
-from robo_arch.core.config.worlds import DrakePhysics
+from robo_arch.core.config.declarations import (
+    Pose,
+    RobotDefinition,
+    SceneConfiguration,
+    SensorInstance,
+)
 from robo_arch.core.worlds.assembly import PlacedRobot, resolve_devices
-from robo_arch.core.worlds.devices import DeviceDefinitions, load_device_module
+from robo_arch.core.worlds.devices import (
+    DeviceDefinitions,
+    load_definitions,
+    load_device_module,
+)
+from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeWorld
+from robo_arch.core.worlds.drake.sensors import add_sensor_body
 
 
 def _transform(pose: Pose) -> RigidTransform:
@@ -35,9 +45,15 @@ def base_pose(robot: PlacedRobot) -> RigidTransform:
 
 
 def build_controller_model(
-    robot: PlacedRobot, definition: RobotDefinition
+    robot: PlacedRobot,
+    definition: RobotDefinition,
+    *,
+    sensors: tuple[SensorInstance, ...] = (),
+    definitions: DeviceDefinitions | None = None,
 ) -> MultibodyPlant:
     """Independent nominal dynamics, also usable when another world supplies state."""
+    if sensors and definitions is None:
+        raise ValueError("Mounted sensor models require their definitions")
     model = MultibodyPlant(0.0)
     instance = load_device_module("robots", robot.model, "drake").add_to_plant(
         model, name=robot.name
@@ -47,6 +63,16 @@ def build_controller_model(
         model.GetFrameByName(definition.base_frame, instance),
         base_pose(robot),
     )
+    for sensor in sensors:
+        parent_name, frame_name = sensor.parent.rsplit("/", 1)
+        if parent_name == robot.name:
+            add_sensor_body(
+                model,
+                sensor,
+                definitions.sensors[sensor.model],
+                model.GetFrameByName(frame_name, instance),
+                _transform(sensor.pose),
+            )
     model.Finalize()
     return model
 
@@ -59,10 +85,13 @@ class DrakeScene:
     applied by the caller after constructing the complete diagram's context.
     """
 
+    definitions: DeviceDefinitions
     plant: MultibodyPlant
     scene_graph: SceneGraph
     robots: dict[str, ModelInstanceIndex]
     cameras: dict[str, RgbdSensor]
+    wrenches: dict[str, LeafSystem]
+    sensor_instances: dict[str, ModelInstanceIndex]
     controller_models: dict[str, MultibodyPlant]
     initial_positions: dict[str, tuple[float, ...]]
 
@@ -85,20 +114,22 @@ def add_plant(
 
 
 def build_scene(
+    scene: SceneConfiguration,
+    config: DrakeWorld,
+    *,
     builder: DiagramBuilder,
-    run: RunConfiguration,
-    definitions: DeviceDefinitions,
 ) -> DrakeScene:
     """Add the physical scene; the caller supplies autonomy and builds the diagram.
 
     Objects are fixed fixtures. Controller models have the scene's base poses
-    and gravity but contain only their robot's dynamics.
+    and gravity and contain their robot plus its mounted devices.
     """
-    if run.world != "drake":
-        raise ValueError(f"This scene builder cannot execute world {run.world}")
+    if not isinstance(config, DrakeWorld):
+        raise ValueError("Drake scene construction requires DrakeWorld")
+    definitions = load_definitions(scene, config.type)
 
-    devices = resolve_devices(run)
-    plant, scene_graph = add_plant(builder, run.world_config.physics)
+    devices = resolve_devices(scene)
+    plant, scene_graph = add_plant(builder, config.physics)
     robot_instances = {}
     controller_models = {}
     initial_positions = {}
@@ -112,7 +143,9 @@ def build_scene(
             plant.GetFrameByName(definition.base_frame, instance),
             X_WB,
         )
-        model = build_controller_model(robot, definition)
+        model = build_controller_model(
+            robot, definition, sensors=devices.sensors, definitions=definitions
+        )
         positions = (
             definition.default_positions
             if robot.initial_positions is None
@@ -129,7 +162,7 @@ def build_scene(
         controller_models[robot.name] = model
         initial_positions[robot.name] = positions
 
-    for obj in run.objects:
+    for obj in scene.objects:
         definition = definitions.objects[obj.model]
         parser = Parser(plant)
         parser.SetAutoRenaming(True)
@@ -141,29 +174,51 @@ def build_scene(
             plant.GetFrameByName(definition.base_frame, instance),
             _transform(obj.pose),
         )
+    sensor_instances = {}
+    for sensor in devices.sensors:
+        robot_name, frame_name = sensor.parent.rsplit("/", 1)
+        sensor_instances[sensor.name] = add_sensor_body(
+            plant,
+            sensor,
+            definitions.sensors[sensor.model],
+            plant.GetFrameByName(frame_name, robot_instances[robot_name]),
+            _transform(sensor.pose),
+        )
     plant.Finalize()
 
     cameras = {}
-    for sensor in devices.sensors:
-        robot_name, frame_name = sensor.parent.rsplit("/", 1)
-        frame = plant.GetFrameByName(frame_name, robot_instances[robot_name])
+    wrenches = {}
+    for sensor in devices.sensors if scene.sensors_enabled else ():
         definition = definitions.sensors[sensor.model]
         adapter = load_device_module("sensors", sensor.model, "drake")
-        camera = adapter.add_to_builder(
-            builder,
-            scene_graph,
-            parent_frame_id=plant.GetBodyFrameIdOrThrow(frame.body().index()),
-            X_PB=frame.GetFixedPoseInBodyFrame() @ _transform(sensor.pose),
-            parameters=definition.parameter_schema.model_validate(sensor.parameters),
-        )
-        camera.set_name(sensor.name)
-        cameras[sensor.name] = camera
+        instance = sensor_instances[sensor.name]
+        if definition.kind == "wrench":
+            observation = adapter.add_to_builder(builder, plant, instance=instance)
+            wrenches[sensor.name] = observation
+        elif definition.kind == "camera":
+            frame = plant.GetFrameByName(definition.measurement_frame, instance)
+            observation = adapter.add_to_builder(
+                builder,
+                scene_graph,
+                parent_frame_id=plant.GetBodyFrameIdOrThrow(frame.body().index()),
+                X_PB=frame.GetFixedPoseInBodyFrame(),
+                parameters=definition.parameter_schema.model_validate(
+                    sensor.parameters
+                ),
+            )
+            cameras[sensor.name] = observation
+        else:
+            raise ValueError(f"Unsupported sensor kind {definition.kind}")
+        observation.set_name(sensor.name)
 
     return DrakeScene(
+        definitions,
         plant,
         scene_graph,
         robot_instances,
         cameras,
+        wrenches,
+        sensor_instances,
         controller_models,
         initial_positions,
     )

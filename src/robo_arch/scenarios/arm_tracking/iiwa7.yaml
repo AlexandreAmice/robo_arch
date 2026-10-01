@@ -1,0 +1,19 @@
+world:
+  type: drake
+  visualization:
+    type: meshcat
+    mode: record
+duration: 3.0
+robot_system:
+  definition: package://robo_arch/robot_system/iiwa7_mini45/system.yaml
+  autonomy:
+    controller: joint_pd
+    parameters:
+      kp: [300, 300, 250, 200, 80, 50, 20]
+      kd: [30, 30, 25, 20, 8, 5, 2]
+task:
+  type: joint_tracking
+  parameters:
+    robot: arm
+    target: [0.1, 0.5, -0.1, -0.9, 0.1, 0.6, -0.1]
+    tolerance: 0.01

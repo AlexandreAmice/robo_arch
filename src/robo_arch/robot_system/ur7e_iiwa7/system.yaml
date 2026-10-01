@@ -1,0 +1,14 @@
+robots:
+  left_arm:
+    model: ur7e
+    pose:
+      translation: [0.0, -0.7, 0.0]
+sensors:
+  left_ft:
+    model: ati_mini45
+    parent: left_arm/tool0
+systems:
+  right:
+    definition: package://robo_arch/robot_system/iiwa7_mini45/system.yaml
+    pose:
+      translation: [0.0, 0.7, 0.0]

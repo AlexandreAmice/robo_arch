@@ -38,7 +38,7 @@ task: {type: joint_tracking, parameters: {robot: left/arm}}
   arm: {model: example_arm}
 sensors:
   camera:
-    model: ideal_camera
+    model: realsense_d435
     parent: arm/tool0
     pose: {translation: [0, 0, 0.08]}
 """,
@@ -87,7 +87,7 @@ def test_nested_instances_keep_composition_and_relative_poses(tmp_path, monkeypa
         (
             "systems/arm.yaml",
             "robots: {arm: {model: example_arm}}\n"
-            "sensors: {arm: {model: ideal_camera, parent: arm/tool0}}\n",
+            "sensors: {arm: {model: realsense_d435, parent: arm/tool0}}\n",
             "names must be unique",
         ),
     ],

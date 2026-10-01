@@ -1,0 +1,18 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "wrench_test",
+    srcs = ["test_wrench.py"],
+    main = "test_wrench.py",
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/sensors/ati_mini45",
+        "//src/robo_arch/sensors/ati_mini45/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

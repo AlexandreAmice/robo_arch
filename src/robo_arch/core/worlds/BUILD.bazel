@@ -2,15 +2,25 @@ load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 py_library(
+    name = "package",
+    srcs = ["__init__.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = ["//src/robo_arch/core"],
+)
+
+py_library(
     name = "worlds",
     srcs = [
-        "__init__.py",
         "assembly.py",
         "devices.py",
+        "traces.py",
+        "urdf.py",
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        "//src/robo_arch/core",
+        ":package",
+        requirement("numpy"),
+        requirement("matplotlib"),
         "//src/robo_arch/core/config",
     ],
 )
@@ -22,6 +32,7 @@ py_test(
     deps = [
         ":worlds",
         "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake:config",
         requirement("pytest"),
     ],
 )
@@ -33,9 +44,12 @@ py_test(
     deps = [
         ":worlds",
         "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake:config",
+        "//src/robo_arch/core/worlds/isaac:config",
+        "//src/robo_arch/core/worlds/real:config",
         "//src/robo_arch/objects/box",
         "//src/robo_arch/robots/ur7e",
-        "//src/robo_arch/sensors/ideal_camera",
+        "//src/robo_arch/sensors/realsense_d435",
         requirement("pydantic"),
         requirement("pytest"),
     ],

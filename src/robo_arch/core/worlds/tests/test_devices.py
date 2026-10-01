@@ -19,8 +19,8 @@ from robo_arch.core.config.declarations import (
     TaskSelection,
 )
 from robo_arch.core.config.parameters import Parameters
-from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
 from robo_arch.core.worlds.devices import load_definitions, load_device_module
+from robo_arch.core.worlds.drake.config import DrakeWorld
 
 
 class TrackingParameters(Parameters):
@@ -44,7 +44,7 @@ def _run() -> RunConfiguration:
             sensors=(
                 SensorInstance(
                     name="camera",
-                    model="ideal_camera",
+                    model="realsense_d435",
                     parent="arm/tool0",
                     pose=Pose(),
                     parameters={},
@@ -70,10 +70,10 @@ def test_discovery_loads_only_selected_definitions_and_deduplicates_models():
             systems=(replace(system, name="left"), replace(system, name="right")),
         ),
     )
-    definitions = load_definitions(run)
+    definitions = load_definitions(run.scene, run.world)
     assert tuple(definitions.robots) == ("ur7e",)
     assert len(definitions.robots["ur7e"].joints) == 6
-    assert tuple(definitions.sensors) == ("ideal_camera",)
+    assert tuple(definitions.sensors) == ("realsense_d435",)
     assert definitions.objects["box"].resource == "model.sdf"
 
 
@@ -88,7 +88,8 @@ def test_discovery_rejects_model_import_paths(name):
                     run.robot_system,
                     robots=(replace(run.robot_system.robots[0], model=name),),
                 ),
-            )
+            ).scene,
+            run.world,
         )
 
 
@@ -104,16 +105,15 @@ def test_unknown_device_and_unsupported_world_fail_before_adapter_loading():
                         replace(run.robot_system.robots[0], model="unknown_robot"),
                     ),
                 ),
-            )
+            ).scene,
+            run.world,
         )
     with pytest.raises(ValueError, match="Robot arm has no real implementation"):
-        load_definitions(replace(run, world_config=RealWorld()))
+        load_definitions(run.scene, "real")
     with pytest.raises(ValueError, match="Sensor camera has no isaac implementation"):
-        load_definitions(replace(run, world_config=IsaacWorld()))
-    definitions = load_definitions(
-        replace(run, world_config=IsaacWorld(), sensors_enabled=False)
-    )
-    assert definitions.sensors == {}
+        load_definitions(run.scene, "isaac")
+    definitions = load_definitions(replace(run.scene, sensors_enabled=False), "isaac")
+    assert tuple(definitions.sensors) == ("realsense_d435",)
     assert tuple(definitions.robots) == ("ur7e",)
     with pytest.raises(ValidationError):
         load_definitions(
@@ -125,7 +125,8 @@ def test_unknown_device_and_unsupported_world_fail_before_adapter_loading():
                         replace(run.robot_system.sensors[0], parameters={"width": 0}),
                     ),
                 ),
-            )
+            ).scene,
+            run.world,
         )
 
 
@@ -139,7 +140,9 @@ def test_parameter_schema_defaults_constraints_and_unknown_fields():
 
 
 def test_missing_device_adapter_is_not_substituted():
-    with pytest.raises(ModuleNotFoundError, match="robo_arch.robots.ur7e.real"):
+    with pytest.raises(
+        ModuleNotFoundError, match="robo_arch.robots.ur7e.real"
+    ):
         load_device_module("robots", "ur7e", "real")
 
 
@@ -152,10 +155,16 @@ def test_declarations_import_in_fresh_process_without_simulator_sdks():
     script = f"""
 import sys
 sys.path[:] = {sys.path!r}
+world_packages = tuple(
+    'robo_arch.core.worlds.' + world for world in ('drake', 'isaac', 'real')
+)
 class RejectSDK:
     def find_spec(self, fullname, path=None, target=None):
         if (fullname.split('.')[0] in {{'pydrake', 'isaacsim', 'omni', 'pxr', 'rclpy'}}
-            or fullname.endswith(('.drake', '.isaac', '.real'))):
+            or (fullname.endswith(('.drake', '.isaac', '.real'))
+                and fullname not in world_packages)
+            or any(fullname.startswith(package + '.')
+                   and fullname != package + '.config' for package in world_packages)):
             raise AssertionError('Unexpected SDK import: ' + fullname)
 sys.meta_path.insert(0, RejectSDK())
 import robo_arch.core.config.declarations
@@ -163,7 +172,7 @@ assert 'yaml' not in sys.modules
 import robo_arch.core.config.loading
 from robo_arch.robots.ur7e.definition import describe as describe_robot
 robot = describe_robot()
-from robo_arch.sensors.ideal_camera.definition import describe as describe_sensor
+from robo_arch.sensors.realsense_d435.definition import describe as describe_sensor
 sensor = describe_sensor()
 from robo_arch.objects.box.definition import describe as describe_object
 obj = describe_object()

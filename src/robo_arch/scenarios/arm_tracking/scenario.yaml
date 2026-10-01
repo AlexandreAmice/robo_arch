@@ -12,7 +12,7 @@ duration: 2.0
 sensors_enabled: true
 
 robot_system:
-  definition: package://robo_arch/robot_system/ur7e_ideal_camera/system.yaml
+  definition: package://robo_arch/robot_system/ur7e_d435/system.yaml
   # Omitted system pose is identity in world; robot bases are fixed.
   autonomy:
     controller: joint_tracking

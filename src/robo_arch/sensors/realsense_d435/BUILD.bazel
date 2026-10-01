@@ -1,0 +1,20 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "realsense_d435",
+    srcs = [
+        "__init__.py",
+        "definition.py",
+    ],
+    data = glob([
+        "assets/**",
+        "THIRD_PARTY_LICENSES/**",
+    ]),
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/sensors",
+        requirement("pydantic"),
+    ],
+)

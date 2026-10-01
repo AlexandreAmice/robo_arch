@@ -7,7 +7,6 @@ import os
 import shlex
 import sys
 import uuid
-import webbrowser
 from dataclasses import asdict, replace
 from importlib.metadata import distributions
 from importlib.resources import files
@@ -17,11 +16,13 @@ from pydantic import BaseModel, TypeAdapter
 
 from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.config.loading import load_run, load_world, resolve_resource
-from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, parse_world
-from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
+from robo_arch.core.config.worlds import parse_world
 from robo_arch.core.worlds.assembly import resolve_devices
-from robo_arch.core.worlds.devices import DeviceDefinitions, load_definitions
-from robo_arch.scenarios.arm_tracking.evaluation import TrackingTask, evaluate
+from robo_arch.core.worlds.devices import load_definitions
+from robo_arch.core.worlds.drake.config import DrakeWorld
+from robo_arch.core.worlds.isaac.config import IsaacWorld
+from robo_arch.scenarios.arm_tracking.control import parameters_for
+from robo_arch.scenarios.arm_tracking.evaluation import evaluate, tracking_tasks
 
 
 def default_run() -> str:
@@ -48,7 +49,7 @@ def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
             "--inspect",
             str(metadata.resolve()),
             "--visualization",
-            "live_and_record" if run.world == "drake" else "off",
+            "live_and_record" if run.world == "drake" else "live",
         ]
     )
     return shlex.join(args)
@@ -82,6 +83,7 @@ def _prepare_report(run: RunConfiguration, destination: Path) -> dict:
     for package in (
         "robo-arch",
         "drake",
+        "robo-arch-native",
         *(("isaacsim",) if run.world == "isaac" else ()),
     ):
         versions[package] = installed.get(package, "not installed")
@@ -139,40 +141,48 @@ def run_scenario(
     visual = run.world_config.visualization
     if visual.mode in {"record", "live_and_record"} and recording is None:
         recording = Path(f"recordings/arm_tracking_{run.world}.html")
-    if trace_path is not None and run.world != "isaac":
-        raise ValueError("--trace currently records measured Isaac joint states only")
     if recording is not None:
         recording = recording.resolve()
         recording.parent.mkdir(parents=True, exist_ok=True)
     if metadata is None and recording is not None:
         metadata = recording.with_suffix(".json")
+    if trace_path is None and metadata is not None:
+        trace_path = metadata.with_suffix(".npz")
     report = _prepare_report(run, metadata) if metadata is not None else None
     try:
-        devices = resolve_devices(run)
-        definitions = load_definitions(run)
-        if len(devices.robots) != 1:
-            raise ValueError("Arm tracking requires exactly one actuated robot")
-        if run.autonomy.controller != "joint_tracking":
-            raise ValueError(
-                f"Unsupported arm-tracking controller: {run.autonomy.controller}"
-            )
-        parameters = JointTrackingParameters.model_validate(run.autonomy.parameters)
+        devices = resolve_devices(run.scene)
+        definitions = load_definitions(run.scene, run.world)
+        names = [robot.name for robot in devices.robots]
+        parameters = parameters_for(run, names)
         if run.task.type != "joint_tracking":
             raise ValueError(f"Unsupported task evaluator: {run.task.type}")
-        task = TrackingTask.model_validate(run.task.parameters)
-        if task.robot != devices.robots[0].name:
-            raise ValueError("Task must select the configured robot")
+        task = tracking_tasks(run.task.parameters)
+        if set(task) != set(names):
+            raise ValueError("Task must select every configured robot exactly once")
+        wrench_names = set(run.task.parameters.get("wrenches", {}))
+        available = {
+            sensor.name
+            for sensor in devices.sensors
+            if definitions.sensors[sensor.model].kind == "wrench"
+        }
+        if wrench_names and (not run.sensors_enabled or not wrench_names <= available):
+            raise ValueError("Wrench checks require selected, enabled wrench sensors")
         if isinstance(run.world_config, DrakeWorld):
             result = _run_drake(
-                run, definitions, parameters, task, recording, keep_viewer_open
+                run,
+                parameters,
+                task,
+                recording,
+                keep_viewer_open,
+                trace_path,
             )
         elif isinstance(run.world_config, IsaacWorld):
             result = _run_isaac(
                 run,
-                definitions,
                 parameters,
                 task,
                 trace_path,
+                keep_viewer_open,
             )
         else:
             raise ValueError("No hardware execution runner for arm tracking")
@@ -197,149 +207,81 @@ def run_scenario(
             print(f"Inspect this run: {report['inspection_command']}", file=sys.stderr)
 
 
-def _run_drake(
-    run: RunConfiguration,
-    definitions: DeviceDefinitions,
-    parameters: JointTrackingParameters,
-    task: TrackingTask,
-    recording: Path | None,
-    keep_viewer_open: bool,
-) -> dict:
+def _results(run, tasks, trace):
     import numpy as np
 
-    from robo_arch.core.worlds.drake.visualization import (
-        create_meshcat,
-        hold_live,
-        save_recording,
-        start_recording,
-    )
-    from robo_arch.scenarios.arm_tracking.drake import build_simulation
-
-    devices = resolve_devices(run)
-    visual = run.world_config.visualization
-    if recording is not None:
-        recording.unlink(missing_ok=True)
-    meshcat = create_meshcat(visual)
-    if meshcat is not None:
-        start_recording(meshcat, visual)
-    try:
-        simulator, scene = build_simulation(
-            run, definitions, parameters, desired_positions=task.target, meshcat=meshcat
-        )
-
-        def positions() -> np.ndarray:
-            context = scene.plant.GetMyContextFromRoot(simulator.get_context())
-            return scene.plant.GetPositions(context, scene.robots[task.robot]).copy()
-
-        def depth_image(name: str) -> np.ndarray:
-            camera = scene.cameras[name]
-            context = camera.GetMyContextFromRoot(simulator.get_context())
-            return camera.depth_image_32F_output_port().Eval(context).data
-
-        initial = positions()
-        initial_depth = {
-            sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-            for sensor in devices.sensors
+    wrench_checks = {}
+    for name, check in run.task.parameters.get("wrenches", {}).items():
+        samples = np.asarray(trace.values[name + "/wrench"])[1:, :3]
+        peak = float(np.max(np.linalg.norm(samples, axis=1))) if len(samples) else 0.0
+        wrench_checks[name] = {
+            "peak_force_N": peak,
+            "success": peak >= check["min_peak_force_N"],
         }
-        simulator.AdvanceTo(run.duration)
-        if meshcat is not None:
-            simulator.get_system().ForcedPublish(simulator.get_context())
-        final = positions()
-        if recording is not None:
-            from pydrake.systems.sensors import ImageIo
-
-            for name, camera in scene.cameras.items():
-                image = camera.color_image_output_port().Eval(
-                    camera.GetMyContextFromRoot(simulator.get_context())
-                )
-                destination = recording.with_name(
-                    f"{recording.stem}_{name.replace('/', '__')}.png"
-                )
-                ImageIo().Save(image, destination)
-        return {
-            "world": run.world,
-            "duration_seconds": run.duration,
-            "robot": task.robot,
-            "initial_positions_rad": initial.tolist(),
-            "final_positions_rad": final.tolist(),
-            "initial_finite_depth_pixels": initial_depth,
-            "final_finite_depth_pixels": {
-                sensor.name: int(np.isfinite(depth_image(sensor.name)).sum())
-                for sensor in devices.sensors
-            },
-            **evaluate(task, tuple(final)),
+    robots = {
+        name: {
+            "robot": name,
+            "initial_positions_rad": trace.values[name + "/q"][0].tolist(),
+            "final_positions_rad": trace.values[name + "/q"][-1].tolist(),
+            **evaluate(task, tuple(trace.values[name + "/q"][-1])),
         }
-    finally:
-        if meshcat is not None:
-            if recording is not None:
-                save_recording(meshcat, recording)
-                print(f"Scene playback: {recording.as_uri()}", file=sys.stderr)
-                if visual.mode == "record" and visual.open_browser:
-                    webbrowser.open(recording.as_uri())
-            if keep_viewer_open and visual.mode in {"live", "live_and_record"}:
-                hold_live(meshcat)
-
-
-def _run_isaac(
-    run: RunConfiguration,
-    definitions: DeviceDefinitions,
-    parameters: JointTrackingParameters,
-    task: TrackingTask,
-    trace_path: Path | None,
-) -> dict:
-    """Use the same CPU control algorithm with measured Isaac joint state."""
-    import warnings
-
-    import numpy as np
-
-    from robo_arch.core.controllers.joint_tracking.drake import make_policy
-    from robo_arch.core.worlds.drake.scene import build_controller_model
-    from robo_arch.core.worlds.isaac.simulation import run_scene
-
-    transfers = (
-        " State and commands cross the GPU boundary each step."
-        if run.world_config.physics.device == "cuda:0"
-        else ""
-    )
-    warnings.warn(
-        "joint_tracking in Isaac evaluates Drake inverse dynamics on the CPU, "
-        "with per-environment work in a batch." + transfers,
-        RuntimeWarning,
-        stacklevel=2,
-    )
-    robot = resolve_devices(run).robots[0]
-    robot_definition = definitions.robots[robot.model]
-    model = build_controller_model(robot, robot_definition)
-    target = np.asarray(task.target)
-    if len(target) != model.num_positions() or not (
-        np.all(target >= model.GetPositionLowerLimits())
-        and np.all(target <= model.GetPositionUpperLimits())
-    ):
-        raise ValueError("Task target must match the robot's joints and limits")
-    reference = np.r_[target, np.zeros_like(target)]
-    command = make_policy(
-        model=model,
-        parameters=parameters,
-        joints=robot_definition.joints,
-        desired_state=lambda time: reference,
-    )
-    if trace_path is not None:
-        trace_path.unlink(missing_ok=True)
-    trace = run_scene(
-        run,
-        definitions,
-        command,
-        trace_path=trace_path,
-    )
-    return {
-        "world": run.world,
-        "duration_seconds": float(trace["times"][-1]),
-        "robot": task.robot,
-        "initial_positions_rad": trace["positions"][0].tolist(),
-        "final_positions_rad": trace["positions"][-1].tolist(),
-        "physics_settings": trace["physics_settings"],
-        **evaluate(task, tuple(trace["positions"][-1])),
+        for name, task in tasks.items()
     }
+    result = {
+        "world": run.world,
+        "controller": run.autonomy.controller,
+        "duration_seconds": trace.times[-1],
+        "robots": robots,
+        "success": all(
+            value["success"] for value in (*robots.values(), *wrench_checks.values())
+        ),
+        "wrench_checks": wrench_checks,
+        "final_wrenches_N_Nm": {
+            name.removesuffix("/wrench"): values[-1].tolist()
+            for name, values in trace.values.items()
+            if name.endswith("/wrench")
+        },
+    }
+    if len(robots) == 1:
+        single = next(iter(robots.values()))
+        result.update({key: value for key, value in single.items() if key != "success"})
+    return result
+
+
+def _run_drake(run, parameters, tasks, recording, keep_viewer_open, trace_path):
+    from functools import partial
+
+    from robo_arch.core.worlds.drake.scenario import run_scenario as execute
+    from robo_arch.scenarios.arm_tracking.drake import configure
+
+    result = execute(
+        run,
+        configure=partial(
+            configure,
+            run=run,
+            parameters=parameters,
+            desired_positions={name: task.target for name, task in tasks.items()},
+        ),
+        recording=recording,
+        trace_path=trace_path,
+        keep_viewer_open=keep_viewer_open,
+    )
+    return {**_results(run, tasks, result.pop("trace")), **result}
+
+
+def _run_isaac(run, parameters, tasks, trace_path, keep_viewer_open):
+    from functools import partial
+
+    from robo_arch.core.worlds.isaac.scenario import run_scenario as execute
+    from robo_arch.scenarios.arm_tracking.isaac import configure
+
+    result = execute(
+        run,
+        configure=partial(configure, run=run, parameters=parameters, tasks=tasks),
+        trace_path=trace_path,
+        keep_viewer_open=keep_viewer_open,
+    )
+    return {**_results(run, tasks, result.pop("trace")), **result}
 
 
 def main() -> None:
@@ -371,14 +313,16 @@ def main() -> None:
         "--record", type=Path, help="Native recording output (Drake HTML)"
     )
     parser.add_argument(
-        "--trace", type=Path, help="Measured Isaac joint-state NPZ output"
+        "--trace", type=Path, help="Measured states, efforts and wrench NPZ output"
     )
     parser.add_argument(
         "--metadata", type=Path, help="Effective run configuration and result JSON"
     )
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument(
-        "--no-sensors", action="store_true", help="Explicitly omit configured sensors"
+        "--no-sensors",
+        action="store_true",
+        help="Disable observations; keep sensor bodies, mass and collisions",
     )
     args = parser.parse_args()
     run = load_inspection(args.inspect) if args.inspect else load_run(args.run)
@@ -436,6 +380,14 @@ def main() -> None:
         metadata=metadata,
         keep_viewer_open=True,
     )
+    trace = args.trace or metadata.with_suffix(".npz")
+    if trace.exists():
+        from robo_arch.core.worlds.traces import plot_trace
+
+        print(
+            f"Measured trace plot: {plot_trace(trace).resolve().as_uri()}",
+            file=sys.stderr,
+        )
     print(json.dumps(result, indent=2))
     if not result["success"]:
         raise SystemExit(1)

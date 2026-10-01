@@ -22,7 +22,8 @@ from pydrake.multibody.tree import SpatialInertia, UnitInertia
 from pydrake.systems.analysis import Simulator
 from pydrake.systems.framework import DiagramBuilder
 
-from robo_arch.core.config.worlds import DrakePhysics, DrakeVisualization
+from robo_arch.core.worlds.devices import DeviceDefinitions
+from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeVisualization
 from robo_arch.core.worlds.drake.scene import DrakeScene, add_plant
 from robo_arch.core.worlds.drake.visualization import (
     add_visualization,
@@ -68,7 +69,17 @@ def contact_fixture(config: DrakeVisualization):
     )
     plant.SetDefaultFloatingBaseBodyPose(body, RigidTransform([0, 0, 0.095]))
     plant.Finalize()
-    scene = DrakeScene(plant, graph, {}, {}, {}, {})
+    scene = DrakeScene(
+        definitions=DeviceDefinitions(robots={}, sensors={}, objects={}),
+        plant=plant,
+        scene_graph=graph,
+        robots={},
+        cameras={},
+        wrenches={},
+        sensor_instances={},
+        controller_models={},
+        initial_positions={},
+    )
     meshcat = create_meshcat(config)
     if meshcat is not None:
         add_visualization(builder, scene, config, meshcat)

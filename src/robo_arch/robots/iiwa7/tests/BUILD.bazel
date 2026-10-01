@@ -1,0 +1,15 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "model_test",
+    srcs = ["test_model.py"],
+    main = "test_model.py",
+    deps = [
+        "//src/robo_arch/robots/iiwa7",
+        "//src/robo_arch/robots/iiwa7/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

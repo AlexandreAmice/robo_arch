@@ -1,129 +1,101 @@
 # Robotics architecture
 
-A shared autonomy stack across Drake, hardware and batched simulation. The first
-runnable example tracks a joint target with a UR7e in Drake and renders a box
-through an idealized wrist RGB-D camera. A camera-free Isaac run uses the same
-controller and task, with scalar CPU control and configurable CPU/GPU PhysX dynamics.
+Local robotics development with shared autonomy across Drake and Isaac. Examples
+exercise a UR7e with a RealSense D435 housing, an iiwa 7 with an ATI Mini45-R, and
+a mixed UR7e–iiwa bimanual assembly with two independent force/torque sensors.
+Both robots and both sensors have physical collision geometry.
 
-- [Architecture](docs/architecture.md): scenario, autonomy, world, composition and shared execution.
-- [Build and layout](docs/build_and_layout.md): device-owned code/assets, recursive robot systems, scenarios, core libraries, and Python/C++ packaging.
-- [Implementation plan](docs/implementation_tasks.md): private GitHub setup, parallel work packages, dependencies, and controller-reuse acceptance gates.
-- [Agent guidance](AGENTS.md): scope, concise documentation and coding style.
+- [Architecture](docs/architecture.md): composition, autonomy and explicit worlds.
+- [Build and layout](docs/build_and_layout.md): ownership and local Python/C++ workflow.
+- [Implementation status](docs/implementation_tasks.md): implemented capabilities and remaining work.
+- [Example configuration](src/robo_arch/scenarios/arm_tracking/README.md): runs, units and inspection.
 
-Clone the private repository with an authorized GitHub account:
+## Local development
 
-```sh
-gh repo clone AlexandreAmice/robo_arch
-cd robo_arch
-```
-
-Use the pinned uv version in `pyproject.toml` and Bazelisk (which reads
-`.bazelversion`). Python development needs no Bazel invocation:
+Use the pinned uv version in `pyproject.toml` and Bazelisk (`.bazelversion`):
 
 ```sh
 uv sync --locked
-uv run --locked pytest
+uv run tools/dev.py native --profile drake
+uv run pytest
+bazel test //src/robo_arch/... //tests/build:core //tests/build:cxx23 //tests/build:drake
 uv run ruff check .
 uv run ruff format --check .
 uv lock --check
-```
-
-The default `.venv` includes development tools and Drake. For an SDK-independent
-environment, use `uv sync --locked --no-group drake` and the same
-`--no-group drake` option with `uv run`.
-
-In VS Code, install Microsoft's Python and Python Debugger extensions and select
-`.venv/bin/python` with **Python: Select Interpreter**. The workspace setting
-provides this default for new selections; change any previously selected
-interpreter explicitly. Open `src/robo_arch/scenarios/arm_tracking/run.py` and
-use **Run Python File** or **Python Debugger: Debug Python File** from its run
-button dropdown. Python edits require no Bazel build.
-
-Bazel uses its own pinned Python dependencies and C++23 toolchain:
-
-```sh
-bazel test //tests/build:core //tests/build:cxx23 \
-  //src/robo_arch/core/worlds:devices_test \
-  //src/robo_arch/core/config:loading_test
 bazel run //:buildifier
 ```
 
-Run the example and open its interactive scene playback:
+There are no hosted CI workflows or required remote checks. Python edits remain
+editable through uv; Bazel builds C++ and offers an independent local test path.
+Tests use importlib collection so owner-local tests can share filenames.
+Select `.venv/bin/python` in your IDE. Core declarations can be inspected in an
+SDK-independent environment using `uv sync --locked --no-group drake`.
+
+The native helper builds and installs a private wheel into the selected existing
+environment. It skips unchanged installed bytes, stops on failure and launches a
+fresh process for `run`. Exact `uv sync` can remove the development wheel; rerun
+the helper afterward. See the [controller](src/robo_arch/core/controllers/joint_pd/README.md)
+for ownership, units and ABI details.
+
+## Run the examples
 
 ```sh
-uv run --locked python -m robo_arch.scenarios.arm_tracking.run
-bazel run //src/robo_arch/scenarios/arm_tracking:run
+# UR7e, detailed meshes, physical D435 and ideal RGB-D rendering in Drake.
+uv run python -m robo_arch.scenarios.arm_tracking.run
+
+# Seven-axis native PD + gravity feedforward, with wrist force/torque sensing.
+uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/iiwa7.yaml
+
+# Different arm models and independent controllers/sensors in one nested system.
+uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
+
+# Deliberate sensor-face contact with a fixed block; evaluates measured force.
+uv run python -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/iiwa7_contact.yaml
 ```
 
-It saves `recordings/arm_tracking_drake.html`, opens it in your browser, and prints joint
-positions, tracking error and camera depth-pixel counts. Camera images are saved
-beside the playback. Use `--no-browser` to save
-playback without opening it, or `--headless` for automated checks. Select another
-run with `--run path/to/run.yaml` or a `package://robo_arch/...` URI. The packaged
-[scenario](src/robo_arch/scenarios/arm_tracking/scenario.yaml) keeps the world,
-robot-system and controller selection, object poses, task target and gains together.
-World profiles may also be complete package-referenced YAML files. The
-[configuration guide](src/robo_arch/scenarios/arm_tracking/README.md) explains
-the fields, units, defaults and file references.
+Drake saves and opens interactive Meshcat playback. Use `--record <path.html>`
+to choose the destination, `--no-browser` to suppress opening it, or `--headless`
+for local automated checks. Live proximity/contact inspection uses
+`--visualization live_and_record`; select the layers in Meshcat's controls.
 
-World configuration selects native physics and visualization separately. Drake's
-standard viewer exposes illustration, proximity, inertia and contact layers:
+Each CLI run saves resolved configuration, source/asset hashes, versions and an
+inspection command. NPZ traces and PNG plots contain measured positions, efforts
+and wrenches. `--inspect <report.json>` restores inputs using the current code
+and assets; it does not overwrite the original recording.
+
+Isaac uses a separate pinned environment:
 
 ```sh
-uv run --locked python -m robo_arch.scenarios.arm_tracking.run \
-  --visualization live_and_record
+uv sync --project third_party/isaac --locked
+uv run tools/dev.py native --profile isaac
+env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
+  third_party/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
+  --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
 
-Use **Close inspection** or Ctrl-C to release the live viewer. HTML recordings
-cannot faithfully replay changing hydroelastic pressure/contact surfaces; inspect
-those live. The current UR7e still has simplified visuals and no collision model.
-
-Isaac supports headless CPU/GPU PhysX with TGS/PGS and the same controller and
-gains; sensors must currently be disabled explicitly. Live viewing and native
-recording are rejected. The native viewport is deferred until rendering and
-shutdown are validated. See [Isaac setup](third_party/isaac/README.md) for physics
-commands and measured limits.
-
-Every CLI run writes effective configuration, package versions and an inspection
-command beside its results. `--inspect <report.json>` restores all resolved run
-inputs; source code and assets still come from the current installation. `--world` replaces all world settings with that
-world's defaults; `--world-config` selects a complete file or package URI.
-The [world configuration guide](docs/architecture.md#world-configuration-and-visualization)
-also describes the independent RViz launcher. Hardware execution is unavailable.
-
-The example exercises each owner:
-
-- `robots/ur7e/`: nominal model and Drake adapter.
-- `sensors/ideal_camera/`: noiseless pinhole RGB-D rendering.
-- `robot_system/ur7e_ideal_camera/`: arm and wrist mount.
-- `objects/box/`: self-contained object asset.
-- `scenarios/arm_tracking/`: layout, task, tuning, run and evaluation.
-- `core/`: YAML loading, inverse-dynamics control and physical scene assembly.
-
-Run the same implementation tests through either workflow:
+For a native desktop view, keep `DISPLAY` set and use:
 
 ```sh
-uv run --locked pytest
-bazel test //src/robo_arch/... //tests/build:core //tests/build:drake
+OMNI_KIT_ACCEPT_EULA=YES third_party/isaac/.venv/bin/python \
+  -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
+  --world-config package://robo_arch/core/worlds/isaac/desktop.yaml
 ```
 
-See the [dependency baseline](third_party/compatibility.md) for pins and ABI
-boundaries, and [Isaac setup](third_party/isaac/README.md) for the isolated
-vendor environment and measured results. Native wheel installation and the
-C++ edit–run helper are not implemented yet.
+This selects CPU PhysX and Kit's Storm renderer, retains the final scene for
+inspection, and saves a viewport PNG. Close the window or press Ctrl-C to exit.
+The environment variable accepts NVIDIA's runtime EULA. Both new systems and the
+contact example support Isaac force/torque sensing. D435 image generation remains
+Drake-only: the original camera-equipped example needs `--no-sensors` in Isaac,
+which retains its physical housing and inertia. See [Isaac setup and limits](third_party/isaac/README.md).
 
-The loader supports nested physical systems, strict YAML fields and package
-references without importing Drake. Execution currently supports one fixed-base
-arm with inverse-dynamics tracking and fixed scene objects. The controller uses a
-separate robot dynamics model and ideal joint measurements; the camera is
-observed but does not guide control. The UR7e has simplified visuals and no robot
-collision geometry. This example does not perform grasping or nut placement.
-
-Controller implementations wire their robot observations and commands once;
-scenario Python supplies task references through the exposed native ports. YAML
-supplies selections and parameters, not an execution graph. Device definitions
-are discovered from the selected packages rather than listed in each scenario. Measured
-calibration and batched execution remain planned. Isaac reports the cost of its
-scalar CPU controller explicitly. Unsupported devices/worlds fail before
-construction; hardware drivers and Isaac cameras are not implemented. Camera rendering requires an OpenGL context; headless EGL works on the
-development host.
+These are nominal simulation examples. Robot collision uses model-specific mesh
+hulls; the Mini45's segmented geometry preserves its bore. Ideal sensing,
+estimated sensor inertias and nominal mounts are documented beside each device.
+There is no hardware execution, gripper, nut placement, batched rollout or RTX
+viewer. Scalar CPU controllers are reported explicitly; shared code does
+not imply GPU-efficient control or identical simulator contact forces.

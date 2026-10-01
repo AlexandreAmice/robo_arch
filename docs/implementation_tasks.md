@@ -8,11 +8,11 @@ Establish **`AlexandreAmice/robo_arch` as a private GitHub repository**, then de
 
 - Editable Python development through uv.
 - C++23 components built by Bazel and immediately usable from Python simulations through nanobind.
-- Bazel as the primary CI and testing interface.
+- Bazel as the native build and independent local testing interface; no formal CI.
 - Independently composable scenario, autonomy, and world configurations.
 - The same configured controller running in Drake and Isaac, including independent state and reset in an Isaac batch.
 
-R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Native Isaac viewing remains deferred. Do not repeat repository setup or discard the build baseline.
+R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Native Isaac Storm viewing is implemented; RTX viewing remains unvalidated. Do not repeat repository setup or discard the build baseline.
 
 **Defaults:** Linux x86-64, Python 3.12 minimum, Python-first implementation, ordinary YAML with PyYAML/Pydantic, and local GPU execution first. Preserve the agreed architecture and existing user edits.
 
@@ -36,7 +36,7 @@ The first milestone excludes physical robot motion, complete nut placement, lear
    ```
 
 5. Confirm repository visibility, upstream tracking, and matching local/remote commit IDs.
-6. Enable GitHub Actions for subsequent CI. Do not add a public license or publish packages.
+6. Do not add a public license or publish packages. Validation remains local; hosted CI is not requested.
 
 If setup already exists, inspect and resume it without replacing history or force-pushing.
 
@@ -51,7 +51,7 @@ If setup already exists, inspect and resume it without replacing history or forc
 - Coordinate edits to shared constructors and parameter schemas explicitly; wrapper agents provide changes to the owning package.
 - An agent starts when its listed dependencies are merged. Earlier exploration is allowed, but it must not invent a competing interface.
 - Every handoff states implemented behavior, public interface changes, commands actually exercised, limitations, and remaining dependencies.
-- Merge after relevant checks pass. Require no independent reviewer approval that would prevent a solo maintainer from merging. Apply required checks through GitHub settings where supported.
+- Merge after relevant local checks pass. Do not add hosted workflows or required remote checks.
 
 Keep work-package status in this document; avoid creating a second architecture document for each agent. The coordinator updates status to prevent competing edits to this file.
 
@@ -128,17 +128,13 @@ Use a small numerical C++ library to prove the mechanism. Keep its Python bindin
 
 **Complete when:** changing C++ changes the result observed from editable Python, ordinary Python edits require no native rebuild, and a failed native build prevents launch.
 
-**C0 — Bazel testing and GitHub Actions**
+**C0 — Local validation**
 
-**Depends on:** B0, L0; add native packaging coverage after B1.
-
-Own CI workflows and shared pytest integration.
-
-Run core tests through Bazel using declared sources, dependencies and resources. Add Drake checks after its integration exists. Reuse the same pytest sources under uv and Bazel. Include formatting checks, `uv lock --check` and Bazel `--lockfile_mode=error` checks.
-
-Keep GPU jobs explicitly selected; a selected integration job must fail if its required runtime is unavailable. Do not count skipped GPU tests as Isaac validation. Keep remote caches and CI artifacts private.
-
-**Complete when:** a fresh GitHub runner executes core Bazel checks without a developer `.venv`.
+The user selected local-first development without formal CI. Existing and new
+pytest cases run through uv and declared Bazel targets. Check formatting and
+committed locks locally; exercise installed wheels outside the source tree.
+Isaac runs explicitly in its pinned vendor environment, with measured traces
+and clean process exit required. No hosted workflows or remote check gates.
 
 **S0 — Physical configuration and selection**
 
@@ -241,7 +237,7 @@ Own the short user workflow and integrated examples. Exercise the complete C++ e
 |---|---|---|---|---|
 | Completed foundation | B0 | I0 | G0 limited feasibility | R0/integration |
 | Layout migration | L0 | Read-only preparation | Read-only preparation | Coordination/review |
-| Revised interfaces/infrastructure | I1 | B1 native bridge | C0 CI | Coordination/review |
+| Revised interfaces/infrastructure | I1 | B1 native bridge | C0 local checks | Coordination/review |
 | After I1 | S0 configuration | A0 UR7e/system | Finish B1/C0 | Coordination/review |
 | Execution | K0 shared algorithms, then support | D0 Drake after K0 | X0 Isaac after K0 | Integration/review |
 | Milestone | Native batch support | Drake correspondence checks | X1 batching | M0 integration |
@@ -276,13 +272,13 @@ Task/scene and hardware work can proceed independently. Hardware-specific implem
 
 **Batch gate:** at least two environments run with independent state and selective reset. CPU/GPU transfer and scalar-execution warnings are visible. Throughput is measured, not inferred from annotations.
 
-**CI gate:** Bazel runs the authoritative CPU/Drake checks without consuming `.venv`; selected GPU checks execute in their recorded environment. Wheel installation and resource loading receive separate coverage.
+**Local validation gate:** Bazel runs CPU/Drake checks without consuming `.venv`; selected GPU checks execute in their recorded environment. Wheel installation and resource loading receive separate coverage. No formal CI is required.
 
 If local Isaac cannot run, publish the completed repository, development workflow and Drake results with an explicit blocked Isaac gate. Do not mark the controller-reuse milestone complete until actual Isaac execution evidence exists.
 
 ## Work-package status
 
-Status as of 2026-09-29. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. Partial packages below retain their broader acceptance gates.
+Status as of 2026-09-30. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. The local expansion below adds physical devices, mixed-arm execution and native control; partial packages retain their broader acceptance gates.
 
 | Package | Status |
 |---|---|
@@ -292,20 +288,20 @@ Status as of 2026-09-29. Runtime, explicit assembly and world configuration are 
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
 | L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1, C0 | Ready; parallel with remaining I1 work |
+| B1 | Implemented: C++ PD library, nanobind arrays, private local wheel and build/install/run helper for Drake/Isaac |
+| C0 | Local validation only; hosted CI and required remote checks removed by user decision |
 | S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
-| A0 | Partial: nominal UR7e, ideal RGB-D camera, box and arm-with-camera system; collision models, gripper and calibration remain |
-| K0 | Partial: shared inverse-dynamics controller executes in Drake and scalar CPU Isaac; batch execution remains |
+| A0 | Nominal UR7e and iiwa 7 with model-specific collision meshes; D435 and Mini45 physical models; gripper and calibration remain |
+| K0 | Shared inverse dynamics and compiled PD + gravity run in Drake/Isaac, including mixed arms; batch execution remains |
 | D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
-| X0 | Partial: CPU PGS/GPU TGS arm execution; native viewport deferred pending rendering, collision display and shutdown validation; cameras remain unsupported |
+| X0 | CPU/PGS and GPU/TGS mixed-arm tracking, independent Mini45 sensing and contact examples; native Storm viewport and PNG capture implemented; RTX cameras remain unsupported |
 | X1, M0 | Await listed dependencies |
 
 Foundation validation passed: 11 pytest cases, five Bazel test targets (core,
 C++23, Drake dependency smoke test, contracts and configuration), nanobind library
 compilation, Ruff/clang-format/Buildifier checks, dependency-lock consistency, and
 wheel imports outside the checkout. See the [dependency baseline](../third_party/compatibility.md)
-for pins and ABI limits. Actions is enabled; CI workflows and required CI checks
-remain C0 work.
+for pins and ABI limits. Actions availability was checked during setup; the current user decision requires no CI workflows or remote check gates.
 
 Migration review confirmed unchanged record structure after import renaming,
 11 passing pytest cases, Ruff/Buildifier checks, three passing Bazel targets
@@ -317,11 +313,32 @@ The camera-free Isaac arm workload now runs with the shared CPU controller. The
 6 GB GPU still fails the vendor VRAM check; successful physics does not establish
 native rendering, camera support or batching capacity. See [Isaac evidence](../third_party/isaac/README.md).
 The independent RViz launcher is unit-tested with a fake process; no installed
-RViz or hardware driver was exercised. The controller-reuse milestone remains
-incomplete until the native bridge, CI and independent batch/reset gates pass.
+RViz or hardware driver was exercised. The native bridge is implemented. The broader controller-reuse milestone still requires independent batched environments and selective reset.
 
 The minimal Drake run reaches its joint target and renders the fixed box. It
 exercises all six source owners without claiming nut manipulation or hardware
 support. The controller reads ideal joint state; the camera is observed separately.
-The UR7e visual geometry is simplified and has no robot collision geometry.
+UR7e geometry now follows its upstream-selected visual and collision meshes. The D435 housing, iiwa 7 and Mini45 also have physical collision geometry.
 Reproduction commands and current limits are in [README.md](../README.md).
+
+
+## Local example expansion
+
+The current implementation adds `iiwa7_mini45` and `ur7e_iiwa7` systems and
+tracking/contact configurations in the existing arm-tracking scenario. The
+original camera system is migrated to `ur7e_d435`. Both arms and both sensors
+have physical models; disabling observations preserves their masses/collisions.
+
+C++ PD-plus-feedforward control is built by Bazel, bound through nanobind and
+installed as `robo-arch-native` by `tools/dev.py`. It runs in both simulators;
+gravity feedforward remains Python/pydrake with independent mounted-device
+models. No Drake C++ objects cross the extension boundary. Local C++ and Python
+tests cover numerical behavior, ownership, physical composition and known loads.
+
+The mixed system exercises six- and seven-joint arms, nested definitions,
+separate controller contexts and two wrench sensors. The contact example
+requires an actual measured force peak; it is not force-feedback manipulation.
+Drake playback and measured state/effort/wrench plots provide local inspection.
+Device READMEs record provenance and modeling approximations. Hardware motion,
+Robotiq integration, measured calibration, Isaac camera rendering and batched
+execution remain separate work.

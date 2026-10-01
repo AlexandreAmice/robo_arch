@@ -1,16 +1,11 @@
-load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library")
 
-# USD and the vendor converter are supplied by third_party/isaac.
 py_library(
     name = "isaac",
-    srcs = [
-        "__init__.py",
-        "convert.py",
-    ],
+    srcs = ["__init__.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        "//src/robo_arch/core/worlds/isaac",
         "//src/robo_arch/robots/ur7e",
-        requirement("numpy"),
     ],
 )

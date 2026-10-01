@@ -1,6 +1,6 @@
 # Build and layout
 
-Organization for the [architecture](architecture.md), based on devices and their compositions. The working example uses `robots/ur7e`, `sensors/ideal_camera`, `robot_system/ur7e_ideal_camera`, `objects/box` and `scenarios/arm_tracking`; reusable loading, control and execution live under `core/`. The tree below shows the working structure; add directories only as their implementations arrive.
+Organization for the [architecture](architecture.md), based on devices and their compositions. The examples use `robots/ur7e`, `robots/iiwa7`, `sensors/realsense_d435`, `sensors/ati_mini45`, single-arm and mixed `robot_system/` compositions, `objects/box` and `scenarios/arm_tracking`; reusable loading, control and execution live under `core/`. The tree below shows the working structure; add directories only as their implementations arrive.
 
 ## Ownership and directory tree
 
@@ -13,11 +13,11 @@ src/robo_arch/
     assets/                      # model and provenance
     drake/                       # device adaptation for this world
     tests/
-  sensors/ideal_camera/
+  sensors/realsense_d435/
     definition.py                # parameters and supported factories
     drake/
     tests/
-  robot_system/ur7e_ideal_camera/
+  robot_system/ur7e_d435/
     system.yaml                  # reusable devices and nominal mounts
   objects/box/
     definition.py
@@ -26,13 +26,16 @@ src/robo_arch/
     scenario.yaml                # world, system + autonomy, objects/poses and task
     evaluation.py
     drake.py                     # task references connected to reusable autonomy
-    run.py                       # execution and visualization
+    isaac.py                     # task references for native effort callbacks
+    run.py                       # CLI, world dispatch, evaluation and reports
     tests/
   core/
     config/                      # validated configuration and physical instances
     controllers/joint_tracking/  # shared control and native world adapters
     worlds/                      # device discovery and world assembly
-      drake/
+      drake/                     # config.py, scene.py, scenario.py, visualization.py
+      isaac/                     # same responsibilities; native conversion helpers
+      real/                      # same entry points; hardware execution unsupported
 ```
 
 Add device-specific IK, controllers, calibration and other world implementations beside their owner when needed. Actuated tools such as Robotiq belong under `robots/`; mounting calibration and coordinated autonomy belong with the robot system. Scenario fixture calibration stays with the scenario. Tests and BUILD targets remain local to their package.
@@ -55,7 +58,7 @@ or calibration. `plans/` remains ignored scratch space.
 | Tool/camera mounting, assembly tuning, bimanual coordination | Owning `robot_system/` package |
 | Nut placement goal, object selection, task-specific behavior and scoring | `scenarios/nut_on_pin/` |
 | Generic ROS transport, configuration loading, world assembly and training support | Appropriate subpackage of `core/` |
-| SDK-independent world/visualizer configuration records | `core/config/` |
+| SDK-independent world/visualizer configuration records | `core/worlds/<world>/config.py` |
 | Native runtime settings, viewer construction, publication and replay | `core/worlds/<world>/` |
 
 Put an implementation at the narrowest scope where its assumptions hold. A UR7e controller can construct a shared inverse-dynamics implementation with its model and gains. Do not copy the equations into each robot, or force genuinely device-specific behavior into a generic interface. Assembly- or task-specific tuning stays with that assembly or scenario. `core/` contains named responsibilities, not an unstructured utility collection.
@@ -74,7 +77,7 @@ Internal attachments and relative mounts belong to the reusable robot-system YAM
 
 Calibration belongs to the package that owns the calibrated relationship: robot unit, sensor unit, mounted assembly, or scenario fixture. Every measured profile identifies the devices, mounting arrangement and revision it applies to. Select profiles explicitly; do not infer them from folder names or silently reuse one system's calibration for both arms. Nominal assets, nominal mounting and measured corrections remain distinguishable. A pose/relationship has one effective selected value, not competing copies in device, system and scenario files.
 
-Scenario Python calls shared physical assembly and the selected controller’s `connect` function, which wires its robot and returns task-reference ports. The scenario supplies those references using native runtime connections. Drake construction returns its `Simulator` and scene directly. Task evaluation remains independent of the chosen control strategy.
+World `scene.py` constructs physical assemblies from scene configuration. World `scenario.py` consumes the run configuration and invokes scenario-supplied autonomy wiring, then initializes and executes the native runtime. Scenario wiring calls the selected controller and supplies task references; evaluation consumes returned traces. Drake also exposes its native `Simulator` and scene directly. See the [world construction guide](../src/robo_arch/core/worlds/README.md) for entry points and extension steps.
 
 ## Dependencies, resources and tests
 
@@ -95,20 +98,20 @@ The checkout name is arbitrary; the inner `robo_arch` supplies the Python namesp
 Pinned dependencies and compatibility limits are recorded in the
 [dependency notes](../third_party/compatibility.md); working development
 commands are in [README.md](../README.md). A minimal Drake runner is implemented;
-the native bridge and CI described below remain planned. World support is tracked
+the native bridge below is implemented for the PD controller. Validation stays local; formal CI is not planned. World support is tracked
 in the [implementation plan](implementation_tasks.md).
 
 Use Bzlmod, committed module lockfiles, Bazelisk, explicit rule loads, narrow targets and pinned C++23/Python toolchains. Select a modern Bazel release compatible with the chosen Drake revision. Learn from Drake and `../gcs_solver_project`, but do not inherit old pins, host paths or their whole build framework. Use small symbolic macros where helpful. [Bazel modules](https://bazel.build/external/module), [symbolic macros](https://bazel.build/extending/macros)
 
-**uv is the everyday Python interface; Bazel is the native build and primary CI/test interface.** Use an editable Python package in `.venv` for scripts, pytest, notebooks and IDE debugging. Editing Python requires no Bazel invocation. Bazel tests use the same source and pytest cases through declared targets, with their own pinned interpreter, dependencies and runfiles; they do not consume `.venv`.
+**uv is the everyday Python interface; Bazel is the native build and independent local test interface.** Use an editable Python package in `.venv` for scripts, pytest, notebooks and IDE debugging. Editing Python requires no Bazel invocation. Bazel tests use the same source and pytest cases through declared targets, with their own pinned interpreter, dependencies and runfiles; they do not consume `.venv`.
 
-Keep `uv.lock` authoritative for each supported environment. Bazel reads the root lock directly through rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)`, preserving locked artifact hashes and resolution markers. The shared `@python_deps` repository exposes locked packages; explicit target dependencies keep core tests independent of Drake and formatting tools. uv dependency groups select development environments, not Bazel targets. CI checks that the uv and Bzlmod locks are current. Pin compatible Python runtimes and native ABI settings in both workflows. Shared package versions alone do not establish native compatibility. Keep incompatible ROS/vendor environments in independently locked profiles under `third_party/`. [rules_python lockfile input](https://rules-python.readthedocs.io/en/latest/api/rules_python/python/extensions/pip.html)
+Keep `uv.lock` authoritative for each supported environment. Bazel reads the root lock directly through rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)`, preserving locked artifact hashes and resolution markers. The shared `@python_deps` repository exposes locked packages; explicit target dependencies keep core tests independent of Drake and formatting tools. uv dependency groups select development environments, not Bazel targets. Local checks verify that the uv and Bzlmod locks are current. Pin compatible Python runtimes and native ABI settings in both workflows. Shared package versions alone do not establish native compatibility. Keep incompatible ROS/vendor environments in independently locked profiles under `third_party/`. [rules_python lockfile input](https://rules-python.readthedocs.io/en/latest/api/rules_python/python/extensions/pip.html)
 
 Use thin **nanobind** bindings around project C++, with explicit ownership, array layout, device and GIL behavior. Call existing pydrake APIs directly where appropriate. Exchanging bound Drake objects requires compatible Drake libraries, compiler/C++ ABI and nanobind ABI/domain/Python-ABI settings, even though both projects use nanobind. Pin that combination in build tooling. [nanobind Bazel integration](https://nanobind.readthedocs.io/en/latest/bazel.html), [interoperability requirements](https://nanobind.readthedocs.io/en/latest/faq.html#how-can-i-avoid-conflicts-with-other-projects-using-nanobind)
 
 ### The C++ edit–run loop
 
-Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Illustrative commands, not implemented CLI commitments:
+Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Implemented commands:
 
 ```text
 uv sync --locked
@@ -130,13 +133,13 @@ The Python simulation remains editable, and both paths use the same native Bazel
 
 Ordinary `uv run` retains additional installed packages by default; exact `uv sync` can remove a development wheel. The native helper restores it after synchronization. Keep a released native-wheel dependency out of the source-development profile so it cannot compete with the local build. The helper launches its child directly rather than syncing again. Restart notebook kernels after native changes; rebuilding cannot replace an extension already loaded into a process. [uv synchronization behavior](https://docs.astral.sh/uv/concepts/projects/sync/)
 
-### CI and release
+### Local validation and future release packaging
 
-CI runs Bazel test suites against declared Python libraries, data and native targets, without a developer checkout path or installed development wheel supplying undeclared dependencies. Also exercise the installed wheels outside the source tree to cover packaging. Keep BUILD declarations small and package-scoped: ordinary Python edits need no BUILD changes; new files/dependencies must enter the declared graph. One modest pytest rule/helper should suffice.
+Run Bazel test suites locally against declared Python libraries, data and native targets, without a developer checkout path or installed development wheel supplying undeclared dependencies. Also exercise installed wheels outside the source tree to cover packaging. Do not add hosted workflows or required remote checks. Keep BUILD declarations small and package-scoped: ordinary Python edits need no BUILD changes; new files/dependencies must enter the declared graph. One modest pytest rule/helper should suffice.
 
 Pin compiler/runtime inputs and execution environments. Core and Drake tests target hermetic execution; GPU/Isaac and hardware integrations need explicit worker/container/driver requirements and suitable test caching policies. Invoking those through Bazel does not make external devices hermetic. ROS dependencies may retain their supported ament/colcon build, supplied as an identified underlay.
 
-Build Linux native wheels in a pinned manylinux-compatible environment and inspect their dependencies with auditwheel. Accurate wheel tags do not establish pydrake ABI compatibility. Simulator SDKs stay in their third-party dependency profiles, while GPU drivers remain host runtime requirements. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
+A future portable release can build Linux wheels in a pinned manylinux-compatible environment and inspect dependencies with auditwheel. The current local CPython 3.12 wheel uses host glibc and statically linked, hidden C++ runtime/nanobind symbols; it passes no Drake C++ objects across bindings. Accurate wheel tags do not establish pydrake ABI compatibility. Simulator SDKs stay in their third-party dependency profiles, while GPU drivers remain host runtime requirements. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
 
 ## Testability
 
@@ -144,6 +147,6 @@ Use pytest for Python and GoogleTest where native behavior needs direct coverage
 
 Headless validation is primarily for automated tests. Every run presented for user testing or inspection must include an attached visualization of that run (such as an interactive recording, video or diagnostic plot) and a copyable command to launch its visualization locally. Choose a view that exposes the behavior being evaluated.
 
-Failing tests must offer a simple visual inspection path using the same test case, configuration, seed and initial state, where applicable. Include the launch command and any required artifact paths in failure output; retain enough data to inspect the failure even if execution stops early. Simulation tests should support scene playback, numerical tests should expose relevant traces or plots, and configuration failures should identify the offending inputs without requiring a simulator. Keep visualization optional for automated execution and reuse the tested construction and execution code. The arm-tracking runner retains effective configuration, results/errors and an inspection command alongside Drake playback or optional Isaac state traces. Native Isaac rendering remains experimental; RViz has process-level tests only. It provides an opt-in visual test rerun; see its [usage guide](../src/robo_arch/scenarios/arm_tracking/README.md).
+Failing tests must offer a simple visual inspection path using the same test case, configuration, seed and initial state, where applicable. Include the launch command and any required artifact paths in failure output; retain enough data to inspect the failure even if execution stops early. Simulation tests should support scene playback, numerical tests should expose relevant traces or plots, and configuration failures should identify the offending inputs without requiring a simulator. Keep visualization optional for automated execution and reuse the tested construction and execution code. The arm-tracking runner retains effective configuration, results/errors and an inspection command alongside Drake playback or per-arm state/effort and sensor traces. Isaac supports live Storm inspection and a final viewport PNG; RTX rendering remains experimental; RViz has process-level tests only. It provides an opt-in visual test rerun; see its [usage guide](../src/robo_arch/scenarios/arm_tracking/README.md).
 
 Separate core and SDK-dependent suites. Check missing-support errors, slow-implementation warnings and independent batch reset. Compare shared controller outputs for matching inputs/state, not entire trajectories across different physics engines. Documentation work needs no tests or builds.

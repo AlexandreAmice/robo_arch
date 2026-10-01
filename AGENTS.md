@@ -19,7 +19,7 @@
 
 ## File placement
 
-Application source belongs under `src/robo_arch/`. Reusable declarations and configuration records live in `core/contracts/` and `core/config/`. Add other packages at the locations below as their implementations are introduced.
+Application source belongs under `src/robo_arch/`. Shared declarations and configuration infrastructure live in `core/contracts/` and `core/config/`; world-specific configuration schemas live in `core/worlds/<world>/config.py` and remain SDK-independent. Add other packages at the locations below as their implementations are introduced.
 
 | Location | Contents |
 |---|---|
@@ -59,8 +59,8 @@ Prefer Python for experimentation and most autonomy work. Add C++ when requested
 
 ## Build and validation
 
-- Use Bazel/Bzlmod with explicit dependencies, pinned toolchains, narrow visibility and Buildifier. Learn from Drake and `../gcs_solver_project` without copying whole build frameworks or local paths.
-- Keep nanobind bindings thin and C++ libraries independently usable. Document ownership, layout, GIL behavior and ABI constraints. Use uv for ordinary Python development, Bazel for native compilation and primary CI/testing, and the same source/tests in both workflows. Keep the native rebuild-to-Python workflow explicit and easy.
+- Use Bazel/Bzlmod with explicit dependencies, pinned toolchains, narrow visibility and Buildifier. Development and validation are local first; do not add formal CI workflows or required remote checks. Learn from Drake and `../gcs_solver_project` without copying whole build frameworks or local paths.
+- Keep nanobind bindings thin and C++ libraries independently usable. Document ownership, layout, GIL behavior and ABI constraints. Use uv for ordinary Python development, Bazel for native compilation and local testing, and the same source/tests in both workflows. Keep the native rebuild-to-Python workflow explicit and easy.
 - Add only meaningful implementation tests; keep checks proportional to the change. Documentation needs no tests, builds or simulator launches. Format changed first-party code without unrelated reformatting.
 - Attach a visualization of the actual run whenever asking the user to test or inspect it, with a command to launch it locally. Use headless validation primarily for automated tests. Make failing tests easy to inspect visually using the same inputs and state; follow the [testability requirements](docs/build_and_layout.md#testability).
 - Distinguish measured from expected performance and simulation from hardware evidence. Do not claim that shared code guarantees GPU efficiency or identical physics.

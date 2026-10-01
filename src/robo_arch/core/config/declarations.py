@@ -1,89 +1,42 @@
-"""Configuration declarations, inspectable without YAML or simulator imports.
+"""Loaded configuration records and reusable device metadata.
 
-Private schemas describe YAML documents (where mapping keys name instances).
-Loaded records retain those names and resolve referenced system documents into
-compositions. Device definitions describe reusable models, not live instances.
+The loader turns YAML instance keys and system references into these records.
+Device definitions describe reusable models, not live instances. Importing these
+declarations does not load YAML or simulator SDKs.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints
+from pydantic import Field, JsonValue, StringConstraints
 
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.schema import Schema
 from robo_arch.core.config.worlds import WorldConfiguration
 
 Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
 
 
-class _Schema(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
-
-
-class Pose(_Schema):
+class Pose(Schema):
     """Child frame in parent frame; translation in metres, fixed-axis RPY radians."""
 
     translation: tuple[float, float, float] = (0.0, 0.0, 0.0)
     rpy: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
-class _Robot(_Schema):
-    model: Name
-    pose: Pose = Field(default_factory=Pose)
-    initial_positions: tuple[float, ...] | None = None
-
-
-class _Sensor(_Schema):
-    model: Name
-    parent: str
-    pose: Pose = Field(default_factory=Pose)
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class _ChildSystem(_Schema):
-    definition: str
-    pose: Pose = Field(default_factory=Pose)
-
-
-class _System(_Schema):
-    robots: dict[Name, _Robot] = Field(default_factory=dict)
-    sensors: dict[Name, _Sensor] = Field(default_factory=dict)
-    systems: dict[Name, _ChildSystem] = Field(default_factory=dict)
-
-
-class TaskSelection(_Schema):
+class TaskSelection(Schema):
     """The scenario evaluator validates task-specific parameters."""
 
     type: Name
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
 
-class AutonomySelection(_Schema):
+class AutonomySelection(Schema):
     """Select scenario-supported autonomy; its owner validates parameters."""
 
     controller: Name
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
-
-
-class _RobotSystemSelection(_Schema):
-    definition: str
-    pose: Pose = Field(default_factory=Pose)
-    autonomy: AutonomySelection
-
-
-class _Object(_Schema):
-    model: Name
-    pose: Pose = Field(default_factory=Pose)
-
-
-class _Scenario(_Schema):
-    world: WorldConfiguration | str
-    duration: float = Field(gt=0)
-    sensors_enabled: bool = True
-    robot_system: _RobotSystemSelection
-    objects: dict[Name, _Object] = Field(default_factory=dict)
-    task: TaskSelection
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -128,6 +81,15 @@ class ObjectInstance:
 
 
 @dataclass(frozen=True, kw_only=True)
+class SceneConfiguration:
+    """Physical instances and observation selection, independent of a task."""
+
+    robot_system: RobotSystem
+    sensors_enabled: bool
+    objects: tuple[ObjectInstance, ...]
+
+
+@dataclass(frozen=True, kw_only=True)
 class RunConfiguration:
     """Validated selections and names; device compatibility is checked at assembly.
 
@@ -146,6 +108,14 @@ class RunConfiguration:
     task: TaskSelection
     autonomy: AutonomySelection
     world_source: Path | None = None
+
+    @property
+    def scene(self) -> SceneConfiguration:
+        return SceneConfiguration(
+            robot_system=self.robot_system,
+            sensors_enabled=self.sensors_enabled,
+            objects=self.objects,
+        )
 
     @property
     def world(self) -> str:
@@ -187,6 +157,11 @@ class RobotDefinition:
 class SensorDefinition:
     parameter_schema: type[Parameters]
     supported_worlds: tuple[str, ...]
+    physical_worlds: tuple[str, ...] = ()
+    kind: str = "camera"
+    base_frame: str = "mount"
+    measurement_frame: str = "depth_optical"
+    resource: str = "assets/model.urdf"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -194,3 +169,4 @@ class ObjectDefinition:
     package: str
     resource: str
     base_frame: str
+    supported_worlds: tuple[str, ...]
