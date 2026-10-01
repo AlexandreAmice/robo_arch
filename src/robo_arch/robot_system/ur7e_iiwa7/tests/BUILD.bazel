@@ -1,0 +1,17 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "system_test",
+    srcs = ["test_system.py"],
+    main = "test_system.py",
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/scenarios/arm_tracking",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

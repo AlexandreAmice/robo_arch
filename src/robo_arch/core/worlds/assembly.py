@@ -1,13 +1,19 @@
 """Resolve a physical composition into device instances for world construction."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 from robo_arch.core.config.declarations import (
     Pose,
     RobotSystem,
-    RunConfiguration,
+    SceneConfiguration,
     SensorInstance,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -28,10 +34,10 @@ class Devices:
     sensors: tuple[SensorInstance, ...]
 
 
-def resolve_devices(run: RunConfiguration) -> Devices:
+def resolve_devices(scene: SceneConfiguration) -> Devices:
     """Namespace devices and check attachments before constructing a world.
 
-    Disabling sensors changes execution, not the declared physical composition.
+    Disabling observations preserves physical sensor bodies and their mounts.
     Their parent references are still checked.
     """
     robots: list[PlacedRobot] = []
@@ -57,10 +63,10 @@ def resolve_devices(run: RunConfiguration) -> Devices:
         for child in system.systems:
             visit(child, prefix + child.name + "/", poses)
 
-    visit(run.robot_system, "", ())
+    visit(scene.robot_system, "", ())
     robot_names = {robot.name for robot in robots}
     device_names = robot_names | {sensor.name for sensor in sensors}
-    conflicts = device_names.intersection(obj.name for obj in run.objects)
+    conflicts = device_names.intersection(obj.name for obj in scene.objects)
     if conflicts:
         raise ValueError(
             f"Object and device names must be distinct: {sorted(conflicts)}"
@@ -73,5 +79,22 @@ def resolve_devices(run: RunConfiguration) -> Devices:
             )
     return Devices(
         robots=tuple(robots),
-        sensors=tuple(sensors) if run.sensors_enabled else (),
+        sensors=tuple(sensors),
     )
+
+
+def pose_matrix(pose: Pose) -> np.ndarray:
+    """Return the child-to-parent homogeneous transform, in metres."""
+    import numpy as np
+
+    result = np.eye(4)
+    roll, pitch, yaw = pose.rpy
+    sr, sp, sy = np.sin([roll, pitch, yaw])
+    cr, cp, cy = np.cos([roll, pitch, yaw])
+    result[:3, :3] = [
+        [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+        [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+        [-sp, cp * sr, cp * cr],
+    ]
+    result[:3, 3] = pose.translation
+    return result

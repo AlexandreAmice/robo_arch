@@ -1,0 +1,7 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "wheel",
+    srcs = ["wheel.py"],
+    visibility = ["//src/robo_arch/core/controllers/joint_pd:__pkg__"],
+)

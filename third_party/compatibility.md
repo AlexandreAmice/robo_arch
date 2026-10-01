@@ -12,6 +12,7 @@ host glibc; it is not yet a portable manylinux release build.
 | Bazel | 9.2.0 | `.bazelversion` |
 | LLVM / C++ | 22.1.8 / C++23 | `MODULE.bazel` and `.bazelrc`; bundled libc++ |
 | nanobind | 3.0.1 | `MODULE.bazel`; regular CPython ABI |
+| GoogleTest | 1.17.0.bcr.2 | Local independent C++ controller tests; Bazel 9-compatible BCR patch |
 | Ruff / clang-format / Buildifier | 0.16.9 / 22.1.8 / 10.1.0 | uv and Bzlmod configuration |
 | Hedron compile commands | `abb61a688167623088f8768cc9264798df6a9d10` | Development-only `git_override` in `MODULE.bazel` |
 
@@ -48,8 +49,7 @@ Drake's Python package can be imported and used to construct a Diagram with this
 setup. Passing Drake C++ objects between project extensions and pydrake still
 requires a compatible native Drake build, compiler/standard-library ABI,
 nanobind ABI/domain and ownership conventions. Matching nanobind version numbers
-alone is insufficient. The native wheel and this interoperability are not yet
-implemented.
+alone is insufficient. The PD controller’s local wheel is implemented without crossing that boundary: only CPU float64 arrays enter the extension. Native pydrake object interoperability remains unimplemented.
 
 Isaac uses an [independent dependency profile](isaac/README.md) rather than the
 root Python dependency resolution. The initial LLVM download/extraction can

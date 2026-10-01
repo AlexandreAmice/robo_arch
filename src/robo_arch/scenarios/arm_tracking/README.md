@@ -1,143 +1,83 @@
-# Arm tracking
+# Arm tracking examples
 
-Run the packaged [scenario.yaml](scenario.yaml) from the repository root:
+| Run resource | Assembly | Autonomy | Observations |
+|---|---|---|---|
+| `scenario.yaml` | UR7e + D435 | Drake inverse dynamics | Ideal RGB-D in Drake |
+| `iiwa7.yaml` | iiwa 7 + Mini45-R | Native PD + gravity | Six-axis wrench |
+| `bimanual.yaml` | UR7e + nested iiwa system | Independent native PD per arm | Two named wrenches |
+| `iiwa7_contact.yaml` | iiwa 7 + Mini45-R, fixed block | Native PD into an obstructed target | Wrench peak check |
 
-```sh
-uv run --locked python -m robo_arch.scenarios.arm_tracking.run
-```
+All use `python -m robo_arch.scenarios.arm_tracking.run --run
+package://robo_arch/scenarios/arm_tracking/<resource>`. Build/install the native
+controller first with `uv run tools/dev.py native --profile drake`; use the
+`isaac` profile in that separate environment. Both new systems run in Drake and
+Isaac; the mixed system uses `left_arm`, `left_ft`, `right/arm` and
+`right/wrist_ft`. The system definition never fixes its controller.
 
-This saves `recordings/arm_tracking_drake.html` and opens scene playback in a browser.
-It also saves the final wrist-camera image beside the playback as a PNG.
-Use **Open Controls → Animations → default** to pause or scrub time. The arm
-moves only 0.05 rad from its starting pose. The model uses simplified visuals
-without robot collision geometry; the ideal wrist camera has no visual geometry.
-
-Use `--record path/to/playback.html` to choose an output, `--no-browser` to save
-without opening it, or `--headless` to disable visualization while preserving
-sensor observations. `--headless --record path/to/playback.html` records without
-requiring a live view. Native Drake modes are `off`, `live`, `record` and
-`live_and_record`; for example:
-
-```sh
-uv run --locked python -m robo_arch.scenarios.arm_tracking.run \
-  --visualization live_and_record
-```
-
-Live inspection keeps the final scene open until **Close inspection** or Ctrl-C.
-Drake's standard viewer provides separate illustration, proximity, inertia and
-contact layers. HTML preserves transforms and force arrows; changing hydroelastic
-surfaces and pressure need live inspection. The display does not add the UR7e's
-missing collision geometry.
-
-`--world drake|isaac|real` replaces the whole world configuration with native
-defaults, including viewer `off`. `--world-config` accepts a complete file or
-package URI. Isaac currently supports only `off`; live viewing and `--record`
-are rejected. See [Isaac setup](../../../../third_party/isaac/README.md).
-Real-world declarations are inspectable, but this scenario has no hardware runner.
-
-The CLI saves a JSON report with full effective inputs, configuration hashes,
-package versions, result/error and a copyable inspection command. Use `--metadata`
-to select its destination. `--inspect <report.json>` restores the resolved inputs;
-viewer overrides affect only inspection. Code and assets are not snapshotted:
-recorded hashes/versions identify the original environment. Drake runtime failures
-retain partial playback where available; `--trace output.npz` retains measured
-Isaac positions. Isaac inspection reruns the resolved inputs headlessly; native
-viewing is deferred. Invalid configuration fails before
-a scene is constructed.
+Execution lives in each world’s `scenario.py`; this package supplies task-specific
+autonomy wiring in `drake.py` and `isaac.py`, then evaluates the returned traces.
+See the [world entry points](../../core/worlds/README.md#native-entry-points).
 
 ## Configuration
 
-[scenario.yaml](scenario.yaml) contains all run settings:
+YAML references inside configuration always use `package://robo_arch/...`.
+CLI `--run` and `--world-config` additionally accept explicit filesystem paths.
+Unknown fields and recursive system inclusion fail before construction.
 
-| Setting | Meaning |
-| --- | --- |
-| `world.type`, `world.physics`, `world.visualization` | Native world settings and viewer; world may instead be a complete package URI profile. See the [world schemas](../../core/config/worlds.py). |
-| `duration`, `world.physics.time_step` | Scenario end time and discrete physics step in seconds; independent of controller/display intent. |
-| `world.target_realtime_rate` | Drake wall-clock pacing, independent of viewer mode; zero runs unpaced. |
-| `robot_system.definition`, `robot_system.pose` | Reusable physical assembly and optional placement in world. |
-| `robot_system.autonomy` | Controller selection and gains; `kp` is in s⁻² and `kd` in s⁻¹, with one positive finite value per joint. |
-| `objects` | Named model instances with their world poses; these objects are fixed fixtures. |
-| `task.parameters` | Robot instance, target joint angles in radians, and maximum final absolute joint error (`tolerance`, radians). |
-| `sensors_enabled` | Whether to construct the assembly's sensors; defaults to true. `--no-sensors` explicitly omits them for a run. |
+A single-arm task retains `robot`, `target` and `tolerance`. A multi-arm task uses
+`robots: {<instance>: {target: [...], tolerance: ...}}`; autonomy parameters use
+`robots: {<instance>: {kp: [...], kd: [...]}}`. Every configured arm must be named
+exactly once. Vectors follow the device's declared joint ordering, with positions
+in radians, velocities in rad/s and tolerances in radians.
 
-The separate [system.yaml](../../robot_system/ur7e_ideal_camera/system.yaml)
-defines robot/sensor instances and mounts. Selecting an assembly does not fix its
-controller. Model identifiers select typed `describe()` functions in
-`robo_arch.<category>.<model>.definition`; no device list lives in the scenario.
-YAML cannot specify Python import paths. Native controller connections remain in
-Python: the controller wires its robot and exposes a desired-state port; the
-scenario supplies a constant target with zero desired velocity.
+`joint_tracking` gains are acceleration-feedback gains in s^-2 and s^-1.
+`joint_pd` gains are torque feedback in N m/rad and N m s/rad. These are separate
+controllers, not interchangeable gain presets. The native controller's gravity
+model includes mounted sensor inertia and applies actuator effort limits.
 
-Every pose uses `translation: [x, y, z]` in metres and fixed-axis
-`rpy: [roll, pitch, yaw]` in radians, defaulting to zero. Sensor poses are relative
-to their `parent`, such as `arm/tool0`. Mounts are nominal, not measured calibration.
-Initial positions, targets and gains follow `JOINT_NAMES` in the
-[robot definition](../../robots/ur7e/definition.py); omitted initial positions use
-`DEFAULT_POSITIONS`. Initial positions and targets must respect joint limits.
-The [ideal camera](../../sensors/ideal_camera/definition.py) uses optical +z forward,
-+x right and +y down. It has no noise or latency and does not guide this controller.
+Task parameters can include `wrenches: {<sensor>: {min_peak_force_N: 1.0}}`.
+This evaluates the norm of measured force after the first physics step; selecting
+an absent or disabled wrench sensor fails early. The contact example deliberately
+commands beyond the block, uses a 0.04 rad tracking tolerance and requires a force
+peak above 1 N. It demonstrates contact/sensing, not force-feedback control or
+safe hardware motion. Its fixture placement is a nominal scenario assumption.
 
-All YAML references use `package://robo_arch/...`; moving the scenario file or
-changing the working directory does not change resolution. `--run` accepts a
-scenario file or package URI. Resources must be packaged and declared in Bazel
-data. Duplicate keys, unknown fields, invalid references and recursive inclusion
-are rejected. Nested systems use `systems.<name>.definition` and an optional
-`pose`; a child `left` namespaces `arm` as `left/arm`. The loader supports nested
-assemblies; this tracking task currently requires one fixed-base arm.
+Physics time steps, solvers and viewer settings belong to the selected world.
+`--world` replaces the complete world configuration with native defaults;
+`--world-config` selects a complete profile. `--headless` controls viewing only.
+`--no-sensors` disables observations while preserving device bodies, masses and
+collisions. Unsupported observations are errors, never silently dropped.
 
-## How the packaged example is assembled
-
-The shared types are together in
-[`core/config/declarations.py`](../../core/config/declarations.py).
-[`load_run()`](../../core/config/loading.py) reads the scenario and its referenced
-system into a `RunConfiguration`. Its `robot_system` retains the arm and camera,
-local names, and relative mounts; nested child systems remain explicit.
-
-For the packaged UR7e scenario:
-
-1. [`resolve_devices()`](../../core/worlds/assembly.py) resolves `arm`, `camera`,
-   and the camera parent `arm/tool0`. A child named `left` would produce
-   `left/arm`, `left/camera`, and `left/arm/tool0`.
-2. [`load_definitions()`](../../core/worlds/devices.py) calls `describe()` in
-   [`robots/ur7e/definition.py`](../../robots/ur7e/definition.py),
-   [`sensors/ideal_camera/definition.py`](../../sensors/ideal_camera/definition.py),
-   and [`objects/box/definition.py`](../../objects/box/definition.py). These return
-   model metadata and supported worlds without importing either simulator.
-3. [`build_scene()`](../../core/worlds/drake/scene.py) imports the selected world
-   adapters. It calls the UR7e's `add_to_plant(plant, name="arm")`, places its base,
-   adds the box, and calls the camera's `add_to_builder()` with the tool frame and
-   wrist mount. Each physical instance gets its own runtime state.
-4. [`build_simulation()`](drake.py) directly calls
-   [`joint_tracking.drake.connect()`](../../core/controllers/joint_tracking/drake.py)
-   and connects the task's desired joint state to its returned input port.
-5. [`run_scenario()`](run.py) advances the simulator and evaluates tracking error.
-
-Controller selection is explicit in the scenario. This example accepts only
-`joint_tracking`; another name raises an error before construction. In Isaac,
-`_run_isaac()` calls the same controller's `make_policy()` CPU wrapper and warns
-about the per-step state/command transfers. The robot adapter uses `add_to_stage()`.
-The ideal camera has no Isaac adapter, so that run requires `--no-sensors`.
-There are no implementation dictionaries or configurable Python function names.
-
-## Inspecting test failures
-
-Tests normally run headless. Rerun the tracking test with the same inputs and
-visualization enabled:
+## Inspection
 
 ```sh
-ROBO_ARCH_VISUALIZE=1 uv run --locked pytest \
-  src/robo_arch/scenarios/arm_tracking/tests/test_run.py -k test_headless_tracking
+uv run python -m robo_arch.scenarios.arm_tracking.run \
+  --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
+  --record recordings/bimanual_drake.html --no-browser
+uv run python -m robo_arch.scenarios.arm_tracking.run \
+  --inspect recordings/bimanual_drake.json --visualization live_and_record
 ```
 
-This saves and opens `recordings/test_tracking.html`, with effective input metadata beside it. The command is also included
-in failure output. For Bazel:
+The JSON report includes all resolved inputs, package versions, source/asset
+hashes, per-arm results and a copyable inspection command. Restoring a report
+uses the current installation and writes separate inspection artifacts.
+`--metadata` chooses the report and default NPZ/PNG basename; `--trace` overrides
+the NPZ destination. NPZ channels use `<robot>/q`, `<robot>/v`, `<robot>/effort`
+and `<sensor>/wrench`, plus a common `times` array in seconds. Each array owns
+its samples. Wrenches are `[Fx,Fy,Fz,Tx,Ty,Tz]` in N and N m; see the
+[Mini45 convention](../../sensors/ati_mini45/README.md). Initial wrench samples
+are NaN because no physics step has produced a valid reaction yet. Drake runs
+with one `Simulator.AdvanceTo()` call and exports native signal logs; sample
+times follow simulator steps, including viewer events and the final boundary.
+Its effort channel is the plant's sampled net actuation (zero before the first
+step). Isaac records observations and applied commands in its native stepping
+loop. Plotting lives in this scenario, with radians and N m assumed for these
+revolute arms.
 
-```sh
-bazel test //src/robo_arch/scenarios/arm_tracking:run_test \
-  --test_env=ROBO_ARCH_VISUALIZE=1 --nocache_test_results
-```
-
-Open `test_tracking.html` from the test's undeclared outputs under
-`bazel-testlogs/src/robo_arch/scenarios/arm_tracking/run_test/test.outputs/`
-(extract first if output zipping is enabled). Recording uses the tested scene,
-controller and execution; it does not run a separate demonstration.
+Drake playback contains actual simulated geometry transforms. Use live contact
+layers for changing hydroelastic surfaces; HTML does not faithfully replay
+those surfaces. Isaac supports a live native Storm viewport using
+`--world-config package://robo_arch/core/worlds/isaac/desktop.yaml`; it holds the
+final scene and saves `<report>.viewport.png`. Keep `DISPLAY` set. Window closure
+or Ctrl-C releases the viewer. RTX cameras, contact overlays and video recording
+remain unsupported. Partial traces survive runtime errors. Tests print commands for inspecting the same inputs.

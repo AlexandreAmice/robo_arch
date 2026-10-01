@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="realsense_d435">
+  <link name="mount" />
+  <link name="body">
+    <inertial>
+      <origin xyz="0 -0.0175 0" />
+      <mass value="0.072" />
+      <inertia ixx="5.235e-05" iyy="7.515015e-06" izz="5.236501499999999e-05" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <origin xyz="0.0043 -0.0175 0" rpy="1.5707963267948966 0 1.5707963267948966" />
+      <geometry>
+        <mesh filename="d435.obj" />
+      </geometry>
+      <material name="silver">
+        <color rgba="0.55 0.57 0.6 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0043 -0.0175 0" rpy="1.5707963267948966 0 1.5707963267948966" />
+      <geometry>
+        <mesh filename="d435.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="mount_body" type="fixed">
+    <parent link="mount" />
+    <child link="body" />
+    <origin xyz="0.0106 0.0175 0.0125" rpy="0 0 0" />
+  </joint>
+  <link name="depth_optical" />
+  <joint name="depth_optical_joint" type="fixed">
+    <parent link="body" />
+    <child link="depth_optical" />
+    <origin xyz="0 0 0" rpy="-1.5707963267948966 0 -1.5707963267948966" />
+  </joint>
+  <link name="color_optical" />
+  <joint name="color_optical_joint" type="fixed">
+    <parent link="body" />
+    <child link="color_optical" />
+    <origin xyz="0 0.015 0" rpy="-1.5707963267948966 0 -1.5707963267948966" />
+  </joint>
+</robot>

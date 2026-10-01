@@ -6,15 +6,15 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-from pydrake.geometry import Meshcat, MeshcatParams
+from pydrake.geometry import Meshcat, MeshcatParams, Rgba
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.lcm import ApplyLcmBusConfig
 from pydrake.visualization import ApplyVisualizationConfig, VisualizationConfig
 
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.config.worlds import DrakeVisualization, DrakeWorld
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.devices import DeviceDefinitions
+from robo_arch.core.worlds.drake.config import DrakeVisualization, DrakeWorld
 from robo_arch.core.worlds.drake.scene import DrakeScene, build_scene
 
 
@@ -51,9 +51,14 @@ def add_visualization(
         VisualizationConfig(
             publish_period=config.publish_period,
             publish_illustration=config.publish_illustration,
+            default_illustration_color=Rgba(*config.default_illustration_color),
             publish_proximity=config.publish_proximity,
+            default_proximity_color=Rgba(*config.default_proximity_color),
+            initial_proximity_alpha=config.initial_proximity_alpha,
             publish_contacts=config.publish_contacts,
             publish_inertia=config.publish_inertia,
+            delete_on_initialization_event=config.delete_on_initialization_event,
+            enable_alpha_sliders=config.enable_alpha_sliders,
             enable_meshcat_creation=False,
             mouse_interaction_stiffness=None,
         ),
@@ -111,15 +116,13 @@ def replay_positions(
         times, positions = trace["times"], trace["positions"]
     if len(times) == 0:
         return
-    devices = resolve_devices(run)
+    devices = resolve_devices(run.scene)
     config = DrakeVisualization(mode="record", publish_contacts=False)
     builder = DiagramBuilder()
     scene = build_scene(
-        builder,
-        replace(
-            run, world_config=DrakeWorld(visualization=config), sensors_enabled=False
-        ),
-        definitions,
+        replace(run.scene, sensors_enabled=False),
+        DrakeWorld(visualization=config),
+        builder=builder,
     )
     meshcat = create_meshcat(config)
     add_visualization(builder, scene, config, meshcat)

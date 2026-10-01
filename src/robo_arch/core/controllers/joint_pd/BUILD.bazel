@@ -1,0 +1,104 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+cc_library(
+    name = "joint_pd_cc",
+    srcs = ["joint_pd.cc"],
+    hdrs = ["joint_pd.h"],
+    strip_include_prefix = "/src",
+    visibility = ["//src/robo_arch:__subpackages__"],
+)
+
+cc_binary(
+    name = "bindings_import/robo_arch_native/_joint_pd.so",
+    srcs = ["bindings.cc"],
+    copts = ["-fvisibility=hidden"],
+    linkopts = ["-Wl,--exclude-libs,ALL"],
+    linkshared = True,
+    linkstatic = True,
+    deps = [
+        ":joint_pd_cc",
+        "@nanobind",
+    ],
+)
+
+genrule(
+    name = "native_init",
+    outs = ["bindings_import/robo_arch_native/__init__.py"],
+    cmd = "touch $@",
+)
+
+py_library(
+    name = "extension",
+    srcs = [":native_init"],
+    data = [":bindings_import/robo_arch_native/_joint_pd.so"],
+    imports = ["bindings_import"],
+)
+
+py_library(
+    name = "joint_pd",
+    srcs = [
+        "__init__.py",
+        "definition.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "native",
+    srcs = ["native.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":extension",
+        ":joint_pd",
+        requirement("numpy"),
+    ],
+)
+
+py_library(
+    name = "drake",
+    srcs = ["drake.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":joint_pd",
+        ":native",
+        requirement("drake"),
+        requirement("numpy"),
+    ],
+)
+
+genrule(
+    name = "wheel",
+    srcs = [":bindings_import/robo_arch_native/_joint_pd.so"],
+    outs = ["robo_arch_native-0.1.0-cp312-cp312-linux_x86_64.whl"],
+    cmd = "$(execpath //tools/native:wheel) $(execpath :bindings_import/robo_arch_native/_joint_pd.so) $@",
+    tools = ["//tools/native:wheel"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "native_test",
+    srcs = ["tests/test_native.py"],
+    main = "tests/test_native.py",
+    deps = [
+        ":native",
+        requirement("pytest"),
+    ],
+)
+
+cc_test(
+    name = "joint_pd_test",
+    srcs = ["tests/joint_pd_test.cc"],
+    deps = [
+        ":joint_pd_cc",
+        "@googletest//:gtest_main",
+    ],
+)

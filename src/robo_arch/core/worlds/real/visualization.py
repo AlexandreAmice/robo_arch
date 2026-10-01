@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from robo_arch.core.config.loading import resolve_resource
-from robo_arch.core.config.worlds import RealWorld
+from robo_arch.core.worlds.real.config import RealWorld
 
 
 def rviz_command(world: RealWorld) -> tuple[str, ...]:

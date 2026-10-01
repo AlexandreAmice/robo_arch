@@ -21,8 +21,10 @@ from pydrake.multibody.plant import ContactModel, CoulombFriction
 from pydrake.multibody.tree import SpatialInertia, UnitInertia
 from pydrake.systems.analysis import Simulator
 from pydrake.systems.framework import DiagramBuilder
+from pydrake.visualization import VisualizationConfig
 
-from robo_arch.core.config.worlds import DrakePhysics, DrakeVisualization
+from robo_arch.core.worlds.devices import DeviceDefinitions
+from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeVisualization
 from robo_arch.core.worlds.drake.scene import DrakeScene, add_plant
 from robo_arch.core.worlds.drake.visualization import (
     add_visualization,
@@ -68,7 +70,17 @@ def contact_fixture(config: DrakeVisualization):
     )
     plant.SetDefaultFloatingBaseBodyPose(body, RigidTransform([0, 0, 0.095]))
     plant.Finalize()
-    scene = DrakeScene(plant, graph, {}, {}, {}, {})
+    scene = DrakeScene(
+        definitions=DeviceDefinitions(robots={}, sensors={}, objects={}),
+        plant=plant,
+        scene_graph=graph,
+        robots={},
+        cameras={},
+        wrenches={},
+        sensor_instances={},
+        controller_models={},
+        initial_positions={},
+    )
     meshcat = create_meshcat(config)
     if meshcat is not None:
         add_visualization(builder, scene, config, meshcat)
@@ -81,7 +93,8 @@ def contact_fixture(config: DrakeVisualization):
 def test_native_hydroelastic_layers_and_viewer_independence(tmp_path):
     visualize = os.environ.get("ROBO_ARCH_VISUALIZE") == "1"
     config = DrakeVisualization(
-        mode="live_and_record" if visualize else "record", open_browser=visualize
+        mode="live_and_record" if visualize else "record",
+        open_browser=visualize,
     )
     simulator, scene, meshcat = contact_fixture(config)
     headless, off_scene, off_meshcat = contact_fixture(DrakeVisualization(mode="off"))
@@ -93,7 +106,6 @@ def test_native_hydroelastic_layers_and_viewer_independence(tmp_path):
     try:
         simulator.AdvanceTo(0.1)
         headless.AdvanceTo(0.1)
-        simulator.get_system().ForcedPublish(simulator.get_context())
         context = scene.plant.GetMyContextFromRoot(simulator.get_context())
         off_context = off_scene.plant.GetMyContextFromRoot(headless.get_context())
         np.testing.assert_allclose(
@@ -119,6 +131,7 @@ def test_native_hydroelastic_layers_and_viewer_independence(tmp_path):
         assert not any("mouse" in name.lower() for name in systems)
         assert meshcat.HasPath("/drake/illustration")
         assert meshcat.HasPath("/drake/proximity")
+        assert meshcat.HasPath("/drake/inertia")
         assert meshcat.HasPath("/drake/contact_forces/hydroelastic")
     finally:
         save_recording(meshcat, recording)
@@ -134,12 +147,26 @@ def test_native_hydroelastic_layers_and_viewer_independence(tmp_path):
     assert "<html" in recording.read_text()
 
 
+def test_visualization_defaults_match_drake():
+    config = DrakeVisualization()
+    native = VisualizationConfig()
+    for name, value in config.model_dump().items():
+        if name in {"type", "mode", "open_browser"}:
+            continue
+        if name in {"default_illustration_color", "default_proximity_color"}:
+            np.testing.assert_array_equal(value, getattr(native, name).rgba)
+        else:
+            assert value == getattr(native, name), name
+
+
 def test_native_layer_selection():
     config = DrakeVisualization(
         mode="record",
         open_browser=False,
         publish_illustration=False,
         publish_proximity=True,
+        enable_alpha_sliders=True,
+        initial_proximity_alpha=0.4,
         publish_contacts=False,
         publish_inertia=False,
     )
@@ -149,6 +176,8 @@ def test_native_layer_selection():
     assert "meshcat_visualizer(illustration)" not in systems
     assert "meshcat_visualizer(inertia)" not in systems
     assert "meshcat_contact_visualizer" not in systems
+    assert meshcat.HasPath("/drake/proximity")
+    assert meshcat.GetSliderValue("proximity α") == pytest.approx(0.4)
     meshcat.StopRecording()
 
 

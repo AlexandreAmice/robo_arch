@@ -1,0 +1,56 @@
+# Deliberate contact with a fixed block; the joint target is obstructed.
+world:
+  type: drake
+  visualization:
+    type: meshcat
+    mode: record
+duration: 3.0
+robot_system:
+  definition: package://robo_arch/robot_system/iiwa7_mini45/system.yaml
+  autonomy:
+    controller: joint_pd
+    parameters:
+      kp:
+      - 300
+      - 300
+      - 250
+      - 200
+      - 80
+      - 50
+      - 20
+      kd:
+      - 30
+      - 30
+      - 25
+      - 20
+      - 8
+      - 5
+      - 2
+task:
+  type: joint_tracking
+  parameters:
+    robot: arm
+    target:
+    - 0
+    - 0.43
+    - 0
+    - -0.8
+    - 0
+    - 0.5
+    - 0
+    tolerance: 0.04
+    wrenches:
+      wrist_ft:
+        min_peak_force_N: 1.0
+objects:
+  contact_block:
+    model: box
+    pose:
+      translation:
+      - 0.6948851600717642
+      - 0
+      - 0.8317602781483164
+      rpy:
+      - -3.141592653589793
+      - 1.4415926535897932
+      - -3.141592653589793

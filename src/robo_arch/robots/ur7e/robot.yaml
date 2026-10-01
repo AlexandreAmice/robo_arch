@@ -1,0 +1,17 @@
+asset: package://robo_arch/robots/ur7e/assets/model.urdf
+base_frame: base_link
+joints:
+  - shoulder_pan_joint
+  - shoulder_lift_joint
+  - elbow_joint
+  - wrist_1_joint
+  - wrist_2_joint
+  - wrist_3_joint
+# Radians, in the declared joint order.
+default_positions:
+  - 0.0
+  - -1.5707963267948966
+  - 1.5707963267948966
+  - -1.5707963267948966
+  - -1.5707963267948966
+  - 0.0

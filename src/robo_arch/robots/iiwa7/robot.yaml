@@ -1,0 +1,12 @@
+asset: package://robo_arch/robots/iiwa7/assets/model.urdf
+base_frame: iiwa_link_0
+joints:
+  - iiwa_joint_1
+  - iiwa_joint_2
+  - iiwa_joint_3
+  - iiwa_joint_4
+  - iiwa_joint_5
+  - iiwa_joint_6
+  - iiwa_joint_7
+# Radians, in the declared joint order.
+default_positions: [0.0, 0.4, 0.0, -0.8, 0.0, 0.5, 0.0]

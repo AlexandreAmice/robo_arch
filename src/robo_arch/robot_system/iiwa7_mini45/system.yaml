@@ -1,0 +1,7 @@
+robots:
+  arm:
+    model: iiwa7
+sensors:
+  wrist_ft:
+    model: ati_mini45
+    parent: arm/iiwa_link_ee

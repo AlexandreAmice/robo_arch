@@ -7,16 +7,17 @@ pytest.importorskip("pydrake")
 import numpy as np
 from pydrake.multibody.plant import MultibodyPlant
 
-from robo_arch.robots.ur7e.definition import BASE_FRAME, DEFAULT_POSITIONS, JOINT_NAMES
-from robo_arch.robots.ur7e.drake import add_to_plant
+from robo_arch.core.config.loading import load_robot
+from robo_arch.core.worlds.drake.models import add_robot
 
 
 def test_fixed_base_models_have_six_ordered_actuators_and_valid_dynamics():
+    definition = load_robot("package://robo_arch/robots/ur7e/robot.yaml")
     plant = MultibodyPlant(time_step=0.001)
-    instances = [add_to_plant(plant, name=name) for name in ("left", "right")]
+    instances = [add_robot(plant, definition, name=name) for name in ("left", "right")]
     for instance in instances:
         plant.WeldFrames(
-            plant.world_frame(), plant.GetFrameByName(BASE_FRAME, instance)
+            plant.world_frame(), plant.GetFrameByName(definition.base_frame, instance)
         )
     plant.Finalize()
     context = plant.CreateDefaultContext()
@@ -28,13 +29,16 @@ def test_fixed_base_models_have_six_ordered_actuators_and_valid_dynamics():
             plant.get_joint_actuator(index)
             for index in plant.GetJointActuatorIndices(instance)
         ]
-        assert tuple(actuator.joint().name() for actuator in actuators) == JOINT_NAMES
-        plant.SetPositions(context, instance, DEFAULT_POSITIONS)
+        assert (
+            tuple(actuator.joint().name() for actuator in actuators)
+            == definition.joints
+        )
+        plant.SetPositions(context, instance, definition.default_positions)
     assert np.linalg.eigvalsh(plant.CalcMassMatrix(context)).min() > 0
     assert np.isfinite(plant.CalcGravityGeneralizedForces(context)).all()
     plant.SetPositions(context, instances[0], np.zeros(6))
     np.testing.assert_allclose(
-        plant.GetPositions(context, instances[1]), DEFAULT_POSITIONS
+        plant.GetPositions(context, instances[1]), definition.default_positions
     )
 
 

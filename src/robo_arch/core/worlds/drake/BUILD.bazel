@@ -2,14 +2,31 @@ load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 py_library(
-    name = "drake",
+    name = "config",
     srcs = [
         "__init__.py",
+        "config.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config:schema",
+        "//src/robo_arch/core/worlds:package",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "drake",
+    srcs = [
+        "models.py",
+        "scenario.py",
         "scene.py",
+        "sensors.py",
         "visualization.py",
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        ":config",
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/worlds",
         requirement("drake"),
@@ -22,8 +39,24 @@ py_test(
     srcs = ["tests/test_visualization.py"],
     main = "tests/test_visualization.py",
     deps = [
+        ":config",
         ":drake",
         "//src/robo_arch/core/config",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "scenario_test",
+    srcs = ["tests/test_scenario.py"],
+    main = "tests/test_scenario.py",
+    deps = [
+        ":config",
+        ":drake",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/robots/ur7e",
         requirement("drake"),
         requirement("numpy"),
         requirement("pytest"),

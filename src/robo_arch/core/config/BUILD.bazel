@@ -2,9 +2,28 @@ load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 py_library(
-    name = "config",
+    name = "schema",
     srcs = [
         "__init__.py",
+        "schema.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "resources",
+    srcs = ["resources.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [":schema"],
+)
+
+py_library(
+    name = "config",
+    srcs = [
         "declarations.py",
         "loading.py",
         "parameters.py",
@@ -12,7 +31,11 @@ py_library(
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        "//src/robo_arch/core",
+        ":resources",
+        ":schema",
+        "//src/robo_arch/core/worlds/drake:config",
+        "//src/robo_arch/core/worlds/isaac:config",
+        "//src/robo_arch/core/worlds/real:config",
         requirement("pydantic"),
         requirement("pyyaml"),
     ],
@@ -36,6 +59,9 @@ py_test(
     main = "tests/test_worlds.py",
     deps = [
         ":config",
+        "//src/robo_arch/core/worlds/drake:config",
+        "//src/robo_arch/core/worlds/isaac:config",
+        "//src/robo_arch/core/worlds/real:config",
         requirement("pydantic"),
         requirement("pytest"),
     ],

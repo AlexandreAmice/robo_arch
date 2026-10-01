@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 
 from robo_arch.core.config.loading import load_run
-from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
 from robo_arch.core.worlds.devices import load_definitions
+from robo_arch.core.worlds.drake.config import DrakeWorld
+from robo_arch.core.worlds.isaac.config import IsaacWorld
+from robo_arch.core.worlds.real.config import RealWorld
 from robo_arch.scenarios.arm_tracking.run import (
     default_run,
     load_inspection,
@@ -90,6 +92,8 @@ def test_recording_preserves_tracking_results(tmp_path):
 
 
 def test_recording_survives_simulation_failure(tmp_path, monkeypatch):
+    import numpy as np
+
     pytest.importorskip("pydrake")
     from pydrake.systems.analysis import Simulator
 
@@ -104,6 +108,10 @@ def test_recording_survives_simulation_failure(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="injected simulation failure"):
         run_scenario(load_run(default_run()), recording=recording)
     assert "<html" in recording.read_text()
+    with np.load(recording.with_suffix(".npz")) as data:
+        assert data["times"][-1] == pytest.approx(0.03)
+        assert len(data["times"]) > 1
+        assert data["arm/q"].shape == (len(data["times"]), 6)
 
 
 def test_failed_run_retains_effective_configuration(tmp_path, monkeypatch):
@@ -141,7 +149,7 @@ def test_isaac_inspection_uses_vendor_dependency_profile(tmp_path, monkeypatch):
     command = shlex.split(json.loads(metadata.read_text())["inspection_command"])
     assert command[:5] == ["uv", "run", "--locked", "--project", "third_party/isaac"]
     assert command[command.index("--inspect") + 1] == str(metadata.resolve())
-    assert command[-2:] == ["--visualization", "off"]
+    assert command[-2:] == ["--visualization", "live"]
 
 
 def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, capsys):
@@ -221,7 +229,7 @@ def test_cli_rejects_unsupported_native_recording_before_execution(
 def test_world_switch_rejects_missing_support():
     run = replace(load_run(default_run()), world_config=RealWorld())
     with pytest.raises(ValueError, match="no real implementation"):
-        load_definitions(run)
+        load_definitions(run.scene, run.world)
 
 
 def test_configuration_checks_need_no_simulator_sdk():
@@ -236,10 +244,12 @@ sys.meta_path.insert(0, RejectSDK())
 from dataclasses import replace
 from robo_arch.scenarios.arm_tracking.run import default_run, run_scenario
 from robo_arch.core.config.loading import load_run
-from robo_arch.core.config.worlds import DrakeWorld, IsaacWorld, RealWorld
+from robo_arch.core.worlds.drake.config import DrakeWorld
+from robo_arch.core.worlds.isaac.config import IsaacWorld
+from robo_arch.core.worlds.real.config import RealWorld
 from robo_arch.core.worlds.devices import load_definitions
 run = load_run(default_run())
-load_definitions(run)
+load_definitions(run.scene, run.world)
 try:
     run_scenario(replace(run, world_config=RealWorld()))
 except ValueError as error:

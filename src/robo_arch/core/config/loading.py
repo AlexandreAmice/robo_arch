@@ -9,19 +9,67 @@ from importlib.resources import files
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, Field, JsonValue, RootModel
 
 from robo_arch.core.config.declarations import (
+    AutonomySelection,
+    Name,
     ObjectInstance,
     Pose,
+    RobotDefinition,
     RobotInstance,
     RobotSystem,
     RunConfiguration,
     SensorInstance,
-    _Scenario,
-    _System,
+    TaskSelection,
 )
-from robo_arch.core.config.worlds import WorldConfiguration, validate_package_reference
+from robo_arch.core.config.resources import validate_package_reference
+from robo_arch.core.config.schema import Schema
+from robo_arch.core.config.worlds import WorldConfiguration
+
+
+class _Robot(Schema):
+    model: Name
+    pose: Pose = Field(default_factory=Pose)
+    initial_positions: tuple[float, ...] | None = None
+
+
+class _Sensor(Schema):
+    model: Name
+    parent: str
+    pose: Pose = Field(default_factory=Pose)
+    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class _ChildSystem(Schema):
+    definition: str
+    pose: Pose = Field(default_factory=Pose)
+
+
+class _System(Schema):
+    robots: dict[Name, _Robot] = Field(default_factory=dict)
+    sensors: dict[Name, _Sensor] = Field(default_factory=dict)
+    systems: dict[Name, _ChildSystem] = Field(default_factory=dict)
+
+
+class _RobotSystemSelection(Schema):
+    definition: str
+    pose: Pose = Field(default_factory=Pose)
+    autonomy: AutonomySelection
+
+
+class _Object(Schema):
+    model: Name
+    pose: Pose = Field(default_factory=Pose)
+
+
+class _Scenario(Schema):
+    world: WorldConfiguration | str
+    duration: float = Field(gt=0)
+    sensors_enabled: bool = True
+    robot_system: _RobotSystemSelection
+    objects: dict[Name, _Object] = Field(default_factory=dict)
+    task: TaskSelection
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -66,6 +114,16 @@ def _resolve_package_reference(owner: Path, reference: str) -> Path:
 def resolve_resource(reference: str) -> Path:
     """Resolve a validated application-package URI independently of the cwd."""
     return _resolve_package_reference(Path("<resource>"), reference)
+
+
+def load_robot(path: str | Path) -> RobotDefinition:
+    """Load a robot's asset declaration without importing robot code or SDKs."""
+    source = (
+        resolve_resource(path)
+        if isinstance(path, str) and path.startswith("package:")
+        else Path(path).resolve()
+    )
+    return _read_validated_yaml(source, RobotDefinition)
 
 
 class _WorldProfile(RootModel[WorldConfiguration]):

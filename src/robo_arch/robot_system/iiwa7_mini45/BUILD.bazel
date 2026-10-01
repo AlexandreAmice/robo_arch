@@ -1,0 +1,5 @@
+filegroup(
+    name = "resources",
+    srcs = ["system.yaml"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+)

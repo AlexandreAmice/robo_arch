@@ -1,0 +1,26 @@
+"""Import the installed or Bazel-provided extension without implicit compilation."""
+
+from importlib.util import find_spec
+
+import numpy as np
+
+
+def compute(
+    q: np.ndarray,
+    v: np.ndarray,
+    q_des: np.ndarray,
+    v_des: np.ndarray,
+    feedforward: np.ndarray,
+    kp: np.ndarray,
+    kd: np.ndarray,
+) -> np.ndarray:
+    """Call native feedback; the binding validates layout, units remain caller-owned."""
+    if find_spec("robo_arch_native") is None:
+        raise ModuleNotFoundError(
+            "Native controller is not installed. Run: "
+            "uv run tools/dev.py native --profile drake "
+            "(or --profile isaac for the vendor environment)."
+        )
+    from robo_arch_native._joint_pd import compute as native_compute
+
+    return native_compute(q, v, q_des, v_des, feedforward, kp, kd)

@@ -1,6 +1,5 @@
-<?xml version="1.0"?>
+<?xml version='1.0' encoding='utf-8'?>
 <robot name="ur7e">
-  <!--UR7e nominal kinematics and inertias from Universal Robots. See ../README.md. Primitive visuals only; no robot collision geometry.-->
   <link name="base_link" />
   <link name="base_link_inertia">
     <inertial>
@@ -8,6 +7,21 @@
       <mass value="4.0" />
       <inertia ixx="0.004433333333333333" iyy="0.004433333333333333" izz="0.0072" ixy="0" ixz="0" iyz="0" />
     </inertial>
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 3.141592653589793" />
+      <geometry>
+        <mesh filename="meshes/visual/base.obj" />
+      </geometry>
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 3.141592653589793" />
+      <geometry>
+        <mesh filename="meshes/collision/base.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="base_link-base_link_inertia" type="fixed">
     <parent link="base_link" />
@@ -21,14 +35,20 @@
       <inertia ixx="0.0070021" ixy="7.3e-07" ixz="-1.053e-05" iyy="0.00648091" iyz="0.00049994" izz="0.00657286" />
     </inertial>
     <visual>
-      <origin xyz="0 0 -0.04" rpy="0 0 0" />
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 3.141592653589793" />
       <geometry>
-        <cylinder radius="0.055" length="0.12" />
+        <mesh filename="meshes/visual/shoulder.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 3.141592653589793" />
+      <geometry>
+        <mesh filename="meshes/collision/shoulder.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="shoulder_pan_joint" type="revolute">
     <parent link="base_link_inertia" />
@@ -54,14 +74,20 @@
       <inertia ixx="0.01505885" ixy="-5.4e-05" ixz="5.63e-06" iyy="0.33388086" iyz="-1.81e-06" izz="0.33247207" />
     </inertial>
     <visual>
-      <origin xyz="-0.2125 0 0.11" rpy="0 1.5707963267948966 0" />
+      <origin xyz="0.0 0.0 0.138" rpy="1.5707963267948966 0.0 -1.5707963267948966" />
       <geometry>
-        <cylinder radius="0.045" length="0.425" />
+        <mesh filename="meshes/visual/upper_arm.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.138" rpy="1.5707963267948966 0.0 -1.5707963267948966" />
+      <geometry>
+        <mesh filename="meshes/collision/upper_arm.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="shoulder_lift_joint" type="revolute">
     <parent link="shoulder_link" />
@@ -87,14 +113,20 @@
       <inertia ixx="0.00399632" ixy="-1.365e-05" ixz="0.00137272" iyy="0.07879254" iyz="-6.6e-06" izz="0.0784851" />
     </inertial>
     <visual>
-      <origin xyz="-0.1961 0 0.0265" rpy="0 1.5707963267948966 0" />
+      <origin xyz="0.0 0.0 0.007" rpy="1.5707963267948966 0.0 -1.5707963267948966" />
       <geometry>
-        <cylinder radius="0.037" length="0.3922" />
+        <mesh filename="meshes/visual/forearm.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.007" rpy="1.5707963267948966 0.0 -1.5707963267948966" />
+      <geometry>
+        <mesh filename="meshes/collision/forearm.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="elbow_joint" type="revolute">
     <parent link="upper_arm_link" />
@@ -120,14 +152,20 @@
       <inertia ixx="0.00165491" ixy="-2.82e-06" ixz="-4.38e-06" iyy="0.00135962" iyz="0.00010157" izz="0.00126279" />
     </inertial>
     <visual>
-      <origin xyz="0 -0.05 0" rpy="1.5707963267948966 0 0" />
+      <origin xyz="0.0 0.0 -0.127" rpy="1.5707963267948966 0.0 0.0" />
       <geometry>
-        <cylinder radius="0.04" length="0.1" />
+        <mesh filename="meshes/visual/wrist_1.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 0.0 -0.127" rpy="1.5707963267948966 0.0 0.0" />
+      <geometry>
+        <mesh filename="meshes/collision/wrist_1.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="wrist_1_joint" type="revolute">
     <parent link="forearm_link" />
@@ -153,14 +191,20 @@
       <inertia ixx="0.00135617" ixy="-2.74e-06" ixz="4.44e-06" iyy="0.00127827" iyz="-5.048e-05" izz="0.00096614" />
     </inertial>
     <visual>
-      <origin xyz="0 0.05 0" rpy="1.5707963267948966 0 0" />
+      <origin xyz="0.0 0.0 -0.0997" rpy="0.0 0.0 0.0" />
       <geometry>
-        <cylinder radius="0.04" length="0.1" />
+        <mesh filename="meshes/visual/wrist_2.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 0.0 -0.0997" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <mesh filename="meshes/collision/wrist_2.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="wrist_2_joint" type="revolute">
     <parent link="wrist_1_link" />
@@ -186,14 +230,20 @@
       <inertia ixx="0.00018694" ixy="6e-08" ixz="-1.7e-07" iyy="0.00018908" iyz="-9.2e-07" izz="0.00025756" />
     </inertial>
     <visual>
-      <origin xyz="0 0 -0.02" rpy="0 0 0" />
+      <origin xyz="0.0 -0.0005 -0.0989" rpy="1.5707963267948966 0.0 0.0" />
       <geometry>
-        <cylinder radius="0.04" length="0.04" />
+        <mesh filename="meshes/visual/wrist_3.obj" />
       </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.5 0.7 1" />
+      <material name="ur_blue">
+        <color rgba="0.35 0.55 0.7 1" />
       </material>
     </visual>
+    <collision>
+      <origin xyz="0.0 -0.0005 -0.0989" rpy="1.5707963267948966 0.0 0.0" />
+      <geometry>
+        <mesh filename="meshes/collision/wrist_3.obj" />
+      </geometry>
+    </collision>
   </link>
   <joint name="wrist_3_joint" type="revolute">
     <parent link="wrist_2_link" />

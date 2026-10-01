@@ -2,14 +2,33 @@ load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 py_library(
-    name = "real",
+    name = "config",
     srcs = [
         "__init__.py",
+        "config.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config:resources",
+        "//src/robo_arch/core/config:schema",
+        "//src/robo_arch/core/worlds:package",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "real",
+    srcs = [
+        "scenario.py",
+        "scene.py",
         "visualization.py",
     ],
     data = ["inspection.rviz"],
     visibility = ["//src/robo_arch:__subpackages__"],
-    deps = ["//src/robo_arch/core/config"],
+    deps = [
+        ":config",
+        "//src/robo_arch/core/config",
+    ],
 )
 
 py_test(
@@ -17,6 +36,7 @@ py_test(
     srcs = ["tests/test_rviz.py"],
     main = "tests/test_rviz.py",
     deps = [
+        ":config",
         ":real",
         "//src/robo_arch/core/config",
         requirement("pytest"),

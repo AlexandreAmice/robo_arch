@@ -2,10 +2,10 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 filegroup(
     name = "assets",
-    srcs = [
-        "THIRD_PARTY_LICENSES/Universal_Robots_ROS2_Description.txt",
-        "assets/model.urdf",
-    ],
+    srcs = glob([
+        "assets/**",
+        "THIRD_PARTY_LICENSES/**",
+    ]),
     visibility = ["//src/robo_arch:__subpackages__"],
 )
 
@@ -13,12 +13,13 @@ py_library(
     name = "ur7e",
     srcs = [
         "__init__.py",
-        "definition.py",
     ],
-    data = [":assets"],
+    data = [
+        "robot.yaml",
+        ":assets",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        "//src/robo_arch/core/config",
         "//src/robo_arch/robots",
     ],
 )
