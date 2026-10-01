@@ -1,20 +1,56 @@
 load("@python_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "config",
+    srcs = [
+        "__init__.py",
+        "config.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config:schema",
+        "//src/robo_arch/core/worlds:package",
+        requirement("pydantic"),
+    ],
+)
 
 # Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
 py_library(
     name = "isaac",
     srcs = [
-        "__init__.py",
-        "simulation.py",
+        "convert.py",
+        "objects.py",
+        "scenario.py",
+        "scene.py",
+        "urdf.py",
+        "visualization.py",
     ],
     data = [
+        "desktop.yaml",
         "physics.kit",
+        "viewport.kit",
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        ":config",
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/worlds",
         requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "objects_test",
+    srcs = ["tests/test_objects.py"],
+    main = "tests/test_objects.py",
+    deps = [
+        ":config",
+        ":isaac",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        requirement("pytest"),
     ],
 )

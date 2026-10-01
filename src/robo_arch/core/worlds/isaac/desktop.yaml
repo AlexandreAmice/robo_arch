@@ -1,0 +1,13 @@
+# Native Storm viewport with CPU PhysX for local inspection.
+type: isaac
+target_realtime_rate: 1.0
+physics:
+  time_step: 0.001
+  device: cpu
+  solver: pgs
+visualization:
+  type: isaac
+  mode: live
+  publish_period: 0.03333333333333333
+  width: 960
+  height: 720

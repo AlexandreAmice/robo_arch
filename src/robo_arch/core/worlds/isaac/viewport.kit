@@ -1,0 +1,54 @@
+[package]
+title = "robo_arch native physics inspection"
+version = "0.0.0"
+
+[dependencies]
+"omni.physx.tensors" = { version = "110.3.2", exact = true }
+"omni.kit.usd.layers" = {}
+"omni.kit.loop-isaac" = {}
+"omni.usd" = {}
+"omni.physics.tensors" = { version = "110.3.2", exact = true }
+"omni.physx" = { version = "110.3.2", exact = true }
+"omni.kit.renderer.init" = { version = "1.0.1", exact = true }
+
+"omni.hydra.pxr" = { version = "1.2.7", exact = true }
+"omni.kit.mainwindow" = {}
+"omni.kit.viewport.window" = { version = "110.0.1", exact = true }
+"omni.kit.viewport.utility" = { version = "2.1.0", exact = true }
+"omni.kit.manipulator.camera" = {}
+
+[settings.app]
+name = "robo_arch_isaac"
+window.enabled = true
+settings.persistent = false
+
+[settings]
+privacy.userConsent = false
+physics.updateToUsd = false
+
+exts."omni.usd".locking.onClose = false
+
+app.window.title = "robo_arch — Isaac"
+# Keep startup performance warnings in the log without a modal desktop dialog.
+persistent.renderer.startupMessageDisplayed = true
+
+# Storm renders the live PhysX USD stage without RTX shader compilation.
+renderer.active = "pxr"
+renderer.enabled = "pxr"
+app.useFabricSceneDelegate = false
+
+# Serialize rendering with explicit PhysX steps, as in Isaac's base experience.
+app.asyncRendering = false
+app.asyncRenderingLowLatency = false
+# Kit 110.3's independent present thread can race renderer teardown. Present
+# synchronously on the main thread for this manually stepped inspection app.
+exts."omni.kit.renderer.core".present.enabled = false
+
+app.runLoops.main.manualModeEnabled = true
+app.player.useFixedTimeStepping = false
+# Inspection/capture also work while the window is behind another application.
+app.renderer.skipWhileMinimized = false
+app.renderer.skipWhileInvisible = false
+app.renderer.sleepMsOnFocus = 0
+app.renderer.sleepMsOutOfFocus = 0
+app.runLoops.main.rateLimitEnabled = false
