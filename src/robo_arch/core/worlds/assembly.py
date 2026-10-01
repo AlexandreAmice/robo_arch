@@ -13,7 +13,7 @@ from robo_arch.core.config.declarations import (
 )
 
 if TYPE_CHECKING:
-    import numpy as np
+    from pydrake.math import RigidTransform
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -83,18 +83,18 @@ def resolve_devices(scene: SceneConfiguration) -> Devices:
     )
 
 
-def pose_matrix(pose: Pose) -> np.ndarray:
-    """Return the child-to-parent homogeneous transform, in metres."""
-    import numpy as np
+def pose_transform(pose: Pose) -> RigidTransform:
+    """Return the child-to-parent rigid transform, with translation in metres."""
+    from pydrake.math import RigidTransform, RollPitchYaw
 
-    result = np.eye(4)
-    roll, pitch, yaw = pose.rpy
-    sr, sp, sy = np.sin([roll, pitch, yaw])
-    cr, cp, cy = np.cos([roll, pitch, yaw])
-    result[:3, :3] = [
-        [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
-        [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
-        [-sp, cp * sr, cp * cr],
-    ]
-    result[:3, 3] = pose.translation
+    return RigidTransform(RollPitchYaw(pose.rpy), pose.translation)
+
+
+def base_pose(robot: PlacedRobot) -> RigidTransform:
+    """Compose the declared world-to-base pose chain in parent-to-child order."""
+    from pydrake.math import RigidTransform
+
+    result = RigidTransform()
+    for pose in robot.poses:
+        result = result @ pose_transform(pose)
     return result

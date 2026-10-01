@@ -18,7 +18,7 @@ py_library(
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
         ":package",
-        requirement("numpy"),
+        requirement("drake"),
         "//src/robo_arch/core/config",
     ],
 )
@@ -62,6 +62,18 @@ py_test(
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/worlds/drake",
         requirement("drake"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "poses_test",
+    srcs = ["tests/test_poses.py"],
+    main = "tests/test_poses.py",
+    deps = [
+        ":worlds",
+        "//src/robo_arch/core/config",
+        requirement("numpy"),
         requirement("pytest"),
     ],
 )

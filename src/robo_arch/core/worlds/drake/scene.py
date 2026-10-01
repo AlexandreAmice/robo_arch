@@ -5,7 +5,6 @@ from importlib.resources import as_file, files
 
 import numpy as np
 from pydrake.geometry import SceneGraph
-from pydrake.math import RigidTransform, RollPitchYaw
 from pydrake.multibody.parsing import Parser
 from pydrake.multibody.plant import (
     AddMultibodyPlantSceneGraph,
@@ -18,12 +17,16 @@ from pydrake.systems.framework import DiagramBuilder, LeafSystem
 from pydrake.systems.sensors import RgbdSensor
 
 from robo_arch.core.config.declarations import (
-    Pose,
     RobotDefinition,
     SceneConfiguration,
     SensorInstance,
 )
-from robo_arch.core.worlds.assembly import PlacedRobot, resolve_devices
+from robo_arch.core.worlds.assembly import (
+    PlacedRobot,
+    base_pose,
+    pose_transform,
+    resolve_devices,
+)
 from robo_arch.core.worlds.devices import (
     DeviceDefinitions,
     load_definitions,
@@ -32,17 +35,6 @@ from robo_arch.core.worlds.devices import (
 from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeWorld
 from robo_arch.core.worlds.drake.models import add_robot
 from robo_arch.core.worlds.drake.sensors import add_sensor_body
-
-
-def _transform(pose: Pose) -> RigidTransform:
-    return RigidTransform(RollPitchYaw(pose.rpy), pose.translation)
-
-
-def base_pose(robot: PlacedRobot) -> RigidTransform:
-    result = RigidTransform()
-    for pose in robot.poses:
-        result = result @ _transform(pose)
-    return result
 
 
 def build_controller_model(
@@ -70,7 +62,7 @@ def build_controller_model(
                 sensor,
                 definitions.sensors[sensor.model],
                 model.GetFrameByName(frame_name, instance),
-                _transform(sensor.pose),
+                pose_transform(sensor.pose),
             )
     model.Finalize()
     return model
@@ -170,7 +162,7 @@ def build_scene(
         plant.WeldFrames(
             plant.world_frame(),
             plant.GetFrameByName(definition.base_frame, instance),
-            _transform(obj.pose),
+            pose_transform(obj.pose),
         )
     sensor_instances = {}
     for sensor in devices.sensors:
@@ -180,7 +172,7 @@ def build_scene(
             sensor,
             definitions.sensors[sensor.model],
             plant.GetFrameByName(frame_name, robot_instances[robot_name]),
-            _transform(sensor.pose),
+            pose_transform(sensor.pose),
         )
     plant.Finalize()
 
