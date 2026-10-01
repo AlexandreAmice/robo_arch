@@ -1,4 +1,10 @@
 {
+    "clangd.path": "${workspaceFolder}/external/toolchains_llvm++llvm+llvm_toolchain_llvm/bin/clangd",
+    "clangd.arguments": [
+        "--header-insertion=never",
+        "--compile-commands-dir=${workspaceFolder}"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "ltex.enabled": [
         "bibtex",

@@ -13,6 +13,20 @@ host glibc; it is not yet a portable manylinux release build.
 | LLVM / C++ | 22.1.8 / C++23 | `MODULE.bazel` and `.bazelrc`; bundled libc++ |
 | nanobind | 3.0.1 | `MODULE.bazel`; regular CPython ABI |
 | Ruff / clang-format / Buildifier | 0.16.9 / 22.1.8 / 10.1.0 | uv and Bzlmod configuration |
+| Hedron compile commands | `abb61a688167623088f8768cc9264798df6a9d10` | Development-only `git_override` in `MODULE.bazel` |
+
+[Hedron](https://github.com/hedronvision/bazel-compile-commands-extractor) generates
+the C++ editor database. Its upstream rules still use native Python/C++ rules
+removed in Bazel 9. `hedron/bazel9.patch` declares the existing rules_python and
+rules_cc dependencies and loads their rules explicitly. Bazel 9 also omits action
+keys from its cache dump; the patch skips that optimization and lets Hedron
+discover headers through preprocessing and its own header cache. Remove the
+patch when an upstream pin supports these changes; see the
+[editor setup](../README.md).
+
+VS Code uses the toolchain's clangd, matching its libc++ headers. Do not add
+`--query-driver` here: the extracted commands already carry the include paths,
+and querying the wrapper promotes C system headers ahead of libc++'s wrappers.
 
 `uv.lock` is authoritative for core and Drake Python dependencies. In
 `MODULE.bazel`, rules_python's `pip.parse(uv_lock = "//:uv.lock", ...)` reads its

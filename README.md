@@ -48,6 +48,25 @@ bazel test //tests/build:core //tests/build:cxx23 \
 bazel run //:buildifier
 ```
 
+For C++ autocomplete and navigation in VS Code, install the recommended
+**clangd** extension (`llvm-vs-code-extensions.vscode-clangd`). Open the
+repository/worktree root and run:
+
+```sh
+bazel run //:refresh_compile_commands
+```
+
+This uses [Hedron's extractor](https://github.com/hedronvision/bazel-compile-commands-extractor)
+to generate an ignored `compile_commands.json` with Bazel's C++23 flags and
+toolchain paths, plus an ignored `external` link into Bazel's dependencies. The
+workspace settings use clangd bundled with the pinned LLVM toolchain and disable
+Microsoft C++ IntelliSense to avoid duplicate diagnostics. After the first run,
+use **clangd: Restart language server** if clangd started before the toolchain
+was available. Regenerate after changing BUILD files, dependencies or compiler
+options, and separately in each
+worktree. Pass extra build flags after `--`, for example
+`bazel run //:refresh_compile_commands -- --compilation_mode=dbg`.
+
 Run the example and open its interactive scene playback:
 
 ```sh
