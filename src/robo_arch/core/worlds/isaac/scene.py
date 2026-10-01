@@ -15,6 +15,7 @@ from robo_arch.core.worlds.devices import (
 )
 from robo_arch.core.worlds.isaac.config import IsaacPhysics, IsaacWorld
 from robo_arch.core.worlds.isaac.objects import add_objects
+from robo_arch.core.worlds.isaac.urdf import add_to_stage
 from robo_arch.core.worlds.urdf import compose
 
 
@@ -78,8 +79,7 @@ def build_scene(
         destination.mkdir(parents=True)
         urdf = destination / "assembly.urdf"
         compose(robot, devices.sensors, definitions, urdf)
-        adapter = load_device_module("robots", robot.model, "isaac")
-        roots[robot.name] = adapter.add_to_stage(
+        roots[robot.name] = add_to_stage(
             stage,
             name=robot.name,
             X_WB=X_WB,

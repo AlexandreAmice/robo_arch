@@ -2,10 +2,10 @@
 
 import copy
 import xml.etree.ElementTree as ET
-from importlib.resources import files
 from pathlib import Path
 
 from robo_arch.core.config.declarations import SensorInstance
+from robo_arch.core.config.loading import resolve_resource
 from robo_arch.core.worlds.assembly import PlacedRobot
 from robo_arch.core.worlds.devices import DeviceDefinitions
 
@@ -15,8 +15,10 @@ def sensor_link(name: str, link: str) -> str:
     return "sensor_" + name.encode().hex() + "__" + link
 
 
-def _asset(package: str, resource: str) -> ET.Element:
-    path = Path(str(files(package).joinpath(resource)))
+def _asset(reference: str) -> ET.Element:
+    path = resolve_resource(reference)
+    if path.suffix != ".urdf":
+        raise ValueError(f"Unsupported robot assembly asset: {reference}")
     model = ET.parse(path).getroot()
     for mesh in model.findall(".//mesh"):
         mesh.set("filename", str((path.parent / mesh.get("filename")).resolve()))
@@ -30,14 +32,16 @@ def compose(
     destination: Path,
 ) -> None:
     """Preserve all sensing joints and inertias, including disabled observations."""
-    model = _asset(f"robo_arch.robots.{robot.model}", "assets/model.urdf")
+    model = _asset(definitions.robots[robot.model].asset)
     model.set("name", "assembly")
     for sensor in sensors:
         parent, frame = sensor.parent.rsplit("/", 1)
         if parent != robot.name:
             continue
         definition = definitions.sensors[sensor.model]
-        body = _asset(f"robo_arch.sensors.{sensor.model}", definition.resource)
+        body = _asset(
+            f"package://robo_arch/sensors/{sensor.model}/{definition.resource}"
+        )
         for original in body:
             node = copy.deepcopy(original)
             for element in node.iter():

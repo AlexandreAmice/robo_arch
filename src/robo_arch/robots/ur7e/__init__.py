@@ -1,1 +1,1 @@
-"""UR7e nominal model and world-specific implementations."""
+"""UR7e nominal assets and declarative model metadata."""

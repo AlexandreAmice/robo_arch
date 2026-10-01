@@ -13,6 +13,7 @@
 - Follow [architecture.md](docs/architecture.md) and [build_and_layout.md](docs/build_and_layout.md). The first application is UR7e + Robotiq, placing nuts onto a pin; hardware details remain open.
 - Reuse autonomy code across deployment and training. Use explicit world implementations, preferably thin wrappers over shared code. Missing support is an error; supported scalar/CPU execution in batched simulation produces warnings. Intentional approximations must be named.
 - YAML configuration references use `package://robo_arch/...` resources, never paths relative to another YAML file or the working directory.
+- Describe ordinary robots with assets and declarative metadata; world-owned loaders parse them. Do not require per-robot factories, forwarding wrappers or world subpackages without concrete device-specific behavior.
 - Timing and reset belong primarily to implementations. Avoid a new universal scheduler, YAML programming language or speculative performance framework.
 - Follow the file-placement rules below. Actuated tools are robots; physical assembly and autonomy composition remain distinct.
 - Keep reusable algorithms separate from robot/system/scenario specializations. Physical assembly does not fix an autonomy stack. Calibration belongs with the device or relationship it describes, with explicit instance identity and profile selection. Do not require optional SDKs to inspect declarations.

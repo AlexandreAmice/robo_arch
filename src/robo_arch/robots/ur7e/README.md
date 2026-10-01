@@ -8,7 +8,7 @@ notice is retained in `THIRD_PARTY_LICENSES/`.
 Joint transforms, masses, centers of mass and inertias come from
 `config/ur7e/{default_kinematics,physical_parameters}.yaml`; limits come from
 `config/ur7e/joint_limits.yaml`. Frame conventions follow `urdf/ur_macro.xacro`.
-The six effort transmissions preserve the ordering in `definition.py`.
+The six effort transmissions preserve the ordering in `robot.yaml`.
 
 Visual and **collision meshes** follow `config/ur7e/visual_parameters.yaml`,
 including its exact offsets. That upstream UR7e configuration intentionally
@@ -27,6 +27,7 @@ restricts the elbow range for planning. There is no gripper, motor/friction mode
 hardware driver or per-unit calibration. Mounted sensor inertias are included in
 both the physical assembly and its separate controller dynamics model.
 
-`drake.add_to_plant(plant, name=...)` loads an independent instance; the caller
-places its base and finalizes the plant. Isaac uses the same URDF, composed with
-mounted devices before conversion. Declarations import no simulation SDK.
+`robot.yaml` declares the asset and joint/frame conventions. Shared Drake loading
+creates independent simulation and controller-model instances. Isaac uses the same
+asset reference, composed with mounted devices before conversion. This robot
+requires no Python factory or per-world wrapper.

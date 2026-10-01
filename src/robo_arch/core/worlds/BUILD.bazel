@@ -54,3 +54,16 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+py_test(
+    name = "robot_assets_test",
+    srcs = ["tests/test_robot_assets.py"],
+    main = "tests/test_robot_assets.py",
+    deps = [
+        ":worlds",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("drake"),
+        requirement("pytest"),
+    ],
+)

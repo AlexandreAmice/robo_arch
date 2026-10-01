@@ -33,7 +33,7 @@ task:
   type: joint_tracking
   parameters:
     robot: arm
-    # Radians, in robots/ur7e/definition.py joint order.
+    # Radians, in robots/ur7e/robot.yaml joint order.
     target: [0.05, -1.5207963267948965, 1.5207963267948965, -1.5707963267948966, -1.5707963267948966, 0.05]
     # Maximum absolute joint-position error at the end of the run, in radians.
     tolerance: 0.02

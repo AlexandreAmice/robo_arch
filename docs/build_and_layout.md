@@ -9,9 +9,8 @@ Robot and sensor packages own their specific code, assets, calibration profiles 
 ```text
 src/robo_arch/
   robots/ur7e/
-    definition.py                # describe(), frames and joint order
+    robot.yaml                   # asset reference, frames, joint order and defaults
     assets/                      # model and provenance
-    drake/                       # device adaptation for this world
     tests/
   sensors/realsense_d435/
     definition.py                # parameters and supported factories
@@ -63,7 +62,7 @@ or calibration. `plans/` remains ignored scratch space.
 
 Put an implementation at the narrowest scope where its assumptions hold. A UR7e controller can construct a shared inverse-dynamics implementation with its model and gains. Do not copy the equations into each robot, or force genuinely device-specific behavior into a generic interface. Assembly- or task-specific tuning stays with that assembly or scenario. `core/` contains named responsibilities, not an unstructured utility collection.
 
-Use explicit supported-world implementations. Device-specific wrappers live in that device's `drake/`, `isaac/` or `real/` directory and call shared code where appropriate. Device adapters can call shared functions without duplicating algorithms. Generic world assembly lives under `core/worlds/`; lookup calls `describe()` in the selected `robo_arch.<category>.<model>.definition` packages. World assembly imports their world modules when needed and calls explicit native construction functions. No parallel device implementations belong in the generic world directories.
+Robot model loading belongs under `core/worlds/<world>/`: parse the asset declared in `robots/<model>/robot.yaml`, with no robot-specific imports or forwarding factories. Add ordinary robots with data alone. Simulation and controller-model construction use the same asset reference. World support follows the implemented asset formats and required behavior; a model file alone does not establish hardware support. Keep code under a device's `drake/`, `isaac/` or `real/` directory only for a concrete device-specific responsibility, such as sensor observations or a hardware driver. Autonomy implementations remain explicit and reuse shared algorithms.
 
 Robot-system composition describes the physical assembly and its available interfaces. Autonomy composition describes computation. A system may provide convenient autonomy presets, but does not require one fixed controller or policy. Both model-based and pixel-to-command stacks can target the same robot system.
 

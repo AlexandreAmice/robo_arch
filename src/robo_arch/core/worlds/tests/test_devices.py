@@ -1,4 +1,4 @@
-"""Package lookup, explicit adapter entry points and SDK-independent metadata."""
+"""Asset discovery, sensor adapters and SDK-independent metadata."""
 
 import subprocess
 import sys
@@ -95,7 +95,7 @@ def test_discovery_rejects_model_import_paths(name):
 
 def test_unknown_device_and_unsupported_world_fail_before_adapter_loading():
     run = _run()
-    with pytest.raises(ModuleNotFoundError, match="robo_arch.robots.unknown_robot"):
+    with pytest.raises(FileNotFoundError, match="robots/unknown_robot/robot.yaml"):
         load_definitions(
             replace(
                 run,
@@ -141,14 +141,14 @@ def test_parameter_schema_defaults_constraints_and_unknown_fields():
 
 def test_missing_device_adapter_is_not_substituted():
     with pytest.raises(
-        ModuleNotFoundError, match="robo_arch.robots.ur7e.real"
+        ModuleNotFoundError, match="robo_arch.sensors.realsense_d435.real"
     ):
-        load_device_module("robots", "ur7e", "real")
+        load_device_module("sensors", "realsense_d435", "real")
 
 
 def test_device_module_rejects_import_paths():
     with pytest.raises(ValueError, match="Invalid device module identifier"):
-        load_device_module("robots", "ur7e", "../drake")
+        load_device_module("sensors", "realsense_d435", "../drake")
 
 
 def test_declarations_import_in_fresh_process_without_simulator_sdks():
@@ -161,6 +161,7 @@ world_packages = tuple(
 class RejectSDK:
     def find_spec(self, fullname, path=None, target=None):
         if (fullname.split('.')[0] in {{'pydrake', 'isaacsim', 'omni', 'pxr', 'rclpy'}}
+            or fullname.startswith('robo_arch.robots.')
             or (fullname.endswith(('.drake', '.isaac', '.real'))
                 and fullname not in world_packages)
             or any(fullname.startswith(package + '.')
@@ -170,8 +171,8 @@ sys.meta_path.insert(0, RejectSDK())
 import robo_arch.core.config.declarations
 assert 'yaml' not in sys.modules
 import robo_arch.core.config.loading
-from robo_arch.robots.ur7e.definition import describe as describe_robot
-robot = describe_robot()
+from robo_arch.core.config.loading import load_robot
+robot = load_robot('package://robo_arch/robots/ur7e/robot.yaml')
 from robo_arch.sensors.realsense_d435.definition import describe as describe_sensor
 sensor = describe_sensor()
 from robo_arch.objects.box.definition import describe as describe_object
@@ -179,7 +180,7 @@ obj = describe_object()
 assert len(robot.joints) == 6
 assert sensor.parameter_schema.model_validate({{}}).width == 64
 assert obj.resource == 'model.sdf'
-assert robot.supported_worlds == ('drake', 'isaac')
+assert robot.asset == 'package://robo_arch/robots/ur7e/assets/model.urdf'
 assert sensor.supported_worlds == ('drake',)
 """
     result = subprocess.run(

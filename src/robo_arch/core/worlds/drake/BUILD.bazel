@@ -18,6 +18,7 @@ py_library(
 py_library(
     name = "drake",
     srcs = [
+        "models.py",
         "scenario.py",
         "scene.py",
         "sensors.py",

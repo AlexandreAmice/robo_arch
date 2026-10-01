@@ -1,4 +1,4 @@
-"""Assemble fixed-base physical scenes with device-owned Drake factories."""
+"""Assemble fixed-base physical scenes from declared assets and mounts."""
 
 from dataclasses import dataclass
 from importlib.resources import as_file, files
@@ -30,6 +30,7 @@ from robo_arch.core.worlds.devices import (
     load_device_module,
 )
 from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeWorld
+from robo_arch.core.worlds.drake.models import add_robot
 from robo_arch.core.worlds.drake.sensors import add_sensor_body
 
 
@@ -55,9 +56,7 @@ def build_controller_model(
     if sensors and definitions is None:
         raise ValueError("Mounted sensor models require their definitions")
     model = MultibodyPlant(0.0)
-    instance = load_device_module("robots", robot.model, "drake").add_to_plant(
-        model, name=robot.name
-    )
+    instance = add_robot(model, definition, name=robot.name)
     model.WeldFrames(
         model.world_frame(),
         model.GetFrameByName(definition.base_frame, instance),
@@ -135,8 +134,7 @@ def build_scene(
     initial_positions = {}
     for robot in devices.robots:
         definition = definitions.robots[robot.model]
-        adapter = load_device_module("robots", robot.model, "drake")
-        instance = adapter.add_to_plant(plant, name=robot.name)
+        instance = add_robot(plant, definition, name=robot.name)
         X_WB = base_pose(robot)
         plant.WeldFrames(
             plant.world_frame(),

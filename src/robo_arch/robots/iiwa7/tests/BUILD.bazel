@@ -6,8 +6,9 @@ py_test(
     srcs = ["test_model.py"],
     main = "test_model.py",
     deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake",
         "//src/robo_arch/robots/iiwa7",
-        "//src/robo_arch/robots/iiwa7/drake",
         requirement("drake"),
         requirement("numpy"),
         requirement("pytest"),

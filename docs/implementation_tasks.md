@@ -161,7 +161,7 @@ Include fixtures demonstrating:
 
 **Depends on:** I1 and B0.
 
-Own `robots/ur7e/` and the minimal arm-only robot-system description. Reusable model-loading utilities belong under `core/models/`.
+Own `robots/ur7e/` and the minimal arm-only robot-system description. Declare the physical asset and nominal metadata in `robot.yaml`; world-owned shared loaders consume it without a robot factory.
 
 Pin the actual UR7e description with provenance and assets inside its package. Establish named joints, frames, model parameters and actuator mappings. Put UR7e-specific calibration/model profiles there; reserve inter-device transforms for the system. Keep control-model construction distinct from simulation state. Exclude the unspecified gripper from the first arm example rather than silently substituting one.
 
@@ -185,7 +185,7 @@ World adapters must call this computation rather than reproducing controller equ
 
 **Depends on:** S0, A0, K0.
 
-Own generic Drake scene/Diagram assembly under `core/worlds/drake/` and explicitly assigned device `drake/` wrappers. Keep UR7e-specific construction in its package. Generic physical assembly handles nested systems; scenario or system Python owns task-specific autonomy wiring.
+Own generic Drake asset loading and scene/Diagram assembly under `core/worlds/drake/`. Keep only genuinely device-specific behavior in device packages; ordinary robot models need no wrappers. Generic physical assembly handles nested systems; scenario or system Python owns task-specific autonomy wiring.
 
 Construct simulation models, measurement sources and accepted command ports. Compose autonomy with native Systems and DiagramBuilder, using shared controller construction functions. Keep the assembly reusable for later real-world driver substitution, following the separation illustrated by Drake's HardwareStation approach. [HardwareStation reference](https://manipulation.mit.edu/python/station.html)
 
@@ -199,7 +199,7 @@ Apply selected Drake physics settings at construction and use the standard visua
 
 **Depends on:** successful G0, S0, A0, K0.
 
-Own generic Isaac scene/execution integration under `core/worlds/isaac/` and explicitly assigned device `isaac/` wrappers. Keep robot/sensor-specific logic in those packages.
+Own generic Isaac asset loading and scene/execution integration under `core/worlds/isaac/`. Keep genuinely robot/sensor-specific behavior in those packages; ordinary robot models need no wrappers.
 
 Reuse controller algorithms and parameter schemas through an explicit Isaac wrapper. Start with one arm and no camera. Explicitly map joint order and command modes. Disable or account for simulator drives that would add unintended control behavior.
 

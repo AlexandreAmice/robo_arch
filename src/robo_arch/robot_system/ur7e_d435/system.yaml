@@ -3,7 +3,7 @@ robots:
   arm:
     model: ur7e
     # Omitted pose is identity relative to this system; the base is fixed.
-    # Omitted initial_positions uses robots/ur7e/definition.py DEFAULT_POSITIONS.
+    # Omitted initial_positions uses robots/ur7e/robot.yaml default_positions.
 sensors:
   camera:
     model: realsense_d435

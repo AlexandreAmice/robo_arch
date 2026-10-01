@@ -19,6 +19,7 @@ model-specific link envelopes but fills concavities; it is not exact CAD contact
 Adjacent links are excluded by native joint topology; nonadjacent self-collision
 and inter-arm collision remain enabled.
 
-Both world adapters consume the same packaged model. Isaac converts the complete
-arm plus mounted sensors in a subprocess, keeping its USD libraries separate
-from Kit. No hardware driver or measured calibration is provided.
+`robot.yaml` declares the asset and joint/frame conventions. Shared world loaders
+consume that asset without a robot-specific Python factory. Isaac converts the
+complete arm plus mounted sensors in a subprocess, keeping its USD libraries
+separate from Kit. No hardware driver or measured calibration is provided.

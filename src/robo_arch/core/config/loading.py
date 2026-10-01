@@ -16,6 +16,7 @@ from robo_arch.core.config.declarations import (
     Name,
     ObjectInstance,
     Pose,
+    RobotDefinition,
     RobotInstance,
     RobotSystem,
     RunConfiguration,
@@ -113,6 +114,16 @@ def _resolve_package_reference(owner: Path, reference: str) -> Path:
 def resolve_resource(reference: str) -> Path:
     """Resolve a validated application-package URI independently of the cwd."""
     return _resolve_package_reference(Path("<resource>"), reference)
+
+
+def load_robot(path: str | Path) -> RobotDefinition:
+    """Load a robot's asset declaration without importing robot code or SDKs."""
+    source = (
+        resolve_resource(path)
+        if isinstance(path, str) and path.startswith("package:")
+        else Path(path).resolve()
+    )
+    return _read_validated_yaml(source, RobotDefinition)
 
 
 class _WorldProfile(RootModel[WorldConfiguration]):

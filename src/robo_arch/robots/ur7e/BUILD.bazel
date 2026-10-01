@@ -13,12 +13,13 @@ py_library(
     name = "ur7e",
     srcs = [
         "__init__.py",
-        "definition.py",
     ],
-    data = [":assets"],
+    data = [
+        "robot.yaml",
+        ":assets",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        "//src/robo_arch/core/config",
         "//src/robo_arch/robots",
     ],
 )

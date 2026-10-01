@@ -9,9 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, JsonValue, StringConstraints
+from pydantic import (
+    Field,
+    JsonValue,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from robo_arch.core.config.parameters import Parameters
+from robo_arch.core.config.resources import validate_package_reference
 from robo_arch.core.config.schema import Schema
 from robo_arch.core.config.worlds import WorldConfiguration
 
@@ -143,14 +150,28 @@ class RunConfiguration:
         return tuple(dict.fromkeys(paths))
 
 
-@dataclass(frozen=True, kw_only=True)
-class RobotDefinition:
-    """Intrinsic model metadata and worlds with a device-owned adapter."""
+class RobotDefinition(Schema):
+    """Physical asset and its public joint/frame conventions; no executable factory."""
 
+    asset: str
     base_frame: str
     joints: tuple[str, ...]
     default_positions: tuple[float, ...]
-    supported_worlds: tuple[str, ...]
+
+    @field_validator("asset")
+    @classmethod
+    def _asset_reference(cls, value: str) -> str:
+        return validate_package_reference(value)
+
+    @model_validator(mode="after")
+    def _joint_defaults(self) -> "RobotDefinition":
+        if not self.joints or len(set(self.joints)) != len(self.joints):
+            raise ValueError("Robot joints must be nonempty and unique")
+        if len(self.default_positions) != len(self.joints):
+            raise ValueError(
+                "Robot default positions must match the declared joint order"
+            )
+        return self
 
 
 @dataclass(frozen=True, kw_only=True)
