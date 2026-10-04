@@ -1,0 +1,7 @@
+exports_files(
+    [
+        "conf.py",
+        "index.rst",
+    ],
+    visibility = ["//tests/build:__pkg__"],
+)

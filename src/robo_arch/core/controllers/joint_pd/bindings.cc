@@ -5,6 +5,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 
+#include "robo_arch/core/controllers/joint_pd/docstrings.h"
 #include "robo_arch/core/controllers/joint_pd/joint_pd.h"
 
 namespace nb = nanobind;
@@ -33,7 +34,5 @@ NB_MODULE(_joint_pd, module) {
       nb::arg("q").noconvert(), nb::arg("v").noconvert(),
       nb::arg("q_des").noconvert(), nb::arg("v_des").noconvert(),
       nb::arg("feedforward").noconvert(), nb::arg("kp").noconvert(),
-      nb::arg("kd").noconvert(),
-      "Compute PD plus feedforward. CPU float64 vectors; GIL held; owned "
-      "output.");
+      nb::arg("kd").noconvert(), robo_arch::docstrings::JOINT_PD);
 }

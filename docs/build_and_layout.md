@@ -108,6 +108,55 @@ Keep `uv.lock` authoritative for each supported environment. Bazel reads the roo
 
 Use thin **nanobind** bindings around project C++, with explicit ownership, array layout, device and GIL behavior. Call existing pydrake APIs directly where appropriate. Exchanging bound Drake objects requires compatible Drake libraries, compiler/C++ ABI and nanobind ABI/domain/Python-ABI settings, even though both projects use nanobind. Pin that combination in build tooling. [nanobind Bazel integration](https://nanobind.readthedocs.io/en/latest/bazel.html), [interoperability requirements](https://nanobind.readthedocs.io/en/latest/faq.html#how-can-i-avoid-conflicts-with-other-projects-using-nanobind)
 
+### API documentation
+
+The Python API reference combines Python-source docstrings and C++ Doxygen
+comments under the installed public `robo_arch` namespace. Each public symbol
+has one documentation owner: Python implementations own their source docstrings;
+direct C++ bindings use extracted comments; thin Python facades compose the C++
+description with Python-only signature, conversion, ownership and GIL notes.
+A wrapper that changes the contract owns a complete Python docstring as a
+distinct API. Do not duplicate shared prose. Private extension names are not
+public reference entries.
+
+`tools/docs/` uses the pinned Clang toolchain to parse explicitly selected
+declarations and Sphinx autodoc to render the combined reference. The initial
+catalogue in `docs/api/index.rst` covers joint PD, sphere constraints and
+configuration loading; extend it with public APIs as their documentation is
+maintained. The build fails on undocumented or duplicate entries and unresolved
+imports. SDK-dependent APIs need an explicit documentation environment before
+joining this SDK-independent catalogue; do not mock away missing implementations.
+
+Each C++ owner declares a `cpp_docstrings` target and a `docstrings.json` mapping
+of identifiers to qualified symbols and exact Clang signatures, so overloads
+are selected explicitly. Supported comment markup is paragraphs, `@brief`,
+`@details`, `@param`, `@return`/`@returns`/`@result`, `@note` and `@warning`, with
+reStructuredText in plain text. Unsupported markup and unresolved selections
+fail extraction. Extend the renderer with tests when another construct is needed.
+The generated C++ header stays in Bazel output; the matching Python text is
+committed beside its owner for `help()` without the optional extension. Binding
+builds compare that copy against fresh extraction and reject stale text.
+
+After editing the PD header's comments, refresh the generated Python copy:
+
+```sh
+bazel build //src/robo_arch/core/controllers/joint_pd:generated_docstrings
+cp bazel-bin/src/robo_arch/core/controllers/joint_pd/generated/_docstrings.py src/robo_arch/core/controllers/joint_pd/_docstrings.py
+```
+
+Build the reference from isolated, installed Python/native wheels and locked
+documentation dependencies (no simulator installation or launch):
+
+```sh
+uv run --no-default-groups --group docs python tools/docs/build.py
+python -m http.server 8000 --directory build/docs/html
+```
+
+Open `http://localhost:8000`. For local checks, run
+`bazel test //tools/docs:extract_test //tests/build:api_docs //src/robo_arch/core/controllers/joint_pd:native_test`.
+The same Python tests run under uv with the `test` and `docs` groups and the
+native wheel installed. Ordinary Python docstring edits need no native rebuild.
+
 ### The C++ edit–run loop
 
 Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Implemented commands:

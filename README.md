@@ -7,6 +7,7 @@ Both robots and both sensors have physical collision geometry.
 
 - [Architecture](docs/architecture.md): composition, autonomy and explicit worlds.
 - [Build and layout](docs/build_and_layout.md): ownership and local Python/C++ workflow.
+- [API documentation](docs/build_and_layout.md#api-documentation): build the combined Python and C++ reference locally.
 - [Implementation status](docs/implementation_tasks.md): implemented capabilities and remaining work.
 - [Example configuration](src/robo_arch/scenarios/arm_tracking/README.md): runs, units and inspection.
 

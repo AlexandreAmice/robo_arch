@@ -3,6 +3,24 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
+    name = "api_docs",
+    srcs = ["test_api_docs.py"],
+    data = [
+        "//docs/api:conf.py",
+        "//docs/api:index.rst",
+    ],
+    main = "test_api_docs.py",
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf",
+        "//src/robo_arch/core/controllers/joint_pd",
+        "//src/robo_arch/core/controllers/joint_pd:native",
+        requirement("pytest"),
+        requirement("sphinx"),
+    ],
+)
+
+py_test(
     name = "core",
     size = "small",
     srcs = ["test_environment.py"],
