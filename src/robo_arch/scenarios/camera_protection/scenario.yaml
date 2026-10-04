@@ -1,0 +1,56 @@
+world:
+  type: drake
+  physics:
+    time_step: 0.001
+  visualization:
+    mode: record
+    publish_inertia: false
+    publish_proximity: false
+duration: 6.0
+sensors_enabled: false
+robot_system:
+  definition: package://robo_arch/robot_system/ur7e_three_d435/system.yaml
+  autonomy:
+    controller: cbf
+    parameters:
+      robot: arm
+      nominal:
+        kp: [40, 40, 40, 40, 40, 40]
+        kd: [13, 13, 13, 13, 13, 13]
+      margin: 0.01
+      alpha1: 5.0
+      alpha2: 5.0
+      profiles:
+        arm: package://robo_arch/robots/ur7e/protection.yaml
+        forearm_camera: package://robo_arch/sensors/realsense_d435/protection.yaml
+        wrist_camera: package://robo_arch/sensors/realsense_d435/protection.yaml
+        tool_camera: package://robo_arch/sensors/realsense_d435/protection.yaml
+        obstacle: package://robo_arch/objects/box/protection.yaml
+        side_obstacle: package://robo_arch/objects/box/protection.yaml
+        rear_obstacle: package://robo_arch/objects/box/protection.yaml
+      protected: [forearm_camera, wrist_camera, tool_camera]
+      # Only the explicitly identified mounting links are excluded.
+      exclude_frames:
+        - [forearm_camera/body, arm/forearm_link]
+        - [wrist_camera/body, arm/wrist_1_link]
+        - [tool_camera/body, arm/wrist_3_link]
+objects:
+  obstacle:
+    model: box
+    pose:
+      translation: [0.3859, 0.3318, 0.3754]
+  side_obstacle:
+    model: box
+    pose:
+      translation: [0.10, -0.25, 0.40]
+  rear_obstacle:
+    model: box
+    pose:
+      translation: [-0.30, -0.25, 0.30]
+task:
+  type: camera_protection
+  parameters:
+    unsafe_target: [0.45, -1.5707963267948966, 1.5707963267948966, -1.5707963267948966, -1.5707963267948966, 0.0]
+    retreat_target: [0.0, -1.5707963267948966, 1.5707963267948966, -1.5707963267948966, -1.5707963267948966, 0.0]
+    retreat_time: 3.0
+    tolerance: 0.03

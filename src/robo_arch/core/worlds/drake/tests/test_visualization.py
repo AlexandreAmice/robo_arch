@@ -10,8 +10,9 @@ pytest.importorskip("pydrake")
 from pydrake.geometry import (
     AddCompliantHydroelasticProperties,
     AddContactMaterial,
-    AddRigidHydroelasticProperties,
     Box,
+    GeometryInstance,
+    MakePhongIllustrationProperties,
     ProximityProperties,
     Role,
     Sphere,
@@ -25,7 +26,7 @@ from pydrake.visualization import VisualizationConfig
 
 from robo_arch.core.worlds.devices import DeviceDefinitions
 from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeVisualization
-from robo_arch.core.worlds.drake.scene import DrakeScene, add_plant
+from robo_arch.core.worlds.drake.scene import DrakeScene, add_ground, add_plant
 from robo_arch.core.worlds.drake.visualization import (
     add_visualization,
     create_meshcat,
@@ -35,8 +36,8 @@ from robo_arch.core.worlds.drake.visualization import (
 )
 
 
-def contact_fixture(config: DrakeVisualization):
-    """A compliant ball on a rigid slab; all hydroelastic properties explicit."""
+def contact_fixture(config: DrakeVisualization, *, protections: bool = False):
+    """A compliant ball on the world's rigid ground; contact properties explicit."""
     builder = DiagramBuilder()
     plant, graph = add_plant(
         builder,
@@ -52,24 +53,32 @@ def contact_fixture(config: DrakeVisualization):
     ball = ProximityProperties()
     AddContactMaterial(1.0, 1e5, CoulombFriction(0.5, 0.5), ball)
     AddCompliantHydroelasticProperties(0.05, 1e6, ball)
-    floor = ProximityProperties()
-    AddContactMaterial(1.0, 1e5, CoulombFriction(0.5, 0.5), floor)
-    AddRigidHydroelasticProperties(0.1, floor)
     plant.RegisterVisualGeometry(
         body, RigidTransform(), Sphere(0.1), "ball_visual", [0.7, 0.4, 0.2, 1]
     )
     plant.RegisterCollisionGeometry(
         body, RigidTransform(), Sphere(0.1), "ball_collision", ball
     )
-    pose = RigidTransform([0, 0, -0.05])
-    plant.RegisterVisualGeometry(
-        plant.world_body(), pose, Box(0.5, 0.5, 0.1), "floor_visual", [0.5, 0.5, 0.5, 1]
-    )
-    plant.RegisterCollisionGeometry(
-        plant.world_body(), pose, Box(0.5, 0.5, 0.1), "floor_collision", floor
-    )
+    add_ground(plant)
     plant.SetDefaultFloatingBaseBodyPose(body, RigidTransform([0, 0, 0.095]))
     plant.Finalize()
+    if protections:
+        properties = MakePhongIllustrationProperties([0.1, 0.6, 1, 0.24])
+        properties.AddProperty("meshcat", "accepting", "protections")
+        overlay = GeometryInstance(
+            RigidTransform(), Sphere(0.12), "protection_covering"
+        )
+        overlay.set_illustration_properties(properties)
+        graph.RegisterGeometry(
+            plant.get_source_id(), plant.GetBodyFrameIdOrThrow(body.index()), overlay
+        )
+        obstacle = GeometryInstance(
+            RigidTransform([1, 0, 0.2]), Box(0.1, 0.1, 0.1), "obstacle_visual"
+        )
+        obstacle.set_illustration_properties(
+            MakePhongIllustrationProperties([0.9, 0.45, 0.1, 1.0])
+        )
+        graph.RegisterAnchoredGeometry(plant.get_source_id(), obstacle)
     scene = DrakeScene(
         definitions=DeviceDefinitions(robots={}, sensors={}, objects={}),
         plant=plant,
@@ -177,8 +186,54 @@ def test_native_layer_selection():
     assert "meshcat_visualizer(inertia)" not in systems
     assert "meshcat_contact_visualizer" not in systems
     assert meshcat.HasPath("/drake/proximity")
+    assert not meshcat.HasPath("/drake/protections")
     assert meshcat.GetSliderValue("proximity α") == pytest.approx(0.4)
     meshcat.StopRecording()
+
+
+def test_protection_layer_is_exclusive_hidden_and_records_native_motion(tmp_path):
+    config = DrakeVisualization(
+        mode="record",
+        open_browser=False,
+        enable_alpha_sliders=True,
+        publish_contacts=False,
+        publish_inertia=False,
+    )
+    simulator, scene, meshcat = contact_fixture(config, protections=True)
+    layer = "/drake/protections"
+    assert meshcat.HasPath(layer + "/ball/protection_covering")
+    assert not meshcat.HasPath("/drake/illustration/ball/protection_covering")
+    assert meshcat.HasPath("/drake/illustration/ball/ball_visual")
+    assert not meshcat.HasPath(layer + "/ball/ball_visual")
+    assert meshcat.HasPath("/drake/illustration/obstacle_visual")
+    assert not meshcat.HasPath(layer + "/obstacle_visual")
+    # Compare native serialized values rather than depend on a msgpack decoder.
+    hidden = meshcat._GetPackedProperty(layer, "visible")
+    meshcat.SetProperty(layer, "visible", False)
+    assert hidden == meshcat._GetPackedProperty(layer, "visible")
+    meshcat.SetSliderValue("protections α", 0.4)
+    assert meshcat.GetSliderValue("illustration α") == 1.0
+    initial_transform = meshcat._GetPackedTransform(layer + "/ball")
+    simulator.AdvanceTo(0.04)
+    assert meshcat.GetSliderValue("protections α") == 0.4
+    assert meshcat._GetPackedTransform(layer + "/ball") != initial_transform
+    assert meshcat._GetPackedProperty(layer, "visible") == hidden
+    opacity = meshcat._GetPackedProperty(layer, "modulated_opacity")
+    assert opacity
+    meshcat.SetProperty(layer, "modulated_opacity", 0.4)
+    assert meshcat._GetPackedProperty(layer, "modulated_opacity") == opacity
+    meshcat.SetProperty(layer, "visible", True)
+    assert hidden != meshcat._GetPackedProperty(layer, "visible")
+    inspector = scene.scene_graph.model_inspector()
+    assert inspector.NumGeometriesWithRole(Role.kProximity) == 2
+    for geometry in inspector.GetAllGeometryIds():
+        if inspector.GetName(geometry).endswith("covering"):
+            assert inspector.GetProximityProperties(geometry) is None
+            assert inspector.GetPerceptionProperties(geometry) is None
+    recording = tmp_path / "protections.html"
+    save_recording(meshcat, recording)
+    assert "<html" in recording.read_text()
+    print(f"Inspect actual layer motion: python -m webbrowser {recording.as_uri()}")
 
 
 @pytest.mark.parametrize("approximation", ["sap", "similar", "lagged"])

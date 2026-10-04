@@ -16,6 +16,9 @@ __pycache__/
 # Build products; dependency lockfiles and source assets stay tracked.
 /bazel-*
 /build/
+# This source directory must survive broader user-level build ignores.
+!/tests/build/
+!/tests/build/*.py
 /dist/
 /compile_commands.json
 /external

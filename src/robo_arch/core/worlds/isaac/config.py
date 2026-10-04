@@ -27,6 +27,8 @@ class IsaacVisualization(Schema):
 
 class IsaacWorld(Schema):
     type: Literal["isaac"] = "isaac"
+    # Static collision plane at world z=0, with a finite 10 m square visual.
+    ground: bool = True
     # Pacing applies only when viewing; headless physics runs without wall-clock waits.
     target_realtime_rate: float = Field(default=1.0, ge=0)
     physics: IsaacPhysics = Field(default_factory=IsaacPhysics)

@@ -4,11 +4,20 @@ from dataclasses import dataclass
 from importlib.resources import as_file, files
 
 import numpy as np
-from pydrake.geometry import SceneGraph
+from pydrake.geometry import (
+    AddContactMaterial,
+    AddRigidHydroelasticProperties,
+    Box,
+    HalfSpace,
+    ProximityProperties,
+    SceneGraph,
+)
+from pydrake.math import RigidTransform
 from pydrake.multibody.parsing import Parser
 from pydrake.multibody.plant import (
     AddMultibodyPlantSceneGraph,
     ApplyMultibodyPlantConfig,
+    CoulombFriction,
     MultibodyPlant,
     MultibodyPlantConfig,
 )
@@ -104,6 +113,27 @@ def add_plant(
     return plant, scene_graph
 
 
+def add_ground(plant: MultibodyPlant) -> None:
+    """Add an infinite collidable floor at z=0 with a 10 m square visible top.
+
+    The rigid half-space also supports compliant hydroelastic contact. Its own
+    material does not change any device or object contact properties.
+    """
+    material = ProximityProperties()
+    AddContactMaterial(1.0, 1e5, CoulombFriction(0.8, 0.6), material)
+    AddRigidHydroelasticProperties(material)
+    plant.RegisterCollisionGeometry(
+        plant.world_body(), RigidTransform(), HalfSpace(), "ground_collision", material
+    )
+    plant.RegisterVisualGeometry(
+        plant.world_body(),
+        RigidTransform([0, 0, -0.05]),
+        Box(10, 10, 0.1),
+        "ground_visual",
+        [0.55, 0.57, 0.60, 1.0],
+    )
+
+
 def build_scene(
     scene: SceneConfiguration,
     config: DrakeWorld,
@@ -121,6 +151,8 @@ def build_scene(
 
     devices = resolve_devices(scene)
     plant, scene_graph = add_plant(builder, config.physics)
+    if config.ground:
+        add_ground(plant)
     robot_instances = {}
     controller_models = {}
     initial_positions = {}
