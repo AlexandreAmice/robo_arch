@@ -5,10 +5,9 @@ exercise a UR7e with a RealSense D435 housing, an iiwa 7 with an ATI Mini45-R, a
 a mixed UR7e–iiwa bimanual assembly with two independent force/torque sensors.
 Both robots and both sensors have physical collision geometry.
 
-- [Architecture](docs/architecture.md): composition, autonomy and explicit worlds.
-- [Build and layout](docs/build_and_layout.md): ownership and local Python/C++ workflow.
-- [Implementation status](docs/implementation_tasks.md): implemented capabilities and remaining work.
-- [Example configuration](src/robo_arch/scenarios/arm_tracking/README.md): runs, units and inspection.
+The [documentation index](docs/README.md) connects the architecture, build guide,
+API reference, examples and model provenance. For commands to render the shared
+Python/C++ reference, see [API documentation](docs/build_and_layout.md#api-documentation).
 
 ## Local development
 

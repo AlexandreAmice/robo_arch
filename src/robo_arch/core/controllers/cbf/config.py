@@ -9,7 +9,24 @@ from robo_arch.core.config.resources import validate_package_reference
 
 
 class ProtectionParameters(Parameters):
-    """Protection geometry and barrier tuning, independent of nominal control."""
+    """Protection selection and tuning, independent of nominal control.
+
+    :param profiles: Instance name to ``package://robo_arch/...`` sphere-profile
+        URI. Instance names must match the physical assembly; treat as read-only.
+    :param protected: Nonempty unique instances whose spheres require protection;
+        each must have a profile. Pairs within one instance are not generated.
+    :param exclude_frames: Explicit frame pairs excluded by geometry resolution,
+        e.g. a camera and its mounting link, using qualified ``instance/frame``.
+    :param margin: Extra surface clearance in metres, nonnegative.
+    :param alpha1: Positive first barrier gain in s^-1.
+    :param alpha2: Positive second barrier gain in s^-1.
+    :param residual_tolerance: Positive runtime acceptance tolerance; see
+        :class:`robo_arch.core.controllers.cbf.definition.CbfParameters` for units.
+
+    Invalid fields, URIs or protected selections raise ValidationError. Resource
+    existence, exclusions and runtime frame identities are checked later. No
+    robot, nominal controller or task is selected by these parameters.
+    """
 
     profiles: dict[str, str]
     protected: tuple[str, ...]

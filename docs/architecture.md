@@ -104,7 +104,11 @@ For example, an Isaac profile contains `type: isaac`, `physics: {time_step: 0.00
 
 The CLI's `--world` replaces the complete configuration with native defaults; `--world-config` loads a complete profile. Explicit viewer overrides are validated again. Effective settings are retained with run metadata. Schema defaults leave viewers off; the packaged arm-tracking scenario explicitly selects Drake recording.
 
-Drake display settings include `default_illustration_color`, `default_proximity_color`, `initial_proximity_alpha`, `enable_alpha_sliders` and `delete_on_initialization_event`. Meshcat creation and transport belong to the world implementation; mouse-applied forces remain disabled. Lower-level visualizer parameters are added only for a concrete inspection need.
+The [world-settings API reference](api/worlds.rst) owns field descriptions,
+defaults and validation constraints for the SDK-independent schemas. Meshcat
+creation and transport belong to the world implementation; mouse-applied forces
+remain disabled. Lower-level visualizer parameters are added only for a concrete
+inspection need.
 
 Collision geometry, friction, hydroelastic classification and mesh resolution belong to the asset or its explicit world-specific profile. Per-articulation tuning belongs to its device/system. World configuration must not silently overwrite these assumptions. Enabling a layer does not change an asset’s contact model. UR7e and iiwa 7 now have upstream-derived visual and collision meshes. Both engines use per-link convex hulls; Mini45 convex sectors preserve the bore. Sensor bodies are assembled before plant finalization or PhysX initialization. Device READMEs identify geometry and inertia approximations. Drake contact diagnostics are checked with a separate fixture that explicitly supplies hydroelastic properties.
 

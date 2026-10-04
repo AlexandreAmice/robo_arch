@@ -17,7 +17,16 @@ from robo_arch.core.controllers.cbf.geometry import _rotation, load_sphere_profi
 
 @dataclass(frozen=True)
 class ProtectionGeometry:
-    """Resolved coverings and enabled constraints in deterministic profile order."""
+    """Resolved coverings and explicit constraints in deterministic profile order.
+
+    :param spheres: Named spheres; device centers remain link-local, fixed-object
+        centers are world-expressed after applying their scene poses.
+    :param pairs: Sphere-pair constraints between different profile instances.
+    :param planes: Fixed world halfspaces, currently optional z=0 ground.
+    :param plane_pairs: Sphere/plane selections for protected spheres.
+
+    This record contains declarations, not runtime frames, dynamics or solver state.
+    """
 
     spheres: tuple[Sphere, ...]
     pairs: tuple[SpherePair, ...]
@@ -40,6 +49,18 @@ def resolve_geometry(
     connect different profile instances when at least one is protected, except
     explicitly excluded frame pairs. Ground adds the fixed world z=0 halfspace
     for each protected sphere. Neither declarations nor resolution require an SDK.
+
+    :param scene: Physical composition, including fixed-object base poses.
+    :param parameters: Profile selections, protected instances, exclusions and
+        margin. The caller must associate profiles with the actual devices.
+    :param ground: Add a world z=0 permitted halfspace above the floor; selection
+        is explicit and does not automatically read a world's ground setting.
+    :returns: New ProtectionGeometry, with no within-instance sphere pairs.
+    :raises ValueError: Duplicate/unknown/self frame exclusions or invalid assets.
+
+    File, YAML and profile-validation errors propagate. Runtime construction
+    checks model frame identities; this function does not verify device profile
+    names against all devices in the scene or guarantee collision-free motion.
     """
     objects = {obj.name: obj for obj in scene.objects}
     grouped = {}

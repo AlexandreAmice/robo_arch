@@ -126,7 +126,16 @@ Provide `native` and `run` operations, with an explicit environment profile:
 
 Use a small numerical C++ library to prove the mechanism. Keep its Python binding thin and its C++ target independently linkable. Shared native algorithms live with their shared owner; device-specific native code stays with the device. The wheel manifest maps either location to private extensions. The source-development profile must not pull in a competing released native wheel.
 
-**Complete when:** changing C++ changes the result observed from editable Python, ordinary Python edits require no native rebuild, and a failed native build prevents launch.
+Generate the combined public Python API reference according to the
+[documentation ownership rules](build_and_layout.md#api-documentation), including
+Python-source docstrings and C++ comments extracted for nanobind. Keep shared
+descriptions single-sourced and Python facade notes specific to their interface.
+
+**Complete when:** changing C++ changes the result observed from editable Python,
+C++ comment edits reach the bound `__doc__`, Python-source APIs appear in the
+same reference, thin facades combine both sources once, stale generated text and
+invalid reference entries fail clearly, ordinary Python edits require no native
+rebuild, and a failed native build prevents launch.
 
 **C0 — Local validation**
 
@@ -288,7 +297,7 @@ Status as of 2026-09-30. Runtime, explicit assembly and world configuration are 
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
 | L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1 | Implemented: C++ PD library, nanobind arrays, private local wheel and build/install/run helper for Drake/Isaac |
+| B1 | Implemented: C++ PD library, nanobind arrays, local wheel/development helper, Clang-generated docstrings and combined Python API reference |
 | C0 | Local validation only; hosted CI and required remote checks removed by user decision |
 | S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
 | A0 | Nominal UR7e and iiwa 7 with model-specific collision meshes; D435 and Mini45 physical models; gripper and calibration remain |

@@ -4,7 +4,14 @@ from pathlib import Path
 
 
 def validate_package_reference(reference: str, *, owner: Path | None = None) -> str:
-    """Reject filesystem paths and ambiguous application-package resource URIs."""
+    """Validate resource syntax without opening files or importing an SDK.
+
+    :param reference: Required ``package://robo_arch/<resource>`` URI.
+    :param owner: Optional referring file, used only in error messages.
+    :returns: The unchanged reference; existence is not checked.
+    :raises ValueError: Empty/dot path segments, traversal, backslashes, percent
+        escapes, queries, fragments or a different URI prefix.
+    """
     prefix = "package://robo_arch/"
     parts = reference.removeprefix(prefix).split("/")
     if (

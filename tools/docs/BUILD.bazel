@@ -1,0 +1,26 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "extract_lib",
+    srcs = [
+        "__init__.py",
+        "extract.py",
+    ],
+)
+
+py_binary(
+    name = "extract",
+    srcs = ["extract.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+)
+
+py_test(
+    name = "extract_test",
+    srcs = ["tests/test_extract.py"],
+    main = "tests/test_extract.py",
+    deps = [
+        ":extract_lib",
+        requirement("pytest"),
+    ],
+)

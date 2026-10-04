@@ -9,7 +9,15 @@ from robo_arch.core.config.parameters import Parameters
 
 
 class JointTrackingParameters(Parameters):
-    """Acceleration-feedback gains: kp in s^-2 and kd in s^-1."""
+    """Acceleration-feedback gains for model-based inverse-dynamics tracking.
+
+    :param kp: Nonempty tuple of finite, strictly positive gains in s^-2.
+    :param kd: Equally long tuple of finite, strictly positive gains in s^-1.
+
+    Invalid values raise ValidationError. Order and count must match the selected
+    model joints; the adapter checks that association. These are acceleration
+    gains before inverse dynamics, not joint_pd's torque-feedback gains.
+    """
 
     kp: tuple[float, ...] = Field(min_length=1)
     kd: tuple[float, ...] = Field(min_length=1)
