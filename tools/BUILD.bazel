@@ -1,0 +1,17 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "dev_test",
+    srcs = [
+        "dev.py",
+        "tests/test_dev.py",
+    ],
+    data = ["//src/robo_arch/scenarios/camera_protection:isaac_gpu.yaml"],
+    main = "tests/test_dev.py",
+    deps = [
+        "//src/robo_arch/core/config",
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)

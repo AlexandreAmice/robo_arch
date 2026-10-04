@@ -14,7 +14,9 @@ def plot_trace(path: Path) -> Path:
 
     with np.load(path) as data:
         channels = [
-            name for name in data.files if name != "times" and not name.endswith("/v")
+            name
+            for name in data.files
+            if name != "times" and not name.endswith(("/v", "/episode_time"))
         ]
         figure, axes = plt.subplots(
             len(channels), 1, figsize=(10, max(3, 2.5 * len(channels))), squeeze=False

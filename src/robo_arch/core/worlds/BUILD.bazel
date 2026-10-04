@@ -9,14 +9,34 @@ py_library(
 )
 
 py_library(
-    name = "worlds",
-    srcs = [
-        "assembly.py",
-        "devices.py",
-        "urdf.py",
+    name = "assembly",
+    srcs = ["assembly.py"],
+    deps = [
+        ":package",
+        "//src/robo_arch/core/config",
     ],
+)
+
+py_library(
+    name = "devices",
+    srcs = ["devices.py"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        ":assembly",
+        "//src/robo_arch/core/config",
+    ],
+)
+
+py_library(
+    name = "worlds",
+    srcs = ["urdf.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        ":assembly",
+        ":devices",
         ":package",
         requirement("drake"),
         "//src/robo_arch/core/config",

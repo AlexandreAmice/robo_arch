@@ -3,16 +3,20 @@ title = "robo_arch native physics inspection"
 version = "0.0.0"
 
 [dependencies]
+"isaacsim.core.version" = {}
 "omni.physx.tensors" = { version = "110.3.2", exact = true }
 "omni.kit.usd.layers" = {}
 "omni.kit.loop-isaac" = {}
 "omni.usd" = {}
+"omni.physics.physx" = { version = "110.3.2", exact = true }
+"omni.physics.stageupdate" = { version = "110.3.2", exact = true }
 "omni.physics.tensors" = { version = "110.3.2", exact = true }
 "omni.physx" = { version = "110.3.2", exact = true }
 "omni.kit.renderer.init" = { version = "1.0.1", exact = true }
 
 "omni.hydra.pxr" = { version = "1.2.7", exact = true }
 "omni.kit.mainwindow" = {}
+"omni.kit.window.toolbar" = {}
 "omni.kit.viewport.window" = { version = "110.0.1", exact = true }
 "omni.kit.viewport.utility" = { version = "2.1.0", exact = true }
 "omni.kit.manipulator.camera" = {}
@@ -23,12 +27,17 @@ window.enabled = true
 settings.persistent = false
 
 [settings]
+# Cached import failures retain scene frames beyond native plugin teardown.
+app.extensions.pathStatCacheEnabled = false
+# Python libraries can retain stderr past shutdown; keep native message queues
+# out of their stream handles. Ordinary stdout/stderr still go to the caller.
+app.python.interceptSysStdOutput = false
 privacy.userConsent = false
 physics.updateToUsd = false
 
 exts."omni.usd".locking.onClose = false
 
-app.window.title = "robo_arch — Isaac"
+app.window.title = "robo_arch — Isaac Lab"
 # Keep startup performance warnings in the log without a modal desktop dialog.
 persistent.renderer.startupMessageDisplayed = true
 

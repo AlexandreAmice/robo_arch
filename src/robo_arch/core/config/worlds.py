@@ -15,5 +15,13 @@ _WORLD_VALIDATOR = TypeAdapter(WorldConfiguration)
 
 
 def parse_world(value: object) -> WorldConfiguration:
-    """Validate one complete native world configuration, without importing SDKs."""
+    """Validate one complete world configuration without importing SDKs.
+
+    :param value: Mapping with ``type`` equal to ``drake``, ``isaac`` or ``real``,
+        or an instance of the corresponding configuration class.
+    :returns: The selected world model, with its default fields populated.
+    :raises pydantic.ValidationError: Unknown/missing type or invalid fields.
+
+    No files are read, profiles merged or runtime support inferred.
+    """
     return _WORLD_VALIDATOR.validate_python(value)

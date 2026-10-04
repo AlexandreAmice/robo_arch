@@ -29,13 +29,33 @@ class TaskParameters(Parameters):
 def parameters_for(
     run: RunConfiguration,
 ) -> tuple[CameraProtectionParameters, TaskParameters]:
-    if run.world != "drake":
-        raise ValueError("camera_protection currently supports only Drake")
+    if run.world not in {"drake", "isaac"}:
+        raise ValueError("camera_protection supports only Drake and Isaac")
     if run.autonomy.controller != "cbf" or run.task.type != "camera_protection":
         raise ValueError(
             "camera_protection requires cbf autonomy and its task evaluator"
         )
     control = CameraProtectionParameters.model_validate(run.autonomy.parameters)
+    if run.world == "isaac":
+        if control.backend != "torch_moreau":
+            raise ValueError("Isaac camera protection requires torch_moreau CBF")
+        if run.sensors_enabled:
+            raise ValueError("GPU camera protection requires sensors_enabled: false")
+        if run.world_config.physics.device != "cuda:0":
+            raise ValueError("GPU camera protection requires CUDA physics")
+        if run.world_config.physics.backend != "physx":
+            raise ValueError("GPU camera protection currently supports only PhysX")
+        if run.world_config.physics.solver != "pgs":
+            raise ValueError(
+                "GPU camera protection requires PGS: imported TGS substeps lose "
+                "small joint-position increments while reporting nonzero velocity"
+            )
+        if control.nominal_controller != "joint_tracking":
+            raise ValueError(
+                "GPU camera protection currently requires joint_tracking nominal control"
+            )
+    elif control.backend != "drake":
+        raise ValueError("Drake camera protection requires backend: drake")
     task = TaskParameters.model_validate(run.task.parameters)
     if task.retreat_time >= run.duration:
         raise ValueError("Retreat must begin before the end of the run")

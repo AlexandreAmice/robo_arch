@@ -1,11 +1,13 @@
 """Drake nominal dynamics, bounded torque QP, and native system adapter."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from time import perf_counter
 
 import numpy as np
 from pydrake.common.value import AbstractValue
+from pydrake.geometry import Box, GeometryInstance, MakePhongIllustrationProperties
+from pydrake.geometry import Sphere as DrakeSphere
+from pydrake.math import RigidTransform
 from pydrake.multibody.plant import MultibodyPlant
 from pydrake.multibody.tree import JacobianWrtVariable, MultibodyForces
 from pydrake.solvers import ClarabelSolver, MathematicalProgram, SolverOptions
@@ -15,8 +17,7 @@ from robo_arch.core.controllers.cbf.assembly import ProtectionGeometry
 from robo_arch.core.controllers.cbf.barrier import (
     BarrierConstraint,
     BarrierConstraints,
-    plane_constraints,
-    sphere_constraints,
+    geometry_constraints,
 )
 from robo_arch.core.controllers.cbf.config import ProtectionParameters
 from robo_arch.core.controllers.cbf.definition import (
@@ -26,22 +27,15 @@ from robo_arch.core.controllers.cbf.definition import (
     SpherePair,
     SpherePlanePair,
 )
-
-
-@dataclass(frozen=True)
-class FilterResult:
-    """Owned output arrays; diagnostics use the block layout in the README."""
-
-    effort: np.ndarray
-    diagnostics: np.ndarray
-
-
-class CbfFailure(RuntimeError):
-    """Stop the calling run, preserving a numerical failure snapshot."""
-
-    def __init__(self, reason: str, **snapshot):
-        self.snapshot = snapshot
-        super().__init__(f"CBF {reason}: {snapshot}")
+from robo_arch.core.controllers.cbf.errors import CbfFailure as CbfFailure
+from robo_arch.core.controllers.cbf.filter import (
+    FilterResult,
+    project,
+    validate_initial_state,
+)
+from robo_arch.core.controllers.cbf.layout import compile_geometry
+from robo_arch.core.controllers.cbf.velocity import compile_velocity_bounds
+from robo_arch.core.worlds.drake.scene import DrakeScene
 
 
 class SphereCbfFilter:
@@ -85,40 +79,23 @@ class SphereCbfFilter:
             for i, a in enumerate(actuators)
         ):
             raise ValueError("CBF requires matching scalar q, v and actuator order")
-        if not spheres or not (pairs or plane_pairs):
-            raise ValueError("CBF requires spheres and enabled pairs")
-        names = [s.name for s in spheres]
-        if len(set(names)) != len(names):
-            raise ValueError("Sphere names must be unique")
-        plane_names = [plane.name for plane in planes]
-        if len(set(plane_names)) != len(plane_names):
-            raise ValueError("Plane names must be unique")
-        if set(names).intersection(plane_names):
-            raise ValueError("Sphere and plane names must not overlap")
-        keys = [frozenset((p.first, p.second)) for p in pairs]
-        if len(set(keys)) != len(keys):
-            raise ValueError("Sphere pairs must be unique, including reverse pairs")
-        if any(not key.issubset(names) for key in keys):
-            raise ValueError("Sphere pair references an unknown sphere")
-        plane_keys = [(pair.sphere, pair.plane) for pair in plane_pairs]
-        if len(set(plane_keys)) != len(plane_keys):
-            raise ValueError("Sphere-plane pairs must be unique")
-        if any(pair.sphere not in names for pair in plane_pairs):
-            raise ValueError("Sphere-plane pair references an unknown sphere")
-        if any(pair.plane not in plane_names for pair in plane_pairs):
-            raise ValueError("Sphere-plane pair references an unknown plane")
+        layout = compile_geometry(spheres, pairs, planes, plane_pairs)
+        self._layout = layout
         self.model = model
         self.parameters = parameters if parameters is not None else CbfParameters()
         self.spheres = spheres
         self.pairs = pairs
         self.planes = planes
         self.plane_pairs = plane_pairs
-        self.pair_names = tuple(f"{p.first}|{p.second}" for p in pairs) + tuple(
-            f"{p.sphere}|{p.plane}" for p in plane_pairs
-        )
-        if len(set(self.pair_names)) != len(self.pair_names):
-            raise ValueError("Protection pair display names must be unique")
+        self.pair_names = layout.pair_names
         self.constraint_count = len(self.pair_names)
+        self._velocity_bounds = compile_velocity_bounds(
+            joints, model.GetVelocityLowerLimits(), model.GetVelocityUpperLimits()
+        )
+        self.velocity_bound_names = self._velocity_bounds.names
+        self.qp_constraint_count = self.constraint_count + len(
+            self._velocity_bounds.names
+        )
         self.diagnostics_size = 5 * self.constraint_count + 3
         self._context = model.CreateDefaultContext()
         self._frames = {}
@@ -131,29 +108,13 @@ class SphereCbfFilter:
                 instance_name, frame_name = sphere.frame.rsplit("/", 1)
                 instance = model.GetModelInstanceByName(instance_name)
                 self._frames[sphere.name] = model.GetFrameByName(frame_name, instance)
-        sphere_indices = {sphere.name: i for i, sphere in enumerate(spheres)}
-        self._first = np.array([sphere_indices[p.first] for p in pairs], dtype=int)
-        self._second = np.array([sphere_indices[p.second] for p in pairs], dtype=int)
-        self._separation = np.array(
-            [
-                spheres[i].radius + spheres[j].radius + pair.margin
-                for i, j, pair in zip(self._first, self._second, pairs, strict=True)
-            ]
-        )
-        self._local_centers = np.array([s.center for s in spheres], dtype=float)
-        plane_by_name = {plane.name: plane for plane in planes}
-        self._plane_spheres = np.array(
-            [sphere_indices[pair.sphere] for pair in plane_pairs], dtype=int
-        )
-        self._plane_normals = np.array(
-            [plane_by_name[pair.plane].normal for pair in plane_pairs], dtype=float
-        ).reshape(-1, 3)
-        self._plane_offsets = np.array(
-            [
-                plane_by_name[pair.plane].offset + spheres[index].radius + pair.margin
-                for pair, index in zip(plane_pairs, self._plane_spheres, strict=True)
-            ]
-        )
+        self._first = layout.first
+        self._second = layout.second
+        self._separation = layout.separation
+        self._local_centers = layout.local_centers
+        self._plane_spheres = layout.plane_spheres
+        self._plane_normals = layout.plane_normals
+        self._plane_offsets = layout.plane_offsets
         grouped = {}
         for i, sphere in enumerate(spheres):
             if sphere.frame != "world":
@@ -184,9 +145,9 @@ class SphereCbfFilter:
             -self._limits, self._limits, self._effort
         )
         self._inequality = self._program.AddLinearConstraint(
-            np.zeros((self.constraint_count, self.count)),
-            np.zeros(self.constraint_count),
-            np.full(self.constraint_count, np.inf),
+            np.zeros((self.qp_constraint_count, self.count)),
+            np.zeros(self.qp_constraint_count),
+            np.full(self.qp_constraint_count, np.inf),
             self._effort,
         ).evaluator()
         self._options = SolverOptions()
@@ -253,38 +214,23 @@ class SphereCbfFilter:
             mass, np.column_stack((drift_force, self._actuation))
         )
         positions, jacobians, biases = self._kinematics(derivatives=True)
-        first, second = self._first, self._second
-        sphere_rows = sphere_constraints(
-            displacement=positions[first] - positions[second],
-            relative_jacobian=jacobians[first] - jacobians[second],
-            relative_bias_acceleration=biases[first] - biases[second],
+        self._velocity_coefficient, self._velocity_constant = (
+            self._velocity_bounds.constraints(
+                state[self.count :],
+                acceleration[:, 0],
+                acceleration[:, 1:],
+                self.parameters.velocity_limit_gain,
+            )
+        )
+        return geometry_constraints(
+            positions=positions,
+            jacobians=jacobians,
+            bias_accelerations=biases,
             velocity=state[self.count :],
             acceleration_drift=acceleration[:, 0],
             acceleration_control=acceleration[:, 1:],
-            separation=self._separation,
+            layout=self._layout,
             parameters=self.parameters,
-        )
-        if not self.plane_pairs:
-            return sphere_rows
-        plane_rows = plane_constraints(
-            positions=positions[self._plane_spheres],
-            jacobians=jacobians[self._plane_spheres],
-            bias_accelerations=biases[self._plane_spheres],
-            normals=self._plane_normals,
-            offsets_with_radius=self._plane_offsets,
-            velocity=state[self.count :],
-            acceleration_drift=acceleration[:, 0],
-            acceleration_control=acceleration[:, 1:],
-            parameters=self.parameters,
-        )
-        if not self.pairs:
-            return plane_rows
-        return BarrierConstraints(
-            coefficient=np.vstack((sphere_rows.coefficient, plane_rows.coefficient)),
-            constant=np.concatenate((sphere_rows.constant, plane_rows.constant)),
-            clearance=np.concatenate((sphere_rows.clearance, plane_rows.clearance)),
-            h=np.concatenate((sphere_rows.h, plane_rows.h)),
-            psi1=np.concatenate((sphere_rows.psi1, plane_rows.psi1)),
         )
 
     def evaluate(
@@ -295,19 +241,14 @@ class SphereCbfFilter:
 
     def validate_initial_state(self, state: np.ndarray, time: float = 0.0) -> None:
         """Reject separation or first-order barrier violations before starting."""
-        constraints = self.evaluate(state, time)
-        invalid = {
-            name: {"h": c.h, "psi1": c.psi1}
-            for name, c in zip(self.pair_names, constraints, strict=True)
-            if c.h < -1e-10 or c.psi1 < -1e-10
-        }
-        if invalid:
-            raise CbfFailure(
-                "inadmissible initial state",
-                time=time,
-                state=np.asarray(state).tolist(),
-                pairs=invalid,
-            )
+        rows = self._constraints(state, time)
+        validate_initial_state(
+            rows,
+            self._velocity_bounds.slack(np.asarray(state)[self.count :]),
+            pair_names=self.pair_names,
+            velocity_names=self.velocity_bound_names,
+            snapshot=lambda: {"time": time, "state": np.asarray(state).tolist()},
+        )
 
     def filter(
         self, state: np.ndarray, nominal_effort: np.ndarray, time: float = 0.0
@@ -317,40 +258,15 @@ class SphereCbfFilter:
         if nominal.shape != (self.count,) or not np.isfinite(nominal).all():
             raise ValueError("CBF nominal effort must be finite in actuator order")
         constraints = self._constraints(state, time)
-        coefficient = constraints.coefficient
-        constant = constraints.constant
-        if not np.isfinite(coefficient).all() or not np.isfinite(constant).all():
-            raise CbfFailure(
-                "nonfinite dynamics", time=time, state=np.asarray(state).tolist()
-            )
-        # A feasible nominal effort is the exact unconstrained minimizer. This
-        # also preserves arbitrary nominal controllers without numerical drift.
-        nominal_feasible = np.all(np.abs(nominal) <= self._limits) and np.all(
-            coefficient @ nominal + constant >= 0
-        )
         result = None
         solve_duration = 0.0
-        if nominal_feasible:
-            effort = nominal.copy()
-        else:
-            self._cost.UpdateCoefficients(np.eye(self.count), -nominal)
-            scale = np.maximum(
-                1.0, np.maximum(np.max(np.abs(coefficient), axis=1), np.abs(constant))
-            )
-            self._inequality.UpdateCoefficients(
-                coefficient / scale[:, None],
-                -constant / scale,
-                np.full(self.constraint_count, np.inf),
-            )
-            start = perf_counter()
-            result = self._solver.Solve(self._program, None, self._options)
-            solve_duration = perf_counter() - start
 
         def snapshot() -> dict:
             return {
                 "time": time,
                 "state": np.asarray(state).tolist(),
                 "nominal_effort": nominal.tolist(),
+                "velocity_bounds": self._velocity_bounds.names,
                 "pairs": {
                     name: {"clearance": c.clearance, "h": c.h, "psi1": c.psi1}
                     for name, c in zip(self.pair_names, constraints.rows(), strict=True)
@@ -363,35 +279,43 @@ class SphereCbfFilter:
                 "solve_duration": solve_duration,
             }
 
-        if result is not None and not result.is_success():
-            raise CbfFailure("QP failed", **snapshot())
-        if result is not None:
-            effort = result.GetSolution(self._effort)
-        residual = coefficient @ effort + constant
-        tolerance = self.parameters.residual_tolerance
-        if (
-            not np.isfinite(effort).all()
-            or not np.isfinite(residual).all()
-            or np.any(residual < -tolerance)
-            or np.any(np.abs(effort) > self._limits + tolerance)
-        ):
-            raise CbfFailure(
-                "QP residual check failed",
-                **snapshot(),
-                effort=effort.tolist(),
-                residual=residual.tolist(),
+        def solve(coefficient, constant, nominal):
+            nonlocal result, solve_duration
+            if not np.isfinite(coefficient).all() or not np.isfinite(constant).all():
+                raise CbfFailure("nonfinite dynamics", **snapshot())
+            # Preserve feasible nominal efforts exactly.
+            if np.all(np.abs(nominal) <= self._limits) and np.all(
+                coefficient @ nominal + constant >= 0
+            ):
+                return nominal.copy()
+            self._cost.UpdateCoefficients(np.eye(self.count), -nominal)
+            scale = np.maximum(
+                1.0, np.maximum(np.max(np.abs(coefficient), axis=1), np.abs(constant))
             )
-        diagnostics = np.concatenate(
-            (
-                constraints.clearance,
-                constraints.h,
-                constraints.psi1,
-                residual,
-                (residual <= 10 * tolerance).astype(float),
-                [np.linalg.norm(effort - nominal), solve_duration, 1.0],
+            self._inequality.UpdateCoefficients(
+                coefficient / scale[:, None],
+                -constant / scale,
+                np.full(self.qp_constraint_count, np.inf),
             )
+            start = perf_counter()
+            result = self._solver.Solve(self._program, None, self._options)
+            solve_duration = perf_counter() - start
+            if not result.is_success():
+                raise CbfFailure("QP failed", **snapshot())
+            return result.GetSolution(self._effort)
+
+        return project(
+            rows=constraints,
+            velocity_coefficient=self._velocity_coefficient,
+            velocity_constant=self._velocity_constant,
+            velocity_slack=self._velocity_bounds.slack(np.asarray(state)[self.count :]),
+            nominal=nominal,
+            limits=self._limits,
+            solve=solve,
+            tolerance=self.parameters.residual_tolerance,
+            solve_duration=lambda: solve_duration,
+            snapshot=snapshot,
         )
-        return FilterResult(effort.copy(), diagnostics)
 
     def wrap(
         self, nominal: Callable[[np.ndarray, float], np.ndarray]
@@ -464,6 +388,8 @@ def build_filter(
     The model supplies nominal dynamics; the calling world supplies actual state.
     Call ``validate_initial_state`` before applying commands in that world.
     """
+    if parameters.backend != "drake":
+        raise ValueError("Drake CBF factory requires backend: drake")
     return SphereCbfFilter(
         model=model,
         joints=joints,
@@ -474,6 +400,7 @@ def build_filter(
         parameters=CbfParameters(
             alpha1=parameters.alpha1,
             alpha2=parameters.alpha2,
+            velocity_limit_gain=parameters.velocity_limit_gain,
             residual_tolerance=parameters.residual_tolerance,
         ),
     )
@@ -497,4 +424,97 @@ class CbfClearanceSystem(LeafSystem):
     def output(self, context: Context, output: BasicVector) -> None:
         output.SetFromVector(
             self.cbf.clearances(self.state.Eval(context), context.get_time())
+        )
+
+
+def add_sphere_illustrations(
+    scene: DrakeScene, spheres: tuple[Sphere, ...], protected: tuple[str, ...]
+) -> None:
+    """Attach transparent illustration-only geometry; no contact or RGB-D changes."""
+    source = scene.plant.get_source_id()
+    for sphere in spheres:
+        color = (
+            [0.1, 0.6, 1.0, 0.24]
+            if any(sphere.name.startswith(name + "/") for name in protected)
+            else [0.9, 0.55, 0.15, 0.12]
+        )
+        geometry = GeometryInstance(
+            RigidTransform(sphere.center),
+            DrakeSphere(sphere.radius),
+            "protection/" + sphere.name,
+        )
+        properties = MakePhongIllustrationProperties(color)
+        properties.AddProperty("meshcat", "accepting", "protections")
+        geometry.set_illustration_properties(properties)
+        if sphere.frame == "world":
+            scene.scene_graph.RegisterAnchoredGeometry(source, geometry)
+        else:
+            instance, frame_name = sphere.frame.rsplit("/", 1)
+            model = scene.plant.GetModelInstanceByName(instance)
+            frame = scene.plant.GetFrameByName(frame_name, model)
+            geometry.set_pose(
+                frame.GetFixedPoseInBodyFrame() @ RigidTransform(sphere.center)
+            )
+            scene.scene_graph.RegisterGeometry(
+                source,
+                scene.plant.GetBodyFrameIdOrThrow(frame.body().index()),
+                geometry,
+            )
+
+
+def add_ground_illustrations(scene: DrakeScene, margin: float) -> None:
+    """Preview the infinite sphere-bottom limit with a finite 10 m cyan grid.
+
+    Grid and border upper faces are exactly at z=margin. The translucent fill
+    sits 0.2 mm below them to avoid coplanar surfaces. All geometry is anchored
+    illustration in the protections layer; the physical floor remains at z=0.
+    """
+    source = scene.plant.get_source_id()
+
+    def add(
+        name: str,
+        size: tuple[float, float, float],
+        center: tuple[float, float, float],
+        color: tuple[float, float, float, float],
+    ) -> None:
+        geometry = GeometryInstance(
+            RigidTransform(center), Box(*size), "protection/ground/" + name
+        )
+        properties = MakePhongIllustrationProperties(color)
+        properties.AddProperty("meshcat", "accepting", "protections")
+        geometry.set_illustration_properties(properties)
+        scene.scene_graph.RegisterAnchoredGeometry(source, geometry)
+
+    add(
+        "fill",
+        (10.0, 10.0, 0.001),
+        (0.0, 0.0, margin - 0.0007),
+        (0.05, 0.75, 0.95, 0.10),
+    )
+    for index in range(1, 20):
+        offset = -5.0 + 0.5 * index
+        add(
+            f"grid/x_{index}",
+            (10.0, 0.003, 0.0005),
+            (0.0, offset, margin - 0.00025),
+            (0.05, 0.75, 0.95, 0.65),
+        )
+        add(
+            f"grid/y_{index}",
+            (0.003, 10.0, 0.0005),
+            (offset, 0.0, margin - 0.00025),
+            (0.05, 0.75, 0.95, 0.65),
+        )
+    for index, offset in enumerate((-4.996, 4.996)):
+        add(
+            f"border/x_{index}",
+            (10.0, 0.008, 0.001),
+            (0.0, offset, margin - 0.0005),
+            (0.05, 0.8, 1.0, 0.85),
+        )
+        add(
+            f"border/y_{index}",
+            (0.008, 10.0, 0.001),
+            (offset, 0.0, margin - 0.0005),
+            (0.05, 0.8, 1.0, 0.85),
         )

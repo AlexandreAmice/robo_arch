@@ -18,7 +18,17 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, kw_only=True)
 class PlacedRobot:
-    """Namespaced robot with poses composed left to right from world to base."""
+    """Namespaced robot with poses composed left to right from world to base.
+
+    :param name: Full instance name, including child-system namespaces.
+    :param model: Robot/tool package identifier.
+    :param poses: Root-system, child-system and robot-base placements, in order.
+        Each pose maps its child frame into its parent; units are m and rad.
+    :param initial_positions: Selected positions in declared joint order, or None
+        for model defaults. These remain unchecked until model construction.
+
+    This record stores the transform chain without evaluating SDK transforms.
+    """
 
     name: str
     model: str
@@ -28,7 +38,13 @@ class PlacedRobot:
 
 @dataclass(frozen=True, kw_only=True)
 class Devices:
-    """Resolved instances; model definitions and live runtime state stay separate."""
+    """Resolved physical instances, with no model definitions or live state.
+
+    :param robots: PlacedRobot records in depth-first declaration order.
+    :param sensors: SensorInstance records with qualified names and parents.
+        Sensor parameter mappings are shared with the scene and remain read-only
+        by convention; no deep copy is made during resolution.
+    """
 
     robots: tuple[PlacedRobot, ...]
     sensors: tuple[SensorInstance, ...]
@@ -39,6 +55,15 @@ def resolve_devices(scene: SceneConfiguration) -> Devices:
 
     Disabling observations preserves physical sensor bodies and their mounts.
     Their parent references are still checked.
+
+    :param scene: Loaded physical composition with local names and relative poses.
+    :returns: New Devices records with names like ``left/arm`` and sensor parents
+        like ``left/arm/tool0``. Pose objects and nested settings are shared.
+    :raises ValueError: Object/device name collisions or a sensor parent that
+        does not name a resolved robot plus a nonempty body segment.
+
+    Body existence, asset support and initial position dimensions are checked by
+    the world implementation. This function imports no SDK and creates no devices.
     """
     robots: list[PlacedRobot] = []
     sensors: list[SensorInstance] = []
@@ -84,14 +109,24 @@ def resolve_devices(scene: SceneConfiguration) -> Devices:
 
 
 def pose_transform(pose: Pose) -> RigidTransform:
-    """Return the child-to-parent rigid transform, with translation in metres."""
+    """Return a Drake child-to-parent RigidTransform from a Pose declaration.
+
+    Translation is in metres and fixed-axis RPY is in radians. Imports pydrake
+    on call; this transform helper requires the Drake environment. The input
+    declaration is not modified.
+    """
     from pydrake.math import RigidTransform, RollPitchYaw
 
     return RigidTransform(RollPitchYaw(pose.rpy), pose.translation)
 
 
 def base_pose(robot: PlacedRobot) -> RigidTransform:
-    """Compose the declared world-to-base pose chain in parent-to-child order."""
+    """Return the robot base's pose in world, composing its declared pose chain.
+
+    The result maps base-frame coordinates into world coordinates. Multiplication
+    follows parent-to-child order. Imports pydrake on call and requires the Drake
+    environment; it creates a new RigidTransform without modifying declarations.
+    """
     from pydrake.math import RigidTransform
 
     result = RigidTransform()

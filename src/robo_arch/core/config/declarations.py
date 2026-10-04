@@ -26,21 +26,38 @@ Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]*$")]
 
 
 class Pose(Schema):
-    """Child frame in parent frame; translation in metres, fixed-axis RPY radians."""
+    """Placement of a child frame in its parent frame.
+
+    :param translation: Child origin expressed in the parent, in metres (x, y, z).
+    :param rpy: Fixed-axis roll, pitch and yaw in radians; the rotation is
+        Rz(yaw) Ry(pitch) Rx(roll). Both tuples default to zero.
+
+    This declaration performs no transform computation and imports no SDK.
+    """
 
     translation: tuple[float, float, float] = (0.0, 0.0, 0.0)
     rpy: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 class TaskSelection(Schema):
-    """The scenario evaluator validates task-specific parameters."""
+    """Select a scenario's evaluation task.
+
+    :param type: Scenario-defined task identifier, not an import path.
+    :param parameters: JSON-compatible settings validated by the evaluator.
+        The mapping defaults to empty and must be treated as read-only.
+    """
 
     type: Name
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class AutonomySelection(Schema):
-    """Select scenario-supported autonomy; its owner validates parameters."""
+    """Select autonomy supported by the scenario's Python wiring.
+
+    :param controller: Scenario-defined controller identifier, not a factory path.
+    :param parameters: JSON-compatible settings validated by the autonomy owner.
+        This mapping does not describe an executable computation graph.
+    """
 
     controller: Name
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
@@ -48,6 +65,17 @@ class AutonomySelection(Schema):
 
 @dataclass(frozen=True, kw_only=True)
 class RobotInstance:
+    """One robot or actuated tool in a containing system.
+
+    :param name: Local instance name; world assembly adds ancestor namespaces.
+    :param model: Model package identifier under ``robots``.
+    :param pose: Robot base frame relative to the containing system.
+    :param initial_positions: Joint positions in the model's declared order,
+        or None to use its defaults. Units follow the joint type (rad or m).
+
+    This frozen record performs no model lookup or dimension validation.
+    """
+
     name: str
     model: str
     pose: Pose
@@ -56,6 +84,16 @@ class RobotInstance:
 
 @dataclass(frozen=True, kw_only=True)
 class SensorInstance:
+    """One mounted sensor, whether or not observations are enabled.
+
+    :param name: Local sensor instance name.
+    :param model: Model package identifier under ``sensors``.
+    :param parent: Local ``robot/body`` attachment, qualified by world assembly.
+    :param pose: Sensor base frame relative to that parent body.
+    :param parameters: Sensor-specific settings, validated when definitions load.
+        Frozen records do not freeze this mapping; treat it as read-only.
+    """
+
     name: str
     model: str
     parent: str
@@ -70,6 +108,13 @@ class RobotSystem:
     The root has an empty name and a world-relative pose. Child-system poses are
     relative to their containing system; sensor poses are relative to their parent
     robot/body. Each inclusion loads independent parameter dictionaries.
+
+    :param name: Local child-system name; empty for the root.
+    :param source: Resolved source YAML file for resource/provenance reporting.
+    :param pose: Placement in the containing system, or world for the root.
+    :param robots: Local robot/tool instances, in declaration order.
+    :param sensors: Local sensor instances, retained when observations are off.
+    :param systems: Nested physical compositions, each with independent identity.
     """
 
     name: str
@@ -82,6 +127,13 @@ class RobotSystem:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectInstance:
+    """A named scene object, currently constructed as a fixed fixture.
+
+    :param name: Scene-wide name, distinct from resolved device names.
+    :param model: Model package identifier under ``objects``.
+    :param pose: Object base frame relative to world; metres and radians.
+    """
+
     name: str
     model: str
     pose: Pose
@@ -89,7 +141,15 @@ class ObjectInstance:
 
 @dataclass(frozen=True, kw_only=True)
 class SceneConfiguration:
-    """Physical instances and observation selection, independent of a task."""
+    """Physical instances and observation selection, independent of a task.
+
+    :param robot_system: Root physical composition.
+    :param sensors_enabled: Enable observations. False still retains sensor
+        bodies, mounts, inertia and collisions in physical assembly.
+    :param objects: World-placed fixed objects, in declaration order.
+
+    Records are shared with the originating run, not copied or instantiated here.
+    """
 
     robot_system: RobotSystem
     sensors_enabled: bool
@@ -104,6 +164,19 @@ class RunConfiguration:
     resolves device names, sensor parents and robot pose chains. Objects are fixed
     scene fixtures in this first runtime. Parameters remain caller-owned; do not
     mutate after loading.
+
+    :param source: Resolved scenario YAML file.
+    :param world_config: Validated native world settings, without SDK objects.
+    :param duration: Requested simulation duration in seconds.
+    :param robot_system: Root composition with a world-relative pose.
+    :param sensors_enabled: Whether to construct observation outputs.
+    :param objects: World-placed fixed fixtures.
+    :param task: Evaluation selection, validated further by the scenario.
+    :param autonomy: Controller selection, validated further by scenario wiring.
+    :param world_source: Resolved external world profile, or None for inline settings.
+
+    Constructing this dataclass directly does not validate YAML or model support;
+    use :func:`robo_arch.core.config.loading.load_run` at the configuration boundary.
     """
 
     source: Path
@@ -118,6 +191,7 @@ class RunConfiguration:
 
     @property
     def scene(self) -> SceneConfiguration:
+        """Physical view sharing this run's system and object records."""
         return SceneConfiguration(
             robot_system=self.robot_system,
             sensors_enabled=self.sensors_enabled,
@@ -126,17 +200,22 @@ class RunConfiguration:
 
     @property
     def world(self) -> str:
+        """World discriminator: ``drake``, ``isaac`` or ``real``."""
         return self.world_config.type
 
     @property
     def time_step(self) -> float:
+        """Physics step in seconds; raises ValueError for the real world."""
         if self.world_config.type == "real":
             raise ValueError("The real world has no simulated physics time step")
         return self.world_config.physics.time_step
 
     @property
     def resources(self) -> tuple[Path, ...]:
-        """Source documents used by this composition and its selected world."""
+        """Unique scenario, profile and system YAML paths in traversal order.
+
+        Model assets and their dependent meshes are not included in this tuple.
+        """
         paths = [self.source]
         if self.world_source is not None:
             paths.append(self.world_source)
@@ -151,7 +230,15 @@ class RunConfiguration:
 
 
 class RobotDefinition(Schema):
-    """Physical asset and its public joint/frame conventions; no executable factory."""
+    """Physical asset and joint/frame conventions; no executable factory.
+
+    :param asset: ``package://robo_arch/...`` model asset reference. URI syntax is
+        validated here; existence and format support are checked by world loading.
+    :param base_frame: Base frame name within the model asset.
+    :param joints: Nonempty, unique joint names defining the control vector order.
+    :param default_positions: Finite positions in that order (rad or m by joint
+        type); exactly one per joint. Invalid declarations raise ValidationError.
+    """
 
     asset: str
     base_frame: str
@@ -176,6 +263,20 @@ class RobotDefinition(Schema):
 
 @dataclass(frozen=True, kw_only=True)
 class SensorDefinition:
+    """Reusable sensor metadata returned by its owner's ``describe()`` function.
+
+    :param parameter_schema: SDK-independent schema for instance parameters.
+    :param supported_worlds: Worlds supporting observations.
+    :param physical_worlds: Worlds supporting the sensor body and mounting.
+    :param kind: Observation kind used by world assembly, e.g. ``camera``.
+    :param base_frame: Sensor model's mounting frame.
+    :param measurement_frame: Model frame in which measurements are defined.
+    :param resource: Asset name relative to the owning sensor package.
+
+    Physical support is required even when observations are disabled. These
+    declarations contain no live device state and do not validate assets.
+    """
+
     parameter_schema: type[Parameters]
     supported_worlds: tuple[str, ...]
     physical_worlds: tuple[str, ...] = ()
@@ -187,6 +288,16 @@ class SensorDefinition:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectDefinition:
+    """Reusable fixed-object metadata; importing it does not load a world.
+
+    :param package: Importable owning package used to resolve the asset.
+    :param resource: Asset name relative to that package.
+    :param base_frame: Frame placed by the scene's object pose.
+    :param supported_worlds: Worlds whose loaders support this declaration.
+
+    Asset parsing and physical support checks belong to the selected world.
+    """
+
     package: str
     resource: str
     base_frame: str

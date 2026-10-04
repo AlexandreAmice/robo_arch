@@ -16,19 +16,13 @@ counterpart in every world.
 
 ## Inputs and ownership
 
-`load_run()` loads a scenario and its package-referenced declarations into
-`RunConfiguration`. Its `scene` property exposes a `SceneConfiguration` containing
-only the robot system, object instances and observation selection. Scene builders
-can consume this record independently of any task, controller or run duration;
-there is no second YAML schema or duplicate scene data in saved run metadata.
-
-`resolve_devices(scene)` resolves names, robot pose chains and sensor parents.
-`load_definitions(scene, world)` reads device/object metadata, checking
-supported worlds, physical bodies and observations.
-Scene builders load these declarations themselves. Robot adapters and sensor
-observation adapters remain device-owned; world construction calls their native
-entry points.
-Disabling observations preserves sensor bodies, mass and collision geometry.
+The [configuration reference](../../../../docs/api/configuration.rst) owns the
+loader and record contracts; the [device assembly reference](../../../../docs/api/worlds.rst)
+owns name resolution, metadata checks and SDK-independent world settings.
+Scene builders consume `load_run(...).scene` independently of task/autonomy and
+load their own device definitions. Ordinary robot assets are parsed by the world;
+specialized device behavior stays with the device. Disabling observations still
+preserves sensor bodies, mounts, inertia and collisions.
 
 A world receives ordinary Python scenario wiring through the required `configure`
 argument. It does not import a concrete scenario or interpret task/controller
@@ -73,33 +67,65 @@ Names must not overlap world channels or another channel's timestamps.
 `build_simulation(..., initialize=False)` transfers initialization to the caller;
 the runner uses this to preserve partial logs when initialization fails.
 
-Isaac's `build_scene(run.scene, run.world_config, directory=...)` constructs an
-unattached USD stage after Kit startup. The caller must keep the converted-asset
-directory alive while the stage is in use. Its returned `IsaacScene` contains
-articulation roots, resolved devices and definitions. `initialize_scene()` binds
-native tensors/observations and applies initial positions and zero velocities
-after PhysX attachment.
+Isaac's `build_scene(run.scene, run.world_config, directory=...)` constructs a
+Lab `SimulationContext` and `InteractiveScene` after Kit startup, using the
+selected PhysX or Newton/MuJoCo Warp backend. Converted assets stay alive until teardown. Each articulation
+uses the declared joint order and zero-gain effort actuation. The whole scene,
+including fixtures, is cloned; world anchors are relocated with each environment
+and collisions between environments are filtered. PhysX uses USD copies and full physics parsing; Newton replicates native models.
+URDF effort limits are passed explicitly to both backends.
 
-`isaac.scenario.run_scenario(run, configure=...)` owns Kit, temporary converted
-assets, stage attachment, initialization, stepping and teardown. It invokes
-`configure(scene)` to obtain effort callbacks keyed by configured robot name;
-each receives `(state, time_seconds)` and returns joint efforts. Arm tracking's
-`isaac.configure()` builds its selected controller against independent nominal
-models. This effort interface currently supports fixed-base arms and scalar CPU
-control, with explicit transfers when physics runs on the GPU.
+`isaac.scenario.run_scenario(run, configure=...)` owns Kit, temporary assets,
+initialization and teardown. `configure(scene)` supplies effort callbacks keyed
+by robot name, receiving `(state, episode_time_seconds)`. A fresh invocation
+creates each environment's independent controller contexts. Lab advances the
+physics and updates articulation/sensor buffers; scalar CPU autonomy still
+requires explicit transfers with GPU physics.
+
+The optional Python `after_step(execution)` callback can call
+`execution.reset([environment_ids])`. Reset restores declared joint positions,
+zero velocities/commands, sensor buffers, episode clocks and freshly constructed
+autonomy only for those IDs. Invalid or duplicate IDs fail; an empty selection
+does nothing. Global simulation time continues. No reset schedule is encoded in
+YAML. Arbitrary callbacks require their owning Python entry point for replay;
+the JSON inspection command restores declarative runs only. Run each Isaac
+invocation in a fresh process; use selective reset within a run.
+
+For tensor workloads, pass `rollout(scene, viewer)` instead of `configure`.
+This callback owns the task loop while the runner owns initialization, capture
+and cleanup. `BatchedExecution` supplies shared tensor effort stepping and masked
+joint-state/effort reset for sensor-free stateless effort actuators. The
+[batched reaching scenario](../../scenarios/batched_reaching/README.md) keeps
+control, episode state and sparse trace buffers on the GPU. Its caller-provided
+feedforward explicitly selects simulator gravity. PhysX internally compacts
+reset masks; Newton consumes masks directly. The two paths share scene loading
+and preserve explicit scalar-versus-tensor controller selection.
+
+`physics.backend` defaults to `physx`, accepting `solver: tgs | pgs` and CPU or
+CUDA. `backend: newton` selects `solver: mujoco_warp` on CUDA; configuration also
+exposes iterations, line-search iterations, integrator, constraint solver and
+contact/constraint capacities. The pinned Newton profile supports physical
+sensor bodies but rejects sensor observations before startup: its joint-wrench
+sensor excludes fixed sensing joints. Select `sensors_enabled: false` explicitly
+when using mounted sensors with Newton. PhysX observation support is unchanged.
+Unsupported combinations fail validation before
+SDK startup. `newton.yaml` is a packaged example. Storm viewing publishes
+PhysX transforms natively and Newton link poses through USD at display cadence.
 
 Both execution functions accept `trace_path` and `keep_viewer_open`. Drake accepts
 an HTML `recording` path; Isaac rejects recording and saves a final viewport PNG
 beside the trace when live viewing is enabled. Returned `trace` dictionaries and
 NPZ files contain owned NumPy arrays. Drake exports
-its native logs; Isaac copies observations within its own PhysX loop. Partial
+its native logs; scalar Isaac copies observations after each Lab step; tensor rollouts own their
+sampling cadence and report format. Partial
 data is retained on stepping failures. Arm tracking owns its diagnostic plots.
 
 ## Physical limits
 
-All objects are fixed fixtures; movable objects, initial object velocity and
-batched/reset execution are not implemented. Isaac authors downward gravity of
-9.81 m/s²; Drake uses its plant default. Shared assets do not guarantee identical
+All objects are fixed fixtures; movable objects and initial object velocity
+remain unsupported. Tensor effort control is exercised by batched reaching and camera protection; supported capacity is
+workload- and hardware-dependent.
+Isaac authors downward gravity of 9.81 m/s²; Drake uses its plant default. Shared assets do not guarantee identical
 contact models or trajectories.
 
 Drake and Isaac enable `world.ground: true` by default: an infinite static
@@ -132,9 +158,10 @@ silently discard new physics or substitute a bounding box.
    `RunConfiguration.time_step` if the world does not have simulated physics.
 2. Implement `scene.py:build_scene()` against `SceneConfiguration` and native
    settings. Reuse device resolution and declarations; extend support
-   checks in `devices.py` and implement native importers/adapters. Declare robot
-   support in `RobotDefinition`, sensor physical and observation support
-   separately, and object support in `ObjectDefinition`.
+   checks in `devices.py` and implement native importers/adapters. Robot support
+   follows the world's asset/behavior checks; `RobotDefinition` declares assets
+   and joint/frame conventions. Declare sensor physical and observation support
+   separately in `SensorDefinition`, and object support in `ObjectDefinition`.
    Preserve frames, joint order, mounts, geometry, inertia and material meaning;
    reject unsupported inputs and name deliberate approximations.
 3. Implement `scenario.py:run_scenario()` against `RunConfiguration` with an
@@ -159,3 +186,23 @@ silently discard new physics or substitute a bounding box.
 Follow the [architecture](../../../../docs/architecture.md#world-implementations)
 and [testability requirements](../../../../docs/build_and_layout.md#testability),
 including actual-run visualizations when requesting human inspection.
+
+### GPU camera protection
+
+The [camera-protection scenario](../../scenarios/camera_protection/README.md)
+uses the same Lab scene and `BatchedExecution` as reaching. Its rollout supplies
+independent nominal dynamics and Moreau-filtered efforts, samples diagnostics,
+and saves partial traces on failure. It requires PhysX/PGS on CUDA; Newton is
+supported for reaching but not yet for this controller. Batch configuration uses
+`num_envs`, `env_layout` and `env_spacing` for both scenarios. Camera traces use
+`log_every_n_steps`; barrier statistics still include every control step.
+
+`BatchedExecution.reset(mask)` clears selected physical state, commanded efforts
+and environment clocks. Scenario-owned controller state must be reset separately.
+Native integration checks cover partial failure cleanup and low-speed PGS state:
+
+```sh
+OMNI_KIT_ACCEPT_EULA=YES ROBO_ARCH_ISAAC_GPU_TEST=1 \
+  third_party/isaac/.venv/bin/python -m pytest -q \
+  src/robo_arch/core/worlds/isaac/tests/test_gpu_execution.py
+```

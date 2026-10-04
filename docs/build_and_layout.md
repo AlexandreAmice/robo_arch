@@ -108,25 +108,85 @@ Keep `uv.lock` authoritative for each supported environment. Bazel reads the roo
 
 Use thin **nanobind** bindings around project C++, with explicit ownership, array layout, device and GIL behavior. Call existing pydrake APIs directly where appropriate. Exchanging bound Drake objects requires compatible Drake libraries, compiler/C++ ABI and nanobind ABI/domain/Python-ABI settings, even though both projects use nanobind. Pin that combination in build tooling. [nanobind Bazel integration](https://nanobind.readthedocs.io/en/latest/bazel.html), [interoperability requirements](https://nanobind.readthedocs.io/en/latest/faq.html#how-can-i-avoid-conflicts-with-other-projects-using-nanobind)
 
+### API documentation
+
+The Python API reference combines Python-source docstrings and C++ Doxygen
+comments under the installed public `robo_arch` namespace. Each public symbol
+has one documentation owner: Python implementations own their source docstrings;
+direct C++ bindings use extracted comments; thin Python facades compose the C++
+description with Python-only signature, conversion, ownership and GIL notes.
+A wrapper that changes the contract owns a complete Python docstring as a
+distinct API. Do not duplicate shared prose. Private extension names are not
+public reference entries.
+
+`tools/docs/` uses the pinned Clang toolchain to parse explicitly selected
+declarations and Sphinx autodoc to render the combined reference. The
+[catalogue](api/index.rst) covers shared configuration records/loaders, controller
+parameters, numerical barriers, collision coverage, device discovery and world
+settings. It lists the remaining runtime/device/scenario coverage gaps. Source
+docstrings own API contracts; the [documentation index](README.md) routes readers
+to tutorials, design rationale and operational guides. Extend the catalogue as
+public APIs are maintained. The build fails on undocumented or duplicate entries
+and unresolved imports. SDK-dependent APIs need an explicit documentation environment before
+joining this SDK-independent catalogue; do not mock away missing implementations.
+
+Each C++ owner declares a `cpp_docstrings` target and a `docstrings.json` mapping
+of identifiers to qualified symbols and exact Clang signatures, so overloads
+are selected explicitly. Supported comment markup is paragraphs, `@brief`,
+`@details`, `@param`, `@return`/`@returns`/`@result`, `@note` and `@warning`, with
+reStructuredText in plain text. Unsupported markup and unresolved selections
+fail extraction. Extend the renderer with tests when another construct is needed.
+The generated C++ header stays in Bazel output; the matching Python text is
+committed beside its owner for `help()` without the optional extension. Binding
+builds compare that copy against fresh extraction and reject stale text.
+
+After editing the PD header's comments, refresh the generated Python copy:
+
+```sh
+bazel build //src/robo_arch/core/controllers/joint_pd:generated_docstrings
+cp bazel-bin/src/robo_arch/core/controllers/joint_pd/generated/_docstrings.py src/robo_arch/core/controllers/joint_pd/_docstrings.py
+```
+
+Build the reference from isolated, installed Python/native wheels and locked
+documentation dependencies (no simulator installation or launch):
+
+```sh
+uv run --no-default-groups --group docs python tools/docs/build.py
+python -m http.server 8000 --directory build/docs/html
+```
+
+Open `http://localhost:8000`. For local checks, run
+`bazel test //tools/docs:extract_test //tests/build:api_docs //src/robo_arch/core/controllers/joint_pd:native_test`.
+The reference test blocks simulator/ROS imports while building every catalogue
+page. It does not measure documentation coverage outside that explicit catalogue.
+The same Python tests run under uv with the `test` and `docs` groups and the
+native wheel installed. Ordinary Python docstring edits need no native rebuild.
+
 ### The C++ edit–run loop
 
 Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Implemented commands:
 
 ```text
 uv sync --locked
-uv run python -m robo_arch.scenarios.arm_tracking.run # ordinary Python work
+uv run tools/dev.py run arm_tracking
 uv run pytest path/to/test.py
 uv run tools/dev.py native --profile drake            # refresh native code for IDE/notebook use
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run
+uv run tools/dev.py run batched_reaching --backend newton --live --hold
 bazel test //tests/build:core //src/robo_arch/scenarios/arm_tracking:run_test
 ```
 
 The combined development command performs these steps:
 
-1. Select a declared build/environment profile and check interpreter/ABI compatibility.
+1. Resolve the runtime profile from the scenario's world selection and check interpreter/ABI compatibility. `--world`, `--world-config` and saved inspection inputs are honored. Both environments must already exist from `uv sync`.
 2. Ask Bazel to incrementally build that profile's native wheel and dependencies. Bazel decides what changed; the helper maintains no separate C++ dependency graph.
 3. Install the exact resulting wheel into the active uv environment, without resolving dependencies again. Reinstall only when the artifact changed or is missing. Include required shared libraries/runtime resources with valid loader paths; copying just an extension is insufficient.
 4. Start the requested Python command in a fresh process using that environment. A build/install failure stops the launch rather than running an old controller.
+
+Scenario flags follow the scenario name. `benchmark batched_reaching` runs the
+scaling comparison in the Isaac environment. Advanced commands still use
+`run --profile <drake|isaac> -- python <arguments>`; those retain the caller's
+environment. Named scenario launches configure Isaac's EULA and display settings
+as described in the [vendor profile](../third_party/isaac/README.md).
 
 The Python simulation remains editable, and both paths use the same native Bazel targets. Local wheels need no manylinux release repair on every edit. Wheel assembly/install has overhead; measure it before introducing a more complex editable native-artifact scheme. No compilation happens implicitly on import.
 
@@ -138,7 +198,7 @@ Run Bazel test suites locally against declared Python libraries, data and native
 
 Pin compiler/runtime inputs and execution environments. Core and Drake tests target hermetic execution; GPU/Isaac and hardware integrations need explicit worker/container/driver requirements and suitable test caching policies. Invoking those through Bazel does not make external devices hermetic. ROS dependencies may retain their supported ament/colcon build, supplied as an identified underlay.
 
-A future portable release can build Linux wheels in a pinned manylinux-compatible environment and inspect dependencies with auditwheel. The current local CPython 3.12 wheel uses host glibc and statically linked, hidden C++ runtime/nanobind symbols; it passes no Drake C++ objects across bindings. Accurate wheel tags do not establish pydrake ABI compatibility. Simulator SDKs stay in their third-party dependency profiles, while GPU drivers remain host runtime requirements. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
+A future portable release can build Linux wheels in a pinned manylinux-compatible environment and inspect dependencies with auditwheel. The current local CPython 3.12 wheel uses host glibc and statically linked, hidden C++ runtime/nanobind symbols; it passes no Drake C++ objects across bindings. Accurate wheel tags do not establish pydrake ABI compatibility. Isaac Lab and simulator SDKs stay in their third-party dependency profiles, while GPU drivers remain host runtime requirements. Exact release pins and wheel ABI choices belong to the first implementation task. [auditwheel](https://github.com/pypa/auditwheel)
 
 ## Testability
 

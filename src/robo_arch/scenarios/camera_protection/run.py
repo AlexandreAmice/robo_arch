@@ -16,7 +16,7 @@ import numpy as np
 from pydantic import TypeAdapter
 
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.config.loading import load_run, resolve_resource
+from robo_arch.core.config.loading import load_run, load_world, resolve_resource
 from robo_arch.scenarios.camera_protection.configuration import parameters_for
 
 
@@ -65,6 +65,35 @@ def evaluate(
     pair_count = len(description["pair_names"])
     channel = "cbf/diagnostics" if filtered else "baseline/clearance"
     samples = trace[channel]
+    if samples.ndim == 3:
+        results = [
+            evaluate(
+                run,
+                {
+                    name: values[:, index] if values.ndim == 3 else values
+                    for name, values in trace.items()
+                },
+                filtered=filtered,
+                description=description,
+            )
+            for index in range(samples.shape[1])
+        ]
+        result = dict(results[0])
+        result.update(
+            batch_size=len(results),
+            per_environment=results,
+            success=all(item["success"] for item in results),
+        )
+        for name in (
+            "minimum_clearance_m",
+            "minimum_ground_clearance_m",
+            "minimum_cbf_residual",
+        ):
+            if name in result:
+                result[name] = min(item[name] for item in results)
+        for name in ("maximum_torque_correction_Nm", "retreat_error_rad"):
+            result[name] = max(item[name] for item in results)
+        return result
     clearance = samples[:, :pair_count]
     unsafe = trace[channel + "/times"] < task.retreat_time
     correction = float(samples[unsafe, 5 * pair_count].max()) if filtered else 0.0
@@ -92,7 +121,9 @@ def evaluate(
         result["minimum_cbf_residual"] = float(
             samples[:, 3 * pair_count : 4 * pair_count].min()
         )
-        result["maximum_qp_solve_seconds"] = float(samples[:, 5 * pair_count + 1].max())
+        solve_times = samples[:, 5 * pair_count + 1]
+        if np.isfinite(solve_times).all():
+            result["maximum_qp_solve_seconds"] = float(solve_times.max())
         result["success"] = bool(
             result["success"]
             and result["minimum_cbf_residual"] >= -control.residual_tolerance
@@ -143,25 +174,39 @@ def run_scenario(
     }
     if metadata is not None:
         metadata.parent.mkdir(parents=True, exist_ok=True)
-        report["inspection_command"] = shlex.join(
-            [
+        invocation = ["uv", "run", "python"]
+        mode = "live_and_record"
+        if run.world == "isaac":
+            invocation = [
+                "env",
+                "OMNI_KIT_ACCEPT_EULA=YES",
                 "uv",
                 "run",
+                "--project",
+                "third_party/isaac",
+                "--group",
+                "cbf-gpu",
                 "python",
+            ]
+            mode = "live"
+        report["inspection_command"] = shlex.join(
+            [
+                *invocation,
                 "-m",
                 "robo_arch.scenarios.camera_protection.run",
                 "--inspect",
                 str(metadata.resolve()),
                 "--visualization",
-                "live_and_record",
+                mode,
             ]
         )
     try:
         control, _ = parameters_for(run)
         report["application_sha256"] = application_hashes()
-        report["package_versions"] = {
-            name: version(name) for name in ("drake", "numpy", "pydantic")
-        }
+        packages = ("drake", "numpy", "pydantic")
+        if run.world == "isaac":
+            packages += ("torch", "moreau", "moreau-cuda13", "isaacsim", "isaaclab")
+        report["package_versions"] = {name: version(name) for name in packages}
         resources = list(run.resources) + [
             resolve_resource(resource) for resource in control.profiles.values()
         ]
@@ -171,14 +216,32 @@ def run_scenario(
             else "unavailable"
             for path in resources
         }
-        from robo_arch.core.worlds.drake.scenario import run_scenario as execute
-        from robo_arch.scenarios.camera_protection.drake import configure
+        if run.world == "isaac":
+            from robo_arch.core.worlds.isaac.scenario import run_scenario as execute
+            from robo_arch.scenarios.camera_protection.isaac import rollout
+
+            wiring = {
+                "rollout": partial(
+                    rollout,
+                    run=run,
+                    filtered=filtered,
+                    description=description,
+                    trace_path=trace_path,
+                )
+            }
+        else:
+            from robo_arch.core.worlds.drake.scenario import run_scenario as execute
+            from robo_arch.scenarios.camera_protection.drake import configure
+
+            wiring = {
+                "configure": partial(
+                    configure, run=run, filtered=filtered, description=description
+                )
+            }
 
         native = execute(
             run,
-            configure=partial(
-                configure, run=run, filtered=filtered, description=description
-            ),
+            **wiring,
             recording=recording,
             trace_path=trace_path,
             keep_viewer_open=keep_viewer_open,
@@ -186,6 +249,38 @@ def run_scenario(
         result = evaluate(
             run, native["trace"], filtered=filtered, description=description
         )
+        if run.world == "isaac":
+            statistics = native["controller_statistics"][control.robot]
+            items = result.get("per_environment", [result])
+            for index, item in enumerate(items):
+                item.update(
+                    {name: float(values[index]) for name, values in statistics.items()}
+                )
+                item["success"] = (
+                    item["minimum_clearance_m"] >= -1e-5
+                    and item["maximum_torque_correction_Nm"] > 1e-3
+                    and item["retreat_error_rad"] <= parameters_for(run)[1].tolerance
+                    and item["minimum_cbf_residual"] >= -control.residual_tolerance
+                    and item.get("minimum_joint_velocity_slack", 0) >= -1e-5
+                    and item.get("minimum_velocity_cbf_residual", 0)
+                    >= -control.residual_tolerance
+                    if filtered
+                    else item["minimum_clearance_m"] < -1e-3
+                )
+            for name in statistics:
+                result[name] = float(
+                    np.max(statistics[name])
+                    if name.startswith("maximum")
+                    else np.min(statistics[name])
+                )
+            result["success"] = all(item["success"] for item in items)
+            result["clearance_evaluation_period_seconds"] = run.time_step
+            result["trace_sample_period_seconds"] = (
+                run.time_step * run.world_config.log_every_n_steps
+            )
+            result["environment_steps_per_second"] = native[
+                "environment_steps_per_second"
+            ]
         result.update(
             simulation_wall_seconds=native["simulation_wall_seconds"],
             realtime_rate=native["realtime_rate"],
@@ -227,23 +322,60 @@ def main() -> None:
     parser.add_argument("--record", type=Path)
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument(
+        "--world-config", help="package:// world profile overriding the scenario world"
+    )
+    parser.add_argument("--backend", choices=("drake", "torch_moreau"))
+    parser.add_argument("--batch-size", type=int, help="Isaac tensor environments")
+    parser.add_argument(
+        "--compile-model",
+        action="store_true",
+        help="Compile shared tensor dynamics; incurs first-call compilation",
+    )
     args = parser.parse_args()
     if args.inspect:
         run, filtered = load_inspection(args.inspect)
     else:
         run = load_run(args.run)
         filtered = not args.baseline
+    if args.world_config:
+        run = replace(run, world_config=load_world(args.world_config))
+    if args.backend:
+        run = replace(
+            run,
+            autonomy=run.autonomy.model_copy(
+                update={
+                    "parameters": {**run.autonomy.parameters, "backend": args.backend}
+                }
+            ),
+        )
+    if args.compile_model:
+        run = replace(
+            run,
+            autonomy=run.autonomy.model_copy(
+                update={
+                    "parameters": {**run.autonomy.parameters, "compile_model": True}
+                }
+            ),
+        )
+    if args.batch_size is not None:
+        if run.world != "isaac":
+            parser.error("--batch-size requires Isaac")
+        world = type(run.world_config).model_validate(
+            {**run.world_config.model_dump(), "num_envs": args.batch_size}
+        )
+        run = replace(run, world_config=world)
     visual = run.world_config.visualization
-    visual = visual.model_copy(
-        update={
-            "mode": args.visualization or visual.mode,
-            "open_browser": not args.no_browser,
-        }
-    )
+    updates = {"mode": args.visualization or visual.mode}
+    if run.world == "drake":
+        updates["open_browser"] = not args.no_browser
+    visual = type(visual).model_validate({**visual.model_dump(), **updates})
     run = replace(
         run, world_config=run.world_config.model_copy(update={"visualization": visual})
     )
-    suffix = "filtered" if filtered else "baseline"
+    suffix = ("filtered" if filtered else "baseline") + (
+        "_gpu" if run.world == "isaac" else ""
+    )
     metadata = args.metadata or (
         args.inspect.with_name(args.inspect.stem + "_inspection.json")
         if args.inspect

@@ -1,0 +1,11 @@
+# Two independent copies of the configured robot system and fixtures.
+type: isaac
+num_envs: 2
+env_spacing: 3.0
+physics:
+  time_step: 0.001
+  solver: tgs
+  device: cuda:0
+visualization:
+  type: isaac
+  mode: "off"

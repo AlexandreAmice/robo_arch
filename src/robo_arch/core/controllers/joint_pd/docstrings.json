@@ -1,0 +1,6 @@
+{
+  "JOINT_PD": {
+    "symbol": "robo_arch::JointPd",
+    "signature": "std::vector<double> (std::span<const double>, std::span<const double>, std::span<const double>, std::span<const double>, std::span<const double>, std::span<const double>, std::span<const double>)"
+  }
+}

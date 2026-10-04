@@ -7,7 +7,10 @@ py_library(
         "__init__.py",
         "definition.py",
     ],
-    visibility = ["//src/robo_arch:__subpackages__"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
     deps = [
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/controllers",
@@ -48,5 +51,16 @@ py_test(
         requirement("drake"),
         requirement("numpy"),
         requirement("pytest"),
+    ],
+)
+
+# Torch is supplied by the independently locked GPU runtime profile.
+py_library(
+    name = "torch",
+    srcs = ["torch.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":joint_tracking",
+        "//src/robo_arch/core/controllers/dynamics:torch",
     ],
 )

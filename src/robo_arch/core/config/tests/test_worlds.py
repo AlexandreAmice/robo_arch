@@ -37,6 +37,10 @@ from robo_arch.core.worlds.real.config import RealWorld
         {"type": "isaac", "visualization": {"publish_period": 0}},
         {"type": "isaac", "visualization": {"width": 0}},
         {"type": "isaac", "target_realtime_rate": -1},
+        {"type": "isaac", "num_envs": 0},
+        {"type": "isaac", "num_envs": 1.5},
+        {"type": "isaac", "env_spacing": 0},
+        {"type": "isaac", "env_spacing": float("nan")},
         {"type": "real", "visualization": {"mode": "record"}},
         {"type": "drake", "physics": {"time_step": 0}},
         {"type": "isaac", "physics": {"time_step": float("nan")}},
@@ -104,10 +108,39 @@ from robo_arch.core.config.loading import load_run, load_world
 from robo_arch.core.config.worlds import parse_world
 for name in ('drake', 'isaac', 'real'):
     parse_world({'type': name})
+parse_world({'type': 'isaac', 'physics': {'backend': 'newton'}})
 for name in sys.modules:
-    assert name.split('.')[0] not in {'pydrake', 'isaacsim', 'omni', 'rclpy'}, name
+    assert name.split('.')[0] not in {'pydrake', 'isaacsim', 'isaaclab', 'isaaclab_physx', 'isaaclab_newton', 'torch', 'omni', 'rclpy'}, name
 """
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize(
+    "physics",
+    [
+        {"backend": "newton", "solver": "mujoco_warp"},
+        {"solver": "pgs", "device": "cpu"},
+    ],
+)
+def test_isaac_backend_round_trip(physics):
+    world = parse_world({"type": "isaac", "physics": physics})
+    assert parse_world(world.model_dump(mode="json")) == world
+
+
+@pytest.mark.parametrize(
+    "physics",
+    [
+        {"backend": "physx", "solver": "mujoco_warp"},
+        {"backend": "newton", "solver": "tgs"},
+        {"backend": "newton", "device": "cpu"},
+        {"backend": "newton", "gpu_found_lost_aggregate_pairs_capacity": 32768},
+        {"backend": "physx", "iterations": 50},
+        {"backend": "newton", "iterations": 0},
+    ],
+)
+def test_isaac_rejects_mixed_backend_settings(physics):
+    with pytest.raises(ValidationError):
+        parse_world({"type": "isaac", "physics": physics})
 
 
 if __name__ == "__main__":

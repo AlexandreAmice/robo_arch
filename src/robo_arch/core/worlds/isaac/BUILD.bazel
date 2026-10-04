@@ -15,10 +15,12 @@ py_library(
     ],
 )
 
-# Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
+# Isaac Lab and Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
 py_library(
     name = "isaac",
     srcs = [
+        "backend.py",
+        "batched.py",
         "convert.py",
         "objects.py",
         "scenario.py",
@@ -27,7 +29,9 @@ py_library(
         "visualization.py",
     ],
     data = [
+        "batch.yaml",
         "desktop.yaml",
+        "newton.yaml",
         "physics.kit",
         "viewport.kit",
     ],
@@ -56,6 +60,17 @@ py_test(
 )
 
 py_test(
+    name = "execution_test",
+    srcs = ["tests/test_execution.py"],
+    main = "tests/test_execution.py",
+    deps = [
+        ":config",
+        ":isaac",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
     name = "ground_test",
     srcs = ["tests/test_ground.py"],
     main = "tests/test_ground.py",
@@ -63,6 +78,32 @@ py_test(
         ":config",
         ":isaac",
         "//src/robo_arch/core/config",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "batching_test",
+    srcs = ["tests/test_batching.py"],
+    main = "tests/test_batching.py",
+    deps = [
+        ":config",
+        ":isaac",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "gpu_execution_test",
+    srcs = ["tests/test_gpu_execution.py"],
+    main = "tests/test_gpu_execution.py",
+    deps = [
+        ":config",
+        ":isaac",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/robots/ur7e",
+        requirement("numpy"),
         requirement("pytest"),
     ],
 )

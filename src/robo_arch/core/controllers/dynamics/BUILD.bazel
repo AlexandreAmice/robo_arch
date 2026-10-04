@@ -1,0 +1,29 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+# Torch is supplied by the optional vendor profile, not the core environment.
+py_library(
+    name = "torch",
+    srcs = [
+        "__init__.py",
+        "torch.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = ["//src/robo_arch/core/controllers"],
+)
+
+py_library(
+    name = "drake",
+    srcs = ["drake.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":torch",
+        requirement("drake"),
+        requirement("numpy"),
+    ],
+)
+
+filegroup(
+    name = "gpu_tests",
+    srcs = ["tests/test_torch.py"],
+)

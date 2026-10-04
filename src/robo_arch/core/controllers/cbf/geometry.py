@@ -20,7 +20,15 @@ from robo_arch.core.controllers.cbf.definition import Sphere
 
 
 class SphereProfile(Parameters):
-    """Model-owned collision asset and maximum subdivision cell size in metres."""
+    """Model-owned collision asset and bounding-box subdivision resolution.
+
+    :param asset: Application-package URI of the URDF/SDF collision asset.
+    :param cell_size: Finite positive maximum cell edge in metres. Smaller cells
+        give tighter covers at the cost of more spheres and constraint rows.
+
+    Invalid fields raise ValidationError; asset existence and supported geometry
+    are checked by :func:`load_sphere_profile`.
+    """
 
     asset: str
     cell_size: float = Field(gt=0, allow_inf_nan=False)
@@ -34,7 +42,19 @@ class SphereProfile(Parameters):
 def cover_box(
     lower: ArrayLike, upper: ArrayLike, cell_size: float
 ) -> tuple[tuple[np.ndarray, float], ...]:
-    """Enclose each complete AABB cell; return owned centers and radii in metres."""
+    """Cover an axis-aligned bounding box with circumspheres of complete cells.
+
+    :param lower: Finite lower corner, shape (3,), in metres.
+    :param upper: Finite upper corner in the same frame, shape (3,), in metres.
+    :param cell_size: Finite positive maximum edge length of subdivision cells, m.
+    :returns: Tuple of (owned NumPy center, scalar radius) pairs, in metres,
+        ordered by Cartesian cell indices. Includes box interiors and may extend
+        outside the box; this is a conservative cover, not a surface sample.
+    :raises ValueError: Invalid shapes, bounds, cell size or a zero-extent point.
+
+    Inputs accept NumPy-compatible array-like values and are not modified. Flat
+    boxes are allowed if at least one axis has positive extent.
+    """
     lower, upper = np.asarray(lower, dtype=float), np.asarray(upper, dtype=float)
     if (
         lower.shape != (3,)
@@ -80,9 +100,21 @@ def collision_boxes(
 
     Supports OBJ meshes and boxes; unsupported geometry fails explicitly. Mesh
     bounds are transformed before subdivision, preserving complete coverage.
-    SDF link/model poses must be identity; collision poses may be nonidentity.
+    SDF link/model pose elements are rejected, even explicit identity poses;
+    collision poses may be nonidentity.
     Fixed objects must have exactly one link and no joints or extra frames;
     otherwise applying a base pose to link-local bounds would lose transforms.
+
+    :param asset: Filesystem path to a URDF or SDF asset. Mesh filenames follow
+        asset-relative or application-package references inside that asset.
+    :param fixed_object: Require a single link with no joints/extra frames and,
+        for SDF, one model. The caller must ensure this is the object's base frame.
+    :returns: One (link name, lower, upper) tuple per collision, in XML order.
+        Bounds are owned shape-(3,) arrays in link coordinates, in metres.
+    :raises ValueError: Unsupported geometry/frames or invalid coordinates.
+
+    File, XML and numeric parsing errors propagate. Visual geometry is ignored;
+    model kinematics are not resolved here.
     """
     tree = ElementTree.parse(asset)
     sdf = tree.getroot().tag == "sdf"
@@ -197,7 +229,19 @@ def collision_boxes(
 def load_sphere_profile(
     resource: str, instance: str, *, fixed_object: bool = False
 ) -> tuple[Sphere, ...]:
-    """Instantiate a model-owned profile with explicit instance/frame identity."""
+    """Instantiate a collision-cover profile with explicit instance identity.
+
+    :param resource: Application-package URI of YAML validated as SphereProfile.
+    :param instance: Owning physical instance name, including ancestor namespaces.
+    :param fixed_object: Apply collision_boxes' single-link fixed-object checks.
+    :returns: New Sphere records in collision/cell order. Names are
+        ``instance/link/collision_index/cell_index`` and frames are
+        ``instance/link``; centers are link-local, radii and centers in metres.
+
+    Profile, asset and coverage errors propagate. This does not verify that the
+    instance exists or that the profile matches its physical model; the caller
+    supplies that association. Fixed objects still need their world pose applied.
+    """
     profile = read_validated_yaml(resolve_resource(resource), SphereProfile)
     asset = resolve_resource(profile.asset)
     spheres = []

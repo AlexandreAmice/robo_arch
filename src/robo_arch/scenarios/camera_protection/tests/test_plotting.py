@@ -54,5 +54,19 @@ def test_metadata_row_count_mismatch_cannot_mislabel_floor_evidence():
         clearance_series(np.zeros((1, 2)), filtered=False, description=description())
 
 
+def test_batch_plot_keeps_worst_environment_and_any_floor_activity():
+    data = np.zeros((2, 2, 18))
+    data[:, 0, :3] = [0.004, 0.3, 0.005]
+    data[:, 1, :3] = [-0.002, 0.2, 0.006]
+    data[1, 1, 12] = 1
+    data[:, 0, 15] = 2
+    data[:, 1, 15] = 4
+    series = clearance_series(data, filtered=True, description=description())
+    np.testing.assert_allclose(series["ground_clearance"], [-0.002, -0.002])
+    np.testing.assert_allclose(series["sphere_clearance"], [0.2, 0.2])
+    np.testing.assert_array_equal(series["ground_active"], [False, True])
+    np.testing.assert_allclose(series["torque_correction"], [4, 4])
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

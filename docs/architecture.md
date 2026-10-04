@@ -4,7 +4,7 @@ Target design; implemented support and remaining work are recorded in the [imple
 
 ## Purpose
 
-Use the same model-based or learned autonomy stack in Drake, on the robot, and in batched Isaac/Newton/MuJoCo Warp training. Drake is the preferred simulation and evaluation environment; algorithms may use other numerical libraries. Training must not require a separately maintained autonomy stack.
+Use the same model-based or learned autonomy stack in Drake, on the robot, and in batched Isaac Lab training. Drake is the preferred simulation and evaluation environment; algorithms may use other numerical libraries. Training must not require a separately maintained autonomy stack.
 
 The first application is a UR7e with a Robotiq gripper placing nuts onto a pin. Start with arm tracking to establish controller reuse before manipulation. Gripper model, sensors, part dimensions and hardware command interface remain open. Placement onto an unthreaded pin is the current assumption.
 
@@ -55,6 +55,10 @@ composes a nominal effort controller with a reusable
 Model-owned sphere profiles describe conservative geometry; scenario autonomy
 selects protected instances, pairs, margins and explicit mounting exclusions.
 The Drake filter uses an independent dynamics model and bounded torque QPs.
+The optional Torch/Moreau filter extracts the same nominal model once, then
+batches dynamics and QPs on CUDA using shared barrier equations. Its camera
+scenario uses the shared Isaac Lab tensor execution path with PhysX/PGS;
+Newton camera protection remains unsupported.
 Its discrete simulation evidence does not establish hardware safety.
 
 YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Loaded records and device metadata live in `core/config/declarations.py`; `loading.py` owns the YAML document schemas, parses YAML and resolves referenced systems. `schema.py` defines the common strict validation policy used by document, world and parameter schemas. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.
@@ -70,6 +74,8 @@ Read declarations without importing simulator SDKs or robot code. Sensor and obj
 `core/worlds/<world>/scene.py` consumes `SceneConfiguration` and native settings to construct physics. `scenario.py` consumes `RunConfiguration` and a scenario-supplied Python `configure` function to wire autonomy and launch execution; it returns data for scenario evaluation. Drake advances its native `Simulator` once to the run boundary, with native diagram events handling visualization and signal logging; no shared simulation recorder or Python sampling loop is required. Each world also owns `config.py` and `visualization.py`. Real construction/execution currently fails explicitly because hardware adapters are absent. Implementations own timing, initialization and reset behavior. World integration coordinates physical reset; each controller or policy resets its own state. Resetting a real controller does not reposition the robot. Add timing, reset and execution metadata only when an implemented consumer needs it; no universal scheduler or performance framework is required.
 
 The [world construction guide](../src/robo_arch/core/worlds/README.md) maps the current configuration-to-physics paths, records asset translation limits and explains how to add a world. All objects remain fixed fixtures. Isaac supports a validated single-box SDF subset and rejects unsupported content before launch; it does not provide general SDF physics import.
+
+The `isaac` world uses Isaac Lab 3.0 Early Access with selectable PhysX or Newton/MuJoCo Warp physics. SDK-independent settings select the backend and solver; PhysX remains the default. Lab owns scene buffers and physics stepping; project adapters assemble declared assets and invoke shared autonomy. `num_envs` defaults to one; `env_spacing` sets separation in metres and `env_layout` selects a line or grid. PhysX uses USD cloning/full parsing with collision groups; Newton uses native model replication and isolated worlds.
 
 ### World configuration and visualization
 
@@ -104,7 +110,11 @@ For example, an Isaac profile contains `type: isaac`, `physics: {time_step: 0.00
 
 The CLI's `--world` replaces the complete configuration with native defaults; `--world-config` loads a complete profile. Explicit viewer overrides are validated again. Effective settings are retained with run metadata. Schema defaults leave viewers off; the packaged arm-tracking scenario explicitly selects Drake recording.
 
-Drake display settings include `default_illustration_color`, `default_proximity_color`, `initial_proximity_alpha`, `enable_alpha_sliders` and `delete_on_initialization_event`. Meshcat creation and transport belong to the world implementation; mouse-applied forces remain disabled. Lower-level visualizer parameters are added only for a concrete inspection need.
+The [world-settings API reference](api/worlds.rst) owns field descriptions,
+defaults and validation constraints for the SDK-independent schemas. Meshcat
+creation and transport belong to the world implementation; mouse-applied forces
+remain disabled. Lower-level visualizer parameters are added only for a concrete
+inspection need.
 
 Collision geometry, friction, hydroelastic classification and mesh resolution belong to the asset or its explicit world-specific profile. Per-articulation tuning belongs to its device/system. World configuration must not silently overwrite these assumptions. Enabling a layer does not change an asset’s contact model. UR7e and iiwa 7 now have upstream-derived visual and collision meshes. Both engines use per-link convex hulls; Mini45 convex sectors preserve the bore. Sensor bodies are assembled before plant finalization or PhysX initialization. Device READMEs identify geometry and inertia approximations. Drake contact diagnostics are checked with a separate fixture that explicitly supplies hydroelastic properties.
 
@@ -124,8 +134,8 @@ Validation covers schema rejection without SDK imports, native Drake settings/st
 
 Before construction, check that the scenario/world supplies required measurements and accepts the stack's commands, the selected autonomy has a supported implementation, and timing/reset requirements are supported. Record effective parameters, model/calibration versions and selected implementations. The mixed-arm example names every robot’s target and controller parameters explicitly. A world switch preserves the stack only when these checks succeed; simulated torque access does not establish torque access on hardware.
 
-Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state, so algorithms cannot accidentally read perfect simulated state.
+Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state; scenarios must explicitly select and name any privileged simulator-model inputs.
 
-The inverse-dynamics controller runs in Drake and Isaac. A separate C++ PD-plus-feedforward controller now runs both nominal arm models, including the mixed bimanual system. Its nanobind boundary carries only CPU float64 arrays; Python adapters supply independent-model gravity feedforward. Batched environments and selective reset remain future work. An explicit CPU wrapper is a valid first step. Match controller outputs for matching inputs/state; do not require identical physics trajectories. Optimize demonstrated bottlenecks while retaining shared code and parameters. The [implementation plan](implementation_tasks.md) records local example and validation coverage.
+The inverse-dynamics controller runs in Drake and Isaac. A separate C++ PD-plus-feedforward controller now runs both nominal arm models, including the mixed bimanual system. Its nanobind boundary carries only CPU float64 arrays; Python adapters supply independent-model gravity feedforward. Isaac Lab clones complete scenes into independent environments and supports selective reset of physics, sensor buffers, episode time and controller contexts. Batched reaching uses a shared Torch PD implementation with GPU task state and masked resets on PhysX or Newton/MuJoCo Warp. Its explicitly selected simulator-gravity feedforward is privileged model information; arm tracking retains independent-model feedforward. An explicit CPU wrapper remains supported with a cost warning. Match controller outputs for matching inputs/state; do not require identical physics trajectories. Optimize demonstrated bottlenecks while retaining shared code and parameters. The [implementation plan](implementation_tasks.md) records local example and validation coverage.
 
 Share physical assembly and control construction functions across simulation and deployment, following the separation illustrated by HardwareStation. Runtime-specific application wiring stays ordinary code; reuse does not require reimplementing Drake's Diagram architecture in a parser.

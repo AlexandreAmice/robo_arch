@@ -123,7 +123,7 @@ def load_boxes(
 
 
 def add_objects(
-    stage, scene: SceneConfiguration, definitions: DeviceDefinitions
+    stage, scene: SceneConfiguration, definitions: DeviceDefinitions, *, root: str = ""
 ) -> None:
     """Create validated static boxes, preserving placement and diffuse color."""
     import numpy as np
@@ -132,7 +132,7 @@ def add_objects(
     from robo_arch.core.worlds.assembly import pose_transform
 
     for fixture in load_boxes(scene, definitions):
-        box = UsdGeom.Cube.Define(stage, "/objects/" + fixture.instance.name)
+        box = UsdGeom.Cube.Define(stage, root + "/objects/" + fixture.instance.name)
         box.CreateSizeAttr(1.0)
         transform = pose_transform(fixture.instance.pose).GetAsMatrix4()
         transform[:3, :3] = transform[:3, :3] @ np.diag(fixture.size)

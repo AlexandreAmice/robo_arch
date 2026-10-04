@@ -3,10 +3,13 @@ title = "robo_arch camera-free arm physics"
 version = "0.0.0"
 
 [dependencies]
+"isaacsim.core.version" = {}
 "omni.physx.tensors" = { version = "110.3.2", exact = true }
 "omni.kit.usd.layers" = {}
 "omni.kit.loop-isaac" = {}
 "omni.usd" = {}
+"omni.physics.physx" = { version = "110.3.2", exact = true }
+"omni.physics.stageupdate" = { version = "110.3.2", exact = true }
 "omni.physics.tensors" = { version = "110.3.2", exact = true }
 "omni.physx" = { version = "110.3.2", exact = true }
 "omni.kit.renderer.init" = { version = "1.0.1", exact = true }
@@ -17,5 +20,12 @@ window.enabled = false
 settings.persistent = false
 
 [settings]
+# Cached import failures retain scene frames beyond native plugin teardown.
+app.extensions.pathStatCacheEnabled = false
+# Python libraries can retain stderr past shutdown; keep native message queues
+# out of their stream handles. Ordinary stdout/stderr still go to the caller.
+app.python.interceptSysStdOutput = false
+app.useFabricSceneDelegate = false
+persistent.renderer.startupMessageDisplayed = true
 "/privacy/userConsent" = false
 "/physics/updateToUsd" = true

@@ -5,13 +5,14 @@ host glibc; it is not yet a portable manylinux release build.
 
 | Dependency | Pinned version | Configuration |
 |---|---|---|
-| uv | 0.12.17 | `pyproject.toml` |
+| uv | 0.12.20 | `pyproject.toml` |
 | CPython | 3.12.13 | `.python-version` and Bazel Python toolchain |
 | Pydantic / PyYAML | 2.13.5 / 6.0.3 | `pyproject.toml` and `uv.lock` |
 | Drake | 1.57.0 | Optional uv dependency group and explicit Bazel target dependencies |
 | Bazel | 9.2.0 | `.bazelversion` |
 | LLVM / C++ | 22.1.8 / C++23 | `MODULE.bazel` and `.bazelrc`; bundled libc++ |
 | nanobind | 3.0.1 | `MODULE.bazel`; regular CPython ABI |
+| Sphinx | 8.2.3 | Optional `docs` group and `uv.lock`; imports installed APIs without SDK mocks |
 | GoogleTest | 1.17.0.bcr.2 | Local independent C++ controller tests; Bazel 9-compatible BCR patch |
 | Ruff / clang-format / Buildifier | 0.16.9 / 22.1.8 / 10.1.0 | uv and Bzlmod configuration |
 | Hedron compile commands | `abb61a688167623088f8768cc9264798df6a9d10` | Development-only `git_override` in `MODULE.bazel` |
@@ -51,8 +52,9 @@ requires a compatible native Drake build, compiler/standard-library ABI,
 nanobind ABI/domain and ownership conventions. Matching nanobind version numbers
 alone is insufficient. The PD controller’s local wheel is implemented without crossing that boundary: only CPU float64 arrays enter the extension. Native pydrake object interoperability remains unimplemented.
 
-Isaac uses an [independent dependency profile](isaac/README.md) rather than the
-root Python dependency resolution. The initial LLVM download/extraction can
+Isaac Lab 3.0 Early Access uses an [independent dependency profile](isaac/README.md)
+with Isaac Sim 6.1, Python 3.12 and vendor-scoped dependency overrides. It does
+not enter the root Python dependency resolution. The initial LLVM download/extraction can
 consume approximately 13 GB of cache storage.
 
 Build references: [Drake dependencies](https://github.com/RobotLocomotion/drake/blob/v1.57.0/MODULE.bazel),

@@ -1,14 +1,13 @@
 # Robotics architecture
 
-Local robotics development with shared autonomy across Drake and Isaac. Examples
+Local robotics development with shared autonomy across Drake and Isaac Lab (PhysX or Newton/MuJoCo Warp). Examples
 exercise a UR7e with a RealSense D435 housing, an iiwa 7 with an ATI Mini45-R, and
 a mixed UR7e–iiwa bimanual assembly with two independent force/torque sensors.
 Both robots and both sensors have physical collision geometry.
 
-- [Architecture](docs/architecture.md): composition, autonomy and explicit worlds.
-- [Build and layout](docs/build_and_layout.md): ownership and local Python/C++ workflow.
-- [Implementation status](docs/implementation_tasks.md): implemented capabilities and remaining work.
-- [Example configuration](src/robo_arch/scenarios/arm_tracking/README.md): runs, units and inspection.
+The [documentation index](docs/README.md) connects the architecture, build guide,
+API reference, examples and model provenance. For commands to render the shared
+Python/C++ reference, see [API documentation](docs/build_and_layout.md#api-documentation).
 
 ## Local development
 
@@ -17,7 +16,7 @@ Use the pinned uv version in `pyproject.toml` and Bazelisk (`.bazelversion`):
 ```sh
 uv sync --locked
 uv run tools/dev.py native --profile drake
-uv run pytest
+uv run --group docs pytest
 bazel test //src/robo_arch/... //tests/build:core //tests/build:cxx23 //tests/build:drake
 uv run ruff check .
 uv run ruff format --check .
@@ -58,20 +57,25 @@ worktree. Pass extra build flags after `--`, for example
 
 ## Run the examples
 
+Use `uv run tools/dev.py run <scenario>` for either simulator. The helper selects
+the environment from the run configuration (including `--world`, `--world-config`
+or saved `--inspect` inputs) and refreshes native code before launching. Append
+`--help` for scenario options. Environments must be synced once as shown here.
+
 ```sh
 # UR7e, detailed meshes, physical D435 and ideal RGB-D rendering in Drake.
-uv run python -m robo_arch.scenarios.arm_tracking.run
+uv run tools/dev.py run arm_tracking
 
 # Seven-axis native PD + gravity feedforward, with wrist force/torque sensing.
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7.yaml
 
 # Different arm models and independent controllers/sensors in one nested system.
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 
 # Deliberate sensor-face contact with a fixed block; evaluates measured force.
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7_contact.yaml
 ```
 
@@ -89,9 +93,12 @@ Isaac uses a separate pinned environment:
 
 ```sh
 uv sync --project third_party/isaac --locked
-uv run tools/dev.py native --profile isaac
-env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  third_party/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+
+# Sixteen independent UR7e reaching environments, with native viewing.
+uv run tools/dev.py run batched_reaching --backend newton --live --hold
+
+# The same scalar tracking command, selecting Isaac instead of Drake.
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
@@ -99,22 +106,28 @@ env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
 For a native desktop view, keep `DISPLAY` set and use:
 
 ```sh
-OMNI_KIT_ACCEPT_EULA=YES third_party/isaac/.venv/bin/python \
-  -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml
 ```
 
 This selects CPU PhysX and Kit's Storm renderer, retains the final scene for
 inspection, and saves a viewport PNG. Close the window or press Ctrl-C to exit.
-The environment variable accepts NVIDIA's runtime EULA. Both new systems and the
-contact example support Isaac force/torque sensing. D435 image generation remains
+The helper sets `OMNI_KIT_ACCEPT_EULA=YES` (accepting NVIDIA's runtime EULA)
+unless already set, and removes display variables for headless Isaac runs.
+Both new systems and the contact example support Isaac force/torque sensing. D435 image generation remains
 Drake-only: the original camera-equipped example needs `--no-sensors` in Isaac,
 which retains its physical housing and inertia. See [Isaac setup and limits](third_party/isaac/README.md).
 
 These are nominal simulation examples. Robot collision uses model-specific mesh
 hulls; the Mini45's segmented geometry preserves its bore. Ideal sensing,
 estimated sensor inertias and nominal mounts are documented beside each device.
-There is no hardware execution, gripper, nut placement, batched rollout or RTX
-viewer. Scalar CPU controllers are reported explicitly; shared code does
-not imply GPU-efficient control or identical simulator contact forces.
+The [batched reaching example](src/robo_arch/scenarios/batched_reaching/README.md)
+runs tensor PD, independent goals and selective resets on configurable PhysX or
+Newton/MuJoCo Warp backends, with a local throughput comparison and native viewing.
+The [camera protection example](src/robo_arch/scenarios/camera_protection/README.md)
+runs the shared sphere CBF in Drake or with optional Torch/Moreau CUDA control
+on Isaac Lab PhysX/PGS. Its guide includes the optional solver setup and commands.
+There is no hardware execution, gripper, nut placement or RTX viewer. Scalar CPU
+controllers are reported explicitly; shared code does not imply identical
+simulator contact forces.

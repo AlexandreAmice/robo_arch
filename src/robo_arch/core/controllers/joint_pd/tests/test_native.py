@@ -8,6 +8,17 @@ import pytest
 from robo_arch.core.controllers.joint_pd.native import compute
 
 
+def test_shared_documentation_and_python_addendum():
+    from robo_arch_native._joint_pd import compute as bound_compute
+
+    from robo_arch.core.controllers.joint_pd._docstrings import JOINT_PD
+
+    assert JOINT_PD in bound_compute.__doc__
+    assert compute.__doc__.count(JOINT_PD) == 1
+    assert "Python array interface" in compute.__doc__
+    assert ":param q: Measured joint positions in rad." in compute.__doc__
+
+
 @pytest.mark.parametrize("count", [6, 7])
 def test_feedback_and_owned_result(count):
     q = np.linspace(-0.2, 0.3, count)

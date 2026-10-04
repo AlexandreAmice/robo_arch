@@ -12,7 +12,7 @@ Establish **`AlexandreAmice/robo_arch` as a private GitHub repository**, then de
 - Independently composable scenario, autonomy, and world configurations.
 - The same configured controller running in Drake and Isaac, including independent state and reset in an Isaac batch.
 
-R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Native Isaac Storm viewing is implemented; RTX viewing remains unvalidated. Do not repeat repository setup or discard the build baseline.
+R0, B0, I0 and the limited G0 feasibility work have landed; retain their recorded evidence below. The device-oriented migration, single-arm Drake/Isaac execution and typed world configuration are implemented. Isaac execution uses Lab on Sim/PhysX, including two-environment selective reset. Native Storm viewing is implemented; RTX viewing remains unvalidated. Do not repeat repository setup or discard the build baseline.
 
 **Defaults:** Linux x86-64, Python 3.12 minimum, Python-first implementation, ordinary YAML with PyYAML/Pydantic, and local GPU execution first. Preserve the agreed architecture and existing user edits.
 
@@ -126,7 +126,16 @@ Provide `native` and `run` operations, with an explicit environment profile:
 
 Use a small numerical C++ library to prove the mechanism. Keep its Python binding thin and its C++ target independently linkable. Shared native algorithms live with their shared owner; device-specific native code stays with the device. The wheel manifest maps either location to private extensions. The source-development profile must not pull in a competing released native wheel.
 
-**Complete when:** changing C++ changes the result observed from editable Python, ordinary Python edits require no native rebuild, and a failed native build prevents launch.
+Generate the combined public Python API reference according to the
+[documentation ownership rules](build_and_layout.md#api-documentation), including
+Python-source docstrings and C++ comments extracted for nanobind. Keep shared
+descriptions single-sourced and Python facade notes specific to their interface.
+
+**Complete when:** changing C++ changes the result observed from editable Python,
+C++ comment edits reach the bound `__doc__`, Python-source APIs appear in the
+same reference, thin facades combine both sources once, stale generated text and
+invalid reference entries fail clearly, ordinary Python edits require no native
+rebuild, and a failed native build prevents launch.
 
 **C0 — Local validation**
 
@@ -256,7 +265,7 @@ After controller reuse is established, extend the architecture through these ind
 | Robot systems | Mounted arm/tool/camera system, then named left/right instances for bimanual use; assembly calibration and local tests | Applicable device packages and S0 |
 | Manipulation | Scenario-owned grasp/transport/insertion behavior using selected system autonomy; shared algorithms extracted where applicable | Task/scene, robot system and appropriate control |
 | Learning | Policy implementation, artifact metadata and training environment using the same autonomy implementation | Batched execution and selected observation/action requirements |
-| Additional worlds | Newton and MuJoCo Warp wrappers reusing shared algorithms | Existing world implementations and parameter schemas |
+| Additional worlds | Other world integrations as needed; Newton/MuJoCo Warp is selected within Isaac Lab | Existing world implementations and parameter schemas |
 
 Task/scene and hardware work can proceed independently. Hardware-specific implementation waits for the actual gripper, sensors, dimensions and driver capabilities; agents must not invent those specifications. Learner choice and GPU optimization receive their own plans once the workload exists.
 
@@ -278,7 +287,7 @@ If local Isaac cannot run, publish the completed repository, development workflo
 
 ## Work-package status
 
-Status as of 2026-09-30. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. The local expansion below adds physical devices, mixed-arm execution and native control; partial packages retain their broader acceptance gates.
+Status as of 2026-10-04. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. API documentation, Isaac Lab execution and GPU camera protection share the main implementation; partial packages retain their broader acceptance gates.
 
 | Package | Status |
 |---|---|
@@ -288,14 +297,15 @@ Status as of 2026-09-30. Runtime, explicit assembly and world configuration are 
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
 | L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1 | Implemented: C++ PD library, nanobind arrays, private local wheel and build/install/run helper for Drake/Isaac |
+| B1 | Implemented: C++ PD library, nanobind arrays, local wheel/development helper, Clang-generated docstrings and combined Python API reference |
 | C0 | Local validation only; hosted CI and required remote checks removed by user decision |
-| S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
+| S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration remains; batched reaching supplies local throughput diagnostics |
 | A0 | Nominal UR7e and iiwa 7 with model-specific collision meshes; D435 and Mini45 physical models; gripper and calibration remain |
-| K0 | Shared inverse dynamics and compiled PD + gravity run in Drake/Isaac, including mixed arms; batch execution remains |
+| K0 | Shared inverse dynamics and compiled PD + gravity run in Drake/Isaac Lab, including mixed arms; tensor PD supports GPU batched reaching; shared Torch dynamics and Moreau support camera protection on Lab PhysX/PGS |
 | D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
-| X0 | CPU/PGS and GPU/TGS mixed-arm tracking, independent Mini45 sensing and contact examples; native Storm viewport and PNG capture implemented; RTX cameras remain unsupported |
-| X1, M0 | Await listed dependencies |
+| X0 | Isaac Lab scene/stepping with PhysX and Newton/MuJoCo Warp selection; mixed-arm tracking, independent Mini45 sensing, contact examples and native Storm capture; RTX cameras remain unsupported |
+| X1 | Two complete environments with collision isolation, independent controller contexts and selective reset of physics, sensors and episode time |
+| M0 | Simulation reuse and batch gates exercised locally; deployment/hardware reuse remains |
 
 Foundation validation passed: 11 pytest cases, five Bazel test targets (core,
 C++23, Drake dependency smoke test, contracts and configuration), nanobind library
@@ -311,9 +321,9 @@ reorganization.
 
 The camera-free Isaac arm workload now runs with the shared CPU controller. The
 6 GB GPU still fails the vendor VRAM check; successful physics does not establish
-native rendering, camera support or batching capacity. See [Isaac evidence](../third_party/isaac/README.md).
+camera support or large-batch capacity. See [Isaac evidence](../third_party/isaac/README.md).
 The independent RViz launcher is unit-tested with a fake process; no installed
-RViz or hardware driver was exercised. The native bridge is implemented. The broader controller-reuse milestone still requires independent batched environments and selective reset.
+RViz or hardware driver was exercised. The native bridge is implemented. Independent batched environments and selective reset are implemented; this does not establish deployment or hardware reuse.
 
 The minimal Drake run reaches its joint target and renders the fixed box. It
 exercises all six source owners without claiming nut manipulation or hardware
@@ -340,5 +350,5 @@ separate controller contexts and two wrench sensors. The contact example
 requires an actual measured force peak; it is not force-feedback manipulation.
 Drake playback and measured state/effort/wrench plots provide local inspection.
 Device READMEs record provenance and modeling approximations. Hardware motion,
-Robotiq integration, measured calibration, Isaac camera rendering and batched
-execution remain separate work.
+Robotiq integration, measured calibration and Isaac camera rendering remain
+separate work.
