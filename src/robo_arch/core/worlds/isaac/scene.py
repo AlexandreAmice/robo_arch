@@ -49,6 +49,43 @@ def apply_physics(scene, config: IsaacPhysics):
     return physics
 
 
+def add_ground(stage: Any) -> None:
+    """Author a static z=0 collision plane and separate 10 m square visual.
+
+    PhysX treats UsdGeom.Plane as an infinite collision plane. Hydra renders the
+    finite mesh instead, matching Isaac's native ground-plane representation.
+    Material values are the ground's own nominal contact assumptions.
+    """
+    from pxr import Gf, UsdGeom, UsdPhysics, UsdShade
+
+    # Declared device names start with letters, leaving this namespace reserved.
+    UsdGeom.Xform.Define(stage, "/_world")
+    UsdGeom.Xform.Define(stage, "/_world/ground")
+    plane = UsdGeom.Plane.Define(stage, "/_world/ground/collision")
+    plane.CreateAxisAttr(UsdGeom.Tokens.z)
+    plane.CreatePurposeAttr(UsdGeom.Tokens.guide)
+    UsdPhysics.CollisionAPI.Apply(plane.GetPrim())
+
+    material = UsdShade.Material.Define(stage, "/_world/ground/material")
+    physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+    physics.CreateStaticFrictionAttr(0.8)
+    physics.CreateDynamicFrictionAttr(0.6)
+    physics.CreateRestitutionAttr(0.0)
+    UsdShade.MaterialBindingAPI.Apply(plane.GetPrim()).Bind(
+        material, materialPurpose="physics"
+    )
+
+    visual = UsdGeom.Mesh.Define(stage, "/_world/ground/visual")
+    visual.CreatePointsAttr(
+        [(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)]
+    )
+    visual.CreateFaceVertexCountsAttr([4])
+    visual.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+    visual.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    visual.CreateDoubleSidedAttr(True)
+    visual.CreateDisplayColorAttr([Gf.Vec3f(0.55, 0.57, 0.60)])
+
+
 def build_scene(
     scene: SceneConfiguration, config: IsaacWorld, *, directory: Path
 ) -> IsaacScene:
@@ -70,6 +107,8 @@ def build_scene(
     physics_scene.CreateGravityDirectionAttr(Gf.Vec3f(0, 0, -1))
     physics_scene.CreateGravityMagnitudeAttr(9.81)
     physics = apply_physics(physics_scene, config.physics)
+    if config.ground:
+        add_ground(stage)
     roots = {}
     for robot in devices.robots:
         X_WB = base_pose(robot).GetAsMatrix4()

@@ -95,7 +95,7 @@ _UniqueKeyLoader.add_constructor(
 )
 
 
-def _read_validated_yaml[T: BaseModel](path: Path, schema: type[T]) -> T:
+def read_validated_yaml[T: BaseModel](path: Path, schema: type[T]) -> T:
     """Parse strict YAML and validate its fields; preserve original exceptions."""
     with path.open(encoding="utf-8") as stream:
         document = yaml.load(stream, Loader=_UniqueKeyLoader)
@@ -123,7 +123,7 @@ def load_robot(path: str | Path) -> RobotDefinition:
         if isinstance(path, str) and path.startswith("package:")
         else Path(path).resolve()
     )
-    return _read_validated_yaml(source, RobotDefinition)
+    return read_validated_yaml(source, RobotDefinition)
 
 
 class _WorldProfile(RootModel[WorldConfiguration]):
@@ -137,7 +137,7 @@ def load_world(path: str | Path) -> WorldConfiguration:
         if isinstance(path, str) and path.startswith("package:")
         else Path(path).resolve()
     )
-    return _read_validated_yaml(source, _WorldProfile).root
+    return read_validated_yaml(source, _WorldProfile).root
 
 
 def load_run(path: str | Path) -> RunConfiguration:
@@ -147,7 +147,7 @@ def load_run(path: str | Path) -> RunConfiguration:
         if isinstance(path, str) and path.startswith("package:")
         else Path(path).resolve()
     )
-    scenario = _read_validated_yaml(source, _Scenario)
+    scenario = read_validated_yaml(source, _Scenario)
     world_source = (
         _resolve_package_reference(source, scenario.world)
         if isinstance(scenario.world, str)
@@ -166,7 +166,7 @@ def load_run(path: str | Path) -> RunConfiguration:
         if file in ancestors:
             chain = " -> ".join(str(item) for item in (*ancestors, file))
             raise ValueError(f"Recursive robot system inclusion: {chain}")
-        system = _read_validated_yaml(file, _System)
+        system = read_validated_yaml(file, _System)
         names = [*system.robots, *system.sensors, *system.systems]
         if len(set(names)) != len(names):
             raise ValueError(f"Device and child-system names must be unique in {file}")

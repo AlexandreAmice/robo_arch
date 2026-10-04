@@ -15,6 +15,20 @@ py_test(
     ],
 )
 
+py_test(
+    name = "camera_resources",
+    size = "small",
+    srcs = ["test_camera_resources.py"],
+    main = "test_camera_resources.py",
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:assembly",
+        "//src/robo_arch/core/controllers/cbf:geometry",
+        "//src/robo_arch/scenarios/camera_protection:configuration",
+        requirement("pytest"),
+    ],
+)
+
 cc_test(
     name = "cxx23",
     size = "small",

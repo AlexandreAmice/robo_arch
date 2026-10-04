@@ -49,6 +49,14 @@ Compose autonomy in Python using the selected runtime's native facilities. In Dr
 
 Keep scene/device assembly reusable under `core/worlds/`; put task-specific connections in the scenario and reusable stacks with their robot, system or shared algorithm owner. Controller `connect` functions wire robot observations and commands, then return native task-reference ports. The scenario supplies desired-state wiring; the world constructs and initializes the native simulator. Drake exposes its `Simulator` and scene directly, without another simulation wrapper. Construction code checks robot identity, joint order, units, command mode and frames where they matter; equal vector lengths alone do not establish compatibility.
 
+The [camera-protection scenario](../src/robo_arch/scenarios/camera_protection/README.md)
+composes a nominal effort controller with a reusable
+[sphere CBF filter](../src/robo_arch/core/controllers/cbf/README.md).
+Model-owned sphere profiles describe conservative geometry; scenario autonomy
+selects protected instances, pairs, margins and explicit mounting exclusions.
+The Drake filter uses an independent dynamics model and bounded torque QPs.
+Its discrete simulation evidence does not establish hardware safety.
+
 YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Loaded records and device metadata live in `core/config/declarations.py`; `loading.py` owns the YAML document schemas, parses YAML and resolves referenced systems. `schema.py` defines the common strict validation policy used by document, world and parameter schemas. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.
 
 ## World implementations
