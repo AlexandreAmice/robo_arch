@@ -1,6 +1,6 @@
 # Camera protection
 
-This Drake example mounts three D435 housings on a UR7e's forearm and two wrist
+This example mounts three D435 housings on a UR7e's forearm and two wrist
 links, with three fixed box obstacles. A nominal joint controller attempts an
 obstructed target, then retreats. A torque CBF filter changes the command to keep
 the configured camera sphere coverings clear of obstacles, the ground, other
@@ -55,6 +55,10 @@ shared assembly resolves their geometry independently of a simulator SDK.
 The scenario adds its arm/nominal-controller selection and motion task. Existing
 YAML keys are unchanged; another scenario can use the same protection schema,
 geometry resolver and filter without importing camera-protection code.
+Within this scenario, `setup.py` resolves the arm, task, coverings and recorded
+geometry and validates target limits for both worlds. `reference.py` supplies the
+same motion reference; `drake.py` wires native ports and `isaac.py` supplies the
+batched callback. Simulator adapters do not carry separate task definitions.
 Only the three configured camera/mount-link pairs are excluded. Other links of
 the same arm remain protected against camera contact. Robot–obstacle and general
 robot self-collision are outside this example's selected pair set. Cables and
@@ -102,7 +106,7 @@ violation using the same geometry and reference.
 
 Results report `simulation_wall_seconds` and `realtime_rate` (simulated seconds
 per wall-clock second), excluding startup and artifact export. The default
-checks 125 sphere pairs and three ground constraints at 1 kHz. Pair algebra is
+checks 125 sphere pairs, three ground constraints and 12 joint-velocity bounds at 1 kHz. Pair algebra is
 vectorized and point queries are grouped by frame; the remaining work includes
 dynamics, an effort QP when
 the nominal command is unsafe, logging and physics. Wall-clock rate also depends
@@ -111,8 +115,8 @@ on other processes; increasing `target_realtime_rate` cannot accelerate this wor
 The CBF uses privileged simulated state, fixed known obstacle poses and nominal
 rigid-body dynamics. The 1 ms simulation samples a continuous-time barrier law;
 its recorded margin is measured evidence, not a guarantee between samples or
-under unmodeled contact forces. Hardware, moving obstacles, Isaac and batched GPU
-execution are not implemented. Python adapters reject unsupported worlds.
+under unmodeled contact forces. Hardware and moving obstacles are not implemented. The optional Isaac GPU path
+below reuses the same profiles, task reference, barrier equations and evaluation.
 
 Tests are local and support actual-run playback:
 
@@ -126,3 +130,95 @@ ROBO_ARCH_VISUALIZE=1 uv run pytest \
 The ground test removes the boxes and lowers the tool camera toward the floor,
 then retreats. It records both filtered and nominal runs under `recordings/`;
 ordinary sphere-pair constraints remain clear so floor intervention is isolated.
+
+## Batched CUDA control in Isaac
+
+The optional GPU path keeps joint state, independent nominal dynamics, barrier
+matrices and Moreau QP solutions on CUDA. `autonomy.parameters.backend:
+torch_moreau` selects it; `world.control_backend: torch` selects Isaac's tensor
+interface. The CPU default remains `backend: drake`. Nominal `joint_tracking` is
+supported on GPU; native C++ `joint_pd` and sensor observations are rejected.
+Mounted camera mass and geometry remain present with observations disabled.
+
+Reuse the scene/task YAML with a separate world profile instead of copying the
+scenario. From the repository root:
+
+```sh
+OMNI_KIT_ACCEPT_EULA=YES uv run --project third_party/isaac --group cbf-gpu python \
+  -m robo_arch.scenarios.camera_protection.run \
+  --world-config package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml \
+  --backend torch_moreau --batch-size 32 --no-browser
+```
+
+Add `--baseline` for the same batch without filtering. `--compile-model` (or
+`autonomy.parameters.compile_model: true`) optionally compiles the same tensor
+dynamics; first use can take minutes, while eager execution is the default. The world profile owns
+`batch_size`, `environment_spacing` and `log_every_n_steps`. Clones have translated
+origins and collision isolation; the controller works in the common environment
+coordinates. One failed QP stops the batch. Native PhysX effort is float32; the
+filter includes rounding protection and validates the command actually applied.
+Finite joint-velocity bounds enter the same QP on both CPU and GPU, keeping
+filtered motion away from native velocity clamping.
+
+This scenario requires GPU/PGS physics. With the imported 32 position iterations,
+GPU/TGS lost low-speed joint-position increments while still reporting nonzero
+velocity: at 0.001 rad/s over 20 ms, five joints remained stationary instead of
+moving approximately 20 microradians. PGS measured approximately 19–20
+microradians. The inconsistent TGS state caused a measured 0.21 mm clearance
+violation despite accepted nominal QPs; configuration now rejects that solver
+for this scenario. The native world tests retain the low-speed regression.
+
+Trace arrays have shape `[samples, environments, signals]`. Reports retain
+per-environment results and aggregate worst-case clearance/error, and all must
+pass. Clearance minima, residual minima and intervention maxima are accumulated
+on the GPU at every control step; downsampling exported traces does not reduce
+those checks. Plots show the worst logged environment and any active floor row.
+The report names control and trace sample periods separately. It also checks
+minimum joint-velocity slack and velocity-barrier residual at every control step;
+`minimum_cbf_residual` retains its geometry-only meaning. Task evaluation
+assumes one uninterrupted approach/retreat episode; the lower-level world reset
+API is available to other training loops.
+
+On the RTX 3060 Laptop GPU, two-environment compiled runs at the 1 ms control
+period retained positive clearance: 8.2 µm beyond the 10 mm margin in the obstacle
+case and 69.1 µm beyond it in the floor approach. Both environments retreated
+within the configured tolerance. The unfiltered obstacle comparison reached
+−57.0 mm clearance, and the unfiltered floor comparison reached −26.2 mm. The six-second filtered obstacle run took 222.6 s of measured
+simulation wall time, excluding setup/compilation and artifact export; this is
+not real-time control.
+
+The control-only benchmark includes independent dynamics, nominal control, all
+128 geometry rows, 12 velocity rows, Moreau and status synchronization, excluding physics, rendering
+and trace export:
+
+```sh
+uv run --project third_party/isaac --group cbf-gpu python \
+  -m robo_arch.scenarios.camera_protection.benchmark
+```
+
+Add `--compile-model` to measure the same complete control loop with compiled
+tensor dynamics; compilation remains part of the separately reported warmup.
+
+On an RTX 3060 Laptop GPU, float64 measurements for batches 1/32/128/512 were
+39.7/58.6/137.6/487.1 ms per control call (25/546/930/1051 environment commands/s)
+in eager mode. With compiled dynamics, batches 1 and 32 measured 27.4 and
+46.6 ms per call (36 and 686 environment commands/s), excluding warmup.
+These are throughput measurements for deterministic perturbed states, not
+1 kHz simulation or hardware guarantees. Startup and warmup are reported
+separately; every measured command passes the residual check. The benchmark
+writes its actual JSON and plot under `recordings/`.
+
+Native GPU integration tests exercise two environments through both obstacle and
+floor approaches, with and without filtering. Each case starts a separate Isaac
+process and retains its measured trace, plot and resolved inputs:
+
+```sh
+ROBO_ARCH_NATIVE_ISAAC=1 OMNI_KIT_ACCEPT_EULA=YES \
+  uv run --project third_party/isaac --group cbf-gpu --group test python -m pytest -q -s \
+  src/robo_arch/scenarios/camera_protection/tests/test_gpu_run.py
+```
+
+These tests enable compiled dynamics and can take several minutes per case,
+including first-use compilation. Lower-level native
+reset and failure-cleanup tests are documented with the
+[world implementation](../../core/worlds/README.md).

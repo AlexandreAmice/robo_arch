@@ -8,6 +8,7 @@ from collections.abc import Callable
 from importlib.resources import as_file, files
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import numpy as np
 
@@ -22,17 +23,17 @@ from robo_arch.core.worlds.isaac.scene import IsaacScene, build_scene, initializ
 def run_scenario(
     run: RunConfiguration,
     *,
-    configure: Callable[
-        [IsaacScene], dict[str, Callable[[np.ndarray, float], np.ndarray]]
-    ],
+    configure: Callable[[IsaacScene], dict[str, Callable[..., Any]]],
     trace_path: Path | None = None,
     recording: Path | None = None,
     keep_viewer_open: bool = False,
 ) -> dict:
     """Step differently sized effort articulations with independent observations.
 
-    Physics can use CPU/GPU; control remains scalar CPU with explicit transfers.
-    Sensor bodies are always assembled. Observation selection is independent.
+    NumPy control remains scalar CPU. Opt-in torch control takes CUDA float64
+    state arrays (batch, 2*n) and environment times (batch,), returning CUDA
+    efforts (batch, n). Sensor bodies are always assembled. Batched sensor
+    observations are currently unsupported and fail explicitly.
     """
     devices = resolve_devices(run.scene)
     if run.world != "isaac" or not devices.robots:
@@ -40,6 +41,10 @@ def run_scenario(
     world = run.world_config
     if not isinstance(world, IsaacWorld):
         raise ValueError("Isaac runner requires Isaac world configuration")
+    # Also validate model_copy(update=...) inputs before launching expensive Kit.
+    IsaacWorld.model_validate(world.model_dump())
+    if world.control_backend == "torch" and run.sensors_enabled:
+        raise ValueError("Torch Isaac execution does not support sensor observations")
     live = world.visualization.mode == "live"
     if recording is not None:
         raise ValueError("Isaac scenario recording is unsupported; use live viewing")
@@ -114,15 +119,42 @@ def _simulate(app, run, configure, *, trace_path, snapshot_path, keep_viewer_ope
     devices = resolve_devices(run.scene)
     world = run.world_config
     live = world.visualization.mode == "live"
+    batched = world.control_backend == "torch"
     times: list[float] = []
     samples: dict[str, list[np.ndarray]] = {}
     import omni.physics.tensors as tensors
     from omni.physx import get_physx_simulation_interface
     from pxr import UsdUtils
 
+    if batched:
+        import carb.settings
+        import torch
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("Torch Isaac control requires CUDA; no CPU fallback")
+        # Native GPU dynamics alone does not select the GPU tensor pipeline.
+        settings = carb.settings.get_settings()
+        settings.set_int("/physics/cudaDevice", 0)
+        settings.set_bool("/physics/suppressReadback", True)
+        settings.set_bool("/physics/updateToUsd", False)
+
+    def export_trace():
+        result = {
+            "times": np.asarray(times),
+            **{name: np.asarray(values) for name, values in samples.items()},
+        }
+        if batched:
+            result.update({name + "/times": result["times"] for name in samples})
+        return result
+
     with TemporaryDirectory(prefix="robo_arch_isaac_") as directory:
         scene = build_scene(run.scene, world, directory=Path(directory))
         stage, physics = scene.stage, scene.physics
+        physics_settings = {
+            "solver": physics.GetSolverTypeAttr().Get(),
+            "gpu_dynamics": physics.GetEnableGPUDynamicsAttr().Get(),
+            "broadphase": physics.GetBroadphaseTypeAttr().Get(),
+        }
         commands = configure(scene)
         if set(commands) != {robot.name for robot in devices.robots}:
             raise ValueError("Commands must name exactly the configured robots")
@@ -130,29 +162,52 @@ def _simulate(app, run, configure, *, trace_path, snapshot_path, keep_viewer_ope
         stage_id = cache.Insert(stage).ToLongInt()
         simulation = get_physx_simulation_interface()
         viewer = None
+        view = None
+        runtime = None
+        controller_statistics = {}
         try:
             if live:
                 from robo_arch.core.worlds.isaac.visualization import Viewer
 
-                viewer = Viewer(app, stage, world.visualization)
+                viewer = Viewer(
+                    app,
+                    stage,
+                    world.visualization,
+                    pose_provider=(lambda: scene.runtime.link_poses())
+                    if batched
+                    else None,
+                )
             simulation.attach_stage(stage_id)
             simulation.simulate(run.time_step, 0.0)
             simulation.fetch_results()
-            view = tensors.create_simulation_view("numpy", stage_id)
-            arms, sensors, efforts = initialize_scene(scene, view)
+            view = tensors.create_simulation_view(world.control_backend, stage_id)
+            if batched:
+                from robo_arch.core.worlds.isaac.batching import TorchArticulations
+
+                runtime = TorchArticulations(scene, view)
+                scene.runtime = runtime
+                arms, sensors, efforts = runtime.arms, {}, runtime.efforts
+            else:
+                arms, sensors, efforts = initialize_scene(scene, view)
             indices = np.array([0], dtype=np.uint32)
 
             def sample(t):
-                values = {}
-                for name, arm in arms.items():
-                    values[name + "/q"] = arm.get_dof_positions()[0]
-                    values[name + "/v"] = arm.get_dof_velocities()[0]
-                    values[name + "/effort"] = efforts[name]
-                for name, observe in sensors.items():
-                    # Solver reactions are meaningful only after a step from
-                    # the selected initial state, not the initialization step.
-                    values[name + "/wrench"] = (
-                        observe() if t > 0 else np.full(6, np.nan)
+                if batched:
+                    values = runtime.sample(commands)
+                else:
+                    values = {}
+                    for name, arm in arms.items():
+                        values[name + "/q"] = arm.get_dof_positions()[0]
+                        values[name + "/v"] = arm.get_dof_velocities()[0]
+                        values[name + "/effort"] = efforts[name]
+                    for name, observe in sensors.items():
+                        # Reactions exist only after a selected-state step.
+                        values[name + "/wrench"] = (
+                            observe() if t > 0 else np.full(6, np.nan)
+                        )
+                if samples and values.keys() != samples.keys():
+                    raise ValueError(
+                        "Logged controller channels changed during execution"
                     )
                 times.append(t)
                 for name, value in values.items():
@@ -160,34 +215,66 @@ def _simulate(app, run, configure, *, trace_path, snapshot_path, keep_viewer_ope
                         np.array(value, dtype=float, copy=True)
                     )
 
-            sample(0.0)
+            if not batched:
+                sample(0.0)
             if viewer is not None:
                 viewer.wall_start = time.monotonic()
-            for step in range(math.ceil(run.duration / run.time_step)):
-                t = times[-1]
-                for name, arm in arms.items():
-                    state = np.concatenate(
-                        (arm.get_dof_positions()[0], arm.get_dof_velocities()[0])
-                    ).astype(float)
-                    effort = np.asarray(commands[name](state, t), dtype=np.float32)
-                    if (
-                        effort.shape != efforts[name].shape
-                        or not np.isfinite(effort).all()
-                    ):
-                        raise ValueError(
-                            f"Controller returned invalid effort for {name}"
-                        )
-                    efforts[name] = effort
-                    arm.set_dof_actuation_forces(effort[None, :], indices)
+            if batched:
+                torch.cuda.synchronize()
+            started = time.monotonic()
+            step_count = math.ceil(run.duration / run.time_step)
+            for step in range(step_count):
+                t = step * run.time_step
+                if batched:
+                    runtime.apply(commands)
+                    if step % world.log_every_n_steps == 0:
+                        sample(t)
+                else:
+                    for name, arm in arms.items():
+                        state = np.concatenate(
+                            (arm.get_dof_positions()[0], arm.get_dof_velocities()[0])
+                        ).astype(float)
+                        effort = np.asarray(commands[name](state, t), dtype=np.float32)
+                        if (
+                            effort.shape != efforts[name].shape
+                            or not np.isfinite(effort).all()
+                        ):
+                            raise ValueError(
+                                f"Controller returned invalid effort for {name}"
+                            )
+                        efforts[name] = effort
+                        arm.set_dof_actuation_forces(effort[None, :], indices)
                 dt = min(run.time_step, run.duration - t)
                 simulation.simulate(dt, t)
                 simulation.fetch_results()
-                sample(min((step + 1) * run.time_step, run.duration))
+                t_next = min((step + 1) * run.time_step, run.duration)
+                if batched:
+                    runtime.times.add_(dt)
+                else:
+                    if (
+                        step + 1
+                    ) % world.log_every_n_steps == 0 or step + 1 == step_count:
+                        sample(t_next)
+                    for name, arm in arms.items():
+                        if not np.isfinite(arm.get_dof_positions()).all():
+                            raise RuntimeError(
+                                f"Isaac returned nonfinite state for {name}"
+                            )
                 if viewer is not None:
-                    viewer.update(times[-1], world.target_realtime_rate)
-                for name in arms:
-                    if not np.isfinite(samples[name + "/q"][-1]).all():
-                        raise RuntimeError(f"Isaac returned nonfinite state for {name}")
+                    viewer.update(t_next, world.target_realtime_rate)
+            if batched:
+                runtime.apply(commands)
+                sample(run.duration)
+                torch.cuda.synchronize()
+            simulation_wall_seconds = time.monotonic() - started
+            if batched:
+                controller_statistics = {
+                    name: {
+                        key: value.detach().cpu().numpy().copy()
+                        for key, value in getattr(command, "statistics", {}).items()
+                    }
+                    for name, command in commands.items()
+                }
             if viewer is not None:
                 if snapshot_path is not None:
                     viewer.capture(snapshot_path)
@@ -197,24 +284,45 @@ def _simulate(app, run, configure, *, trace_path, snapshot_path, keep_viewer_ope
             try:
                 if trace_path is not None and times:
                     trace_path.parent.mkdir(parents=True, exist_ok=True)
-                    np.savez(trace_path, times=times, **samples)
+                    np.savez(trace_path, **export_trace())
             finally:
                 try:
-                    simulation.detach_stage()
+                    try:
+                        if runtime is not None:
+                            runtime.close()
+                            tensors.reset()
+                        elif batched and view is not None:
+                            # A failed runtime constructor closes any views it
+                            # already owned; preserve its original exception.
+                            if view._backend is not None:
+                                view.invalidate()
+                                view._backend = None
+                            tensors.reset()
+                    finally:
+                        simulation.detach_stage()
                 finally:
                     try:
                         if viewer is not None:
                             viewer.close()
                     finally:
                         cache.Erase(stage)
+                        if runtime is not None:
+                            runtime.arms.clear()
+                        scene.runtime = None
+                        # A controller may capture its scene to access reset.
+                        # Release native USD wrappers before unloading Kit even
+                        # if that Python callback is retained by a cycle.
+                        scene.stage = None
+                        scene.physics = None
     return {
-        "trace": {
-            "times": np.asarray(times),
-            **{name: np.asarray(values) for name, values in samples.items()},
-        },
-        "physics_settings": {
-            "solver": physics.GetSolverTypeAttr().Get(),
-            "gpu_dynamics": physics.GetEnableGPUDynamicsAttr().Get(),
-            "broadphase": physics.GetBroadphaseTypeAttr().Get(),
-        },
+        "trace": export_trace(),
+        "simulation_wall_seconds": simulation_wall_seconds,
+        "realtime_rate": run.duration / simulation_wall_seconds,
+        "environment_steps_per_second": world.batch_size
+        * step_count
+        / simulation_wall_seconds,
+        "environment_origins": scene.environment_origins,
+        "controller_statistics": controller_statistics,
+        "log_every_n_steps": world.log_every_n_steps,
+        "physics_settings": physics_settings,
     }

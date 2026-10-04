@@ -19,6 +19,7 @@ py_library(
 py_library(
     name = "isaac",
     srcs = [
+        "batching.py",
         "convert.py",
         "objects.py",
         "scenario.py",
@@ -51,6 +52,32 @@ py_test(
         "//src/robo_arch/core/worlds",
         "//src/robo_arch/objects/box",
         "//src/robo_arch/robots/ur7e",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "batching_test",
+    srcs = ["tests/test_batching.py"],
+    main = "tests/test_batching.py",
+    deps = [
+        ":config",
+        ":isaac",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "gpu_execution_test",
+    srcs = ["tests/test_gpu_execution.py"],
+    main = "tests/test_gpu_execution.py",
+    deps = [
+        ":config",
+        ":isaac",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/robots/ur7e",
+        requirement("numpy"),
         requirement("pytest"),
     ],
 )

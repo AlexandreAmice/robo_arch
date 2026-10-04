@@ -12,6 +12,10 @@ dependencies = [
     "robo-arch",
 ]
 
+[dependency-groups]
+cbf-gpu = ["moreau[cuda13]==0.4.1", "torch==2.11.0"]
+test = ["pytest==9.1.1"]
+
 [tool.uv]
 package = false
 required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

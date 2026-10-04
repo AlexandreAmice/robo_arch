@@ -79,17 +79,24 @@ class CbfParameters:
     """Linear barrier gains in s^-1 and numerical acceptance tolerance.
 
     Tolerance applies separately to effort bounds (N m) and the CBF residual
-    (m²/s² for sphere pairs; m/s² for planes). Initial h and psi1 use 1e-10
+    (m²/s² for sphere pairs; m/s² for planes; rad/s² or m/s² for velocity
+    bounds). Initial h and psi1 use 1e-10
     in each row's respective units: m², m²/s or m, m/s.
     """
 
     alpha1: float = 5.0
     alpha2: float = 5.0
+    velocity_limit_gain: float = 20.0
     residual_tolerance: float = 1e-6
 
     def __post_init__(self) -> None:
         if not all(
             math.isfinite(value) and value > 0
-            for value in (self.alpha1, self.alpha2, self.residual_tolerance)
+            for value in (
+                self.alpha1,
+                self.alpha2,
+                self.velocity_limit_gain,
+                self.residual_tolerance,
+            )
         ):
             raise ValueError("CBF gains and residual tolerance must be positive")

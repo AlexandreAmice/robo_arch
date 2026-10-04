@@ -29,6 +29,9 @@ class IsaacScene:
     devices: Devices
     definitions: DeviceDefinitions
     configuration: SceneConfiguration
+    environment_paths: tuple[str, ...] = ()
+    environment_origins: np.ndarray | None = None
+    runtime: Any = None
 
 
 def apply_physics(scene, config: IsaacPhysics):
@@ -109,6 +112,9 @@ def build_scene(
     physics = apply_physics(physics_scene, config.physics)
     if config.ground:
         add_ground(stage)
+    prefix = "/_environments/env_000000" if config.control_backend == "torch" else ""
+    if prefix:
+        UsdGeom.Xform.Define(stage, prefix)
     roots = {}
     for robot in devices.robots:
         X_WB = base_pose(robot).GetAsMatrix4()
@@ -118,13 +124,18 @@ def build_scene(
         compose(robot, devices.sensors, definitions, urdf)
         roots[robot.name] = add_to_stage(
             stage,
-            name=robot.name,
+            name=prefix.removeprefix("/") + "/" + robot.name if prefix else robot.name,
             X_WB=X_WB,
             directory=destination / "usd",
             urdf=urdf,
         )
-    add_objects(stage, scene, definitions)
-    return IsaacScene(stage, physics, roots, devices, definitions, scene)
+    add_objects(stage, scene, definitions, prefix=prefix)
+    result = IsaacScene(stage, physics, roots, devices, definitions, scene)
+    if prefix:
+        from robo_arch.core.worlds.isaac.batching import clone_environments
+
+        clone_environments(result, config)
+    return result
 
 
 def initialize_scene(scene: IsaacScene, view) -> tuple[dict, dict, dict]:

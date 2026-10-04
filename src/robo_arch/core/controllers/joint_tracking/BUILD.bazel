@@ -50,3 +50,14 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+# Torch is supplied by the independently locked GPU runtime profile.
+py_library(
+    name = "torch",
+    srcs = ["torch.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":joint_tracking",
+        "//src/robo_arch/core/controllers/dynamics:torch",
+    ],
+)

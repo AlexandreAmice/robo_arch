@@ -55,6 +55,9 @@ composes a nominal effort controller with a reusable
 Model-owned sphere profiles describe conservative geometry; scenario autonomy
 selects protected instances, pairs, margins and explicit mounting exclusions.
 The Drake filter uses an independent dynamics model and bounded torque QPs.
+The optional Torch/Moreau backend extracts the same nominal model once and batches
+CUDA dynamics and QPs; it shares protection configuration, indexing and barrier
+equations with the CPU implementation.
 Its discrete simulation evidence does not establish hardware safety.
 
 YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Loaded records and device metadata live in `core/config/declarations.py`; `loading.py` owns the YAML document schemas, parses YAML and resolves referenced systems. `schema.py` defines the common strict validation policy used by document, world and parameter schemas. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.
@@ -126,6 +129,9 @@ Before construction, check that the scenario/world supplies required measurement
 
 Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state, so algorithms cannot accidentally read perfect simulated state.
 
-The inverse-dynamics controller runs in Drake and Isaac. A separate C++ PD-plus-feedforward controller now runs both nominal arm models, including the mixed bimanual system. Its nanobind boundary carries only CPU float64 arrays; Python adapters supply independent-model gravity feedforward. Batched environments and selective reset remain future work. An explicit CPU wrapper is a valid first step. Match controller outputs for matching inputs/state; do not require identical physics trajectories. Optimize demonstrated bottlenecks while retaining shared code and parameters. The [implementation plan](implementation_tasks.md) records local example and validation coverage.
+The inverse-dynamics controller runs in Drake and Isaac. A separate C++ PD-plus-feedforward controller now runs both nominal arm models, including the mixed bimanual system. Its nanobind boundary carries only CPU float64 arrays; Python adapters supply independent-model gravity feedforward. The optional Isaac Torch path supports collision-isolated environment batches
+and selective physical reset; the camera-protection scenario uses independent
+CUDA nominal dynamics and Moreau QPs. Other scalar controllers retain their
+existing CPU adapters. An explicit CPU wrapper is a valid first step. Match controller outputs for matching inputs/state; do not require identical physics trajectories. Optimize demonstrated bottlenecks while retaining shared code and parameters. The [implementation plan](implementation_tasks.md) records local example and validation coverage.
 
 Share physical assembly and control construction functions across simulation and deployment, following the separation illustrated by HardwareStation. Runtime-specific application wiring stays ordinary code; reuse does not require reimplementing Drake's Diagram architecture in a parser.

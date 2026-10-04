@@ -85,8 +85,47 @@ assets, stage attachment, initialization, stepping and teardown. It invokes
 `configure(scene)` to obtain effort callbacks keyed by configured robot name;
 each receives `(state, time_seconds)` and returns joint efforts. Arm tracking's
 `isaac.configure()` builds its selected controller against independent nominal
-models. This effort interface currently supports fixed-base arms and scalar CPU
-control, with explicit transfers when physics runs on the GPU.
+models. Default `control_backend: numpy` retains scalar CPU control, with
+explicit transfers when physics runs on the GPU.
+
+Isaac's opt-in `control_backend: torch` requires `physics.device: cuda:0` and
+disabled sensor observations. `batch_size` selects identical environment copies;
+`environment_spacing` sets their grid spacing in metres. Native collision groups
+isolate copies independently of spacing while retaining the global ground.
+Controllers receive CUDA float64 `(batch, 2*n)` joint state and `(batch,)`
+environment times, and return CUDA `(batch, n)` efforts. Joint coordinates and
+controller geometry use the source environment's frame. PhysX uses float32;
+casts occur on-device. This precision conversion is an explicit approximation.
+There is no CPU fallback. Finite-value checks synchronize a boolean status;
+state and effort arrays stay on the GPU between sampled logging operations.
+GPU live viewing copies native link poses only at display cadence into a
+separate USD display session sharing the scene assets. Display pose edits do not
+change the physics stage. The scalar NumPy viewer keeps its native USD publisher.
+
+Once initialized, `scene.runtime.reset(indices)` accepts unique CUDA int32
+environment indices and resets positions, velocities, efforts and local clocks
+between steps. Stateful controllers own their corresponding reset. A controller
+failure stops the whole run. `log_every_n_steps` controls host trace sampling,
+with initial and final states retained. Tensor callbacks can expose a
+`diagnostics` mapping of named CUDA tensors with a leading batch axis. Their
+samples align with the state at controller evaluation. Returned arrays have
+shape `(samples, batch, ...)`; `environment_times` records independent clocks,
+and `times`/`<channel>/times` record global simulation time. Full-resolution
+logging uses `log_every_n_steps: 1`; decimated traces cannot establish safety
+between retained samples.
+Optional callback `statistics` mappings retain per-environment CUDA aggregates;
+the runner copies them once at completion as `controller_statistics`, keyed by
+robot. A controller can use these to retain every-step minima with sparse traces.
+
+Native CUDA execution and teardown tests run in isolated subprocesses:
+
+```sh
+ROBO_ARCH_ISAAC_GPU_TEST=1 OMNI_KIT_ACCEPT_EULA=YES \
+  third_party/isaac/.venv/bin/python -m pytest \
+  src/robo_arch/core/worlds/isaac/tests/test_gpu_execution.py
+```
+
+Set `ROBO_ARCH_VISUALIZE=1` to inspect the same inputs in the native viewport.
 
 Both execution functions accept `trace_path` and `keep_viewer_open`. Drake accepts
 an HTML `recording` path; Isaac rejects recording and saves a final viewport PNG
@@ -97,8 +136,8 @@ data is retained on stepping failures. Arm tracking owns its diagnostic plots.
 
 ## Physical limits
 
-All objects are fixed fixtures; movable objects, initial object velocity and
-batched/reset execution are not implemented. Isaac authors downward gravity of
+All objects are fixed fixtures; movable objects and initial object velocity are
+not implemented. Isaac authors downward gravity of
 9.81 m/s²; Drake uses its plant default. Shared assets do not guarantee identical
 contact models or trajectories.
 
@@ -109,11 +148,13 @@ is disabled. Set `world.ground: false` for an installation with its own floor.
 Autonomy must explicitly include the floor in its constraints; the camera
 protection scenario does so for every selected protected sphere.
 
-Drake results include `simulation_wall_seconds` and `realtime_rate`, measured
-around `Simulator.AdvanceTo`. The rate is simulated seconds per wall-clock
-second; startup, HTML export and plotting are excluded. It includes controller
+Both runners include `simulation_wall_seconds` and `realtime_rate`, measured
+around native stepping (`Simulator.AdvanceTo` in Drake). The rate is simulated
+seconds per wall-clock second; startup, artifact export and plotting are
+excluded. It includes controller
 evaluation and scheduled logging/viewer work during stepping. A positive
 `target_realtime_rate` only limits pacing; it cannot speed up computation.
+Isaac also reports aggregate `environment_steps_per_second` for the batch.
 
 Drake uses its native object parser. Isaac's `objects.py` explicitly supports only
 SDF 1.7 fixtures with one unoffset link, one visual box and an identical collision
@@ -159,3 +200,10 @@ silently discard new physics or substitute a bounding box.
 Follow the [architecture](../../../../docs/architecture.md#world-implementations)
 and [testability requirements](../../../../docs/build_and_layout.md#testability),
 including actual-run visualizations when requesting human inspection.
+
+The native GPU execution tests exercise 32-environment stepping/reset and compare
+integrated reported velocity with
+measured joint-position changes at low speed under PGS. The imported TGS
+articulation's 32 position iterations can quantize small position increments to
+zero while retaining nonzero reported velocities. The camera CBF scenario
+therefore requires PGS; world-level TGS remains available for other applications.

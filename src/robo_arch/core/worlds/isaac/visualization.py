@@ -3,15 +3,78 @@
 import asyncio
 import signal
 import time
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import Any
 
 from robo_arch.core.worlds.isaac.config import IsaacVisualization
+
+
+def make_display_stage(source: Any) -> Any:
+    """Share scene assets with a separate session for sampled GPU visualization.
+
+    Physics is disabled in this display stage. Its pose edits never feed back
+    into the independently attached PhysX stage that supplies CUDA state.
+    """
+    from pxr import Sdf, Usd, UsdGeom, UsdPhysics
+
+    stage = Usd.Stage.Open(
+        source.GetRootLayer(), Sdf.Layer.CreateAnonymous("viewport-session.usda")
+    )
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        for prim in stage.Traverse():
+            if prim.HasAPI(UsdPhysics.CollisionAPI):
+                drawable = UsdGeom.Imageable(prim)
+                if drawable and drawable.ComputePurpose() == UsdGeom.Tokens.guide:
+                    drawable.MakeInvisible()
+            if prim.IsA(UsdPhysics.Scene) or prim.IsA(UsdPhysics.Joint):
+                prim.SetActive(False)
+            else:
+                schemas = prim.GetAppliedSchemas()
+                visual_schemas = [
+                    schema
+                    for schema in schemas
+                    if not schema.startswith(("Physics", "Physx"))
+                ]
+                if schemas != visual_schemas:
+                    prim.SetMetadata(
+                        "apiSchemas", Sdf.TokenListOp.CreateExplicit(visual_schemas)
+                    )
+    stage.SetEditTarget(stage.GetSessionLayer())
+    return stage
+
+
+def publish_link_poses(stage: Any, poses: Mapping[str, Any]) -> None:
+    """Write sampled world xyz/xyzw poses to a display stage's session layer."""
+    from pxr import Gf, Usd, UsdGeom
+
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    with Usd.EditContext(stage, stage.GetSessionLayer()):
+        # Parents are updated before children for nested robot USD hierarchies.
+        for path in sorted(poses, key=lambda value: value.count("/")):
+            prim = stage.GetPrimAtPath(path)
+            if not prim:
+                raise ValueError(f"Missing viewport link {path}")
+            pose = poses[path]
+            world = Gf.Matrix4d(1)
+            world.SetRotate(Gf.Quatd(float(pose[6]), Gf.Vec3d(*map(float, pose[3:6]))))
+            world.SetTranslateOnly(Gf.Vec3d(*map(float, pose[:3])))
+            cache.Clear()
+            parent = cache.GetLocalToWorldTransform(prim.GetParent())
+            UsdGeom.Xformable(prim).MakeMatrixXform().Set(world * parent.GetInverse())
 
 
 class Viewer:
     """Own the observational camera, frame cadence and viewport capture lifecycle."""
 
-    def __init__(self, app, stage, config: IsaacVisualization) -> None:
+    def __init__(
+        self,
+        app,
+        stage,
+        config: IsaacVisualization,
+        *,
+        pose_provider: Callable[[], Mapping[str, Any]] | None = None,
+    ) -> None:
         import omni.kit.app
         import omni.timeline
         import omni.usd
@@ -21,6 +84,9 @@ class Viewer:
 
         self.app = app
         self.config = config
+        self.pose_provider = pose_provider
+        if pose_provider is not None:
+            stage = make_display_stage(stage)
         timeline = omni.timeline.get_timeline_interface()
         timeline.stop()
         timeline.set_auto_update(False)
@@ -107,6 +173,9 @@ class Viewer:
                 task.cancel()
 
     def _publish(self) -> None:
+        if self.pose_provider is not None:
+            publish_link_poses(self.stage, self.pose_provider())
+            return
         from omni.physx import get_physx_interface
 
         # Control samples every physics step; USD transforms need only be copied
@@ -190,3 +259,4 @@ class Viewer:
             self.viewport = None
             self.context = None
             self._kit = None
+            self.pose_provider = None

@@ -95,11 +95,29 @@ separate compatibility work. Local validation includes bimanual CPU/PGS and
 GPU/TGS viewing, viewport capture and graceful process shutdown. Both live runs retained all 3,001 headless
 state/effort/wrench samples within an absolute tolerance of `1e-7`.
 
-Control is scalar CPU: joint state and effort cross the GPU boundary each step
-when GPU physics is selected. URDF-to-USD conversion runs in a child process to
+The default NumPy control path is scalar CPU: joint state and effort cross the
+GPU boundary each step when GPU physics is selected. Opt-in `control_backend:
+torch` batches CUDA state/effort and is used by the camera-protection CBF. URDF-to-USD conversion runs in a child process to
 isolate incompatible USD libraries. Mounted sensor bodies and their sensing
 joints are included before conversion; device adapters map observations by link
 identity. Temporary converted assets are removed after execution.
+
+The optional `cbf-gpu` group adds Moreau 0.4.1 with its CUDA 13 backend and
+explicitly selects the existing Torch 2.11.0 dependency. It reuses this profile's
+CUDA libraries. Install the group and run the controller's CUDA projection tests:
+
+```sh
+uv sync --project third_party/isaac --locked --group cbf-gpu --group test --inexact
+third_party/isaac/.venv/bin/python -m pytest \
+  src/robo_arch/core/controllers/cbf/tests/test_moreau.py
+```
+
+Moreau receives float64 CUDA tensors through its
+[Torch interface](https://moreau.so/api/torch.html); the adapter explicitly
+selects CUDA IPM with no CPU fallback. Its numeric inputs and outputs remain on
+the device, but status metadata and Python acceptance checks synchronize with
+the host. A failed batch raises before any effort is issued. Installing this
+group alone does not change the existing Isaac runtime's control path.
 
 Isaac Sim is pinned to 6.1.0.0 and PhysX/tensors to 110.3.2. `uv.lock` pins Python
 packages, while Kit downloads additional extensions into its cache; this profile
