@@ -192,6 +192,7 @@ def build_scene(
         config.num_envs,
         config.physics.device,
         positions,
+        global_paths=("/_world/ground",) if config.ground else (),
     )
     cloner.replicate(
         plan, stage=stage, replicate_physics=config.physics.backend == "newton"

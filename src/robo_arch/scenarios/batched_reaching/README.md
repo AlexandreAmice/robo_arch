@@ -74,8 +74,9 @@ hardware-independent speedup threshold.
 ### Local measurements
 
 October 4, 2026, RTX 3060 Laptop 6 GB, pinned Lab 3.0 EA profile, three simulated
-seconds per run after warmup. Every environment completed goals with zero
-timeouts, including 320 PhysX and 323 Newton episodes at 64 environments.
+seconds per run after warmup, with no ground plane. Every environment completed
+goals with zero timeouts, including 320 PhysX and 323 Newton episodes at 64
+environments.
 
 | Control / environments | PhysX env-steps/s | Newton env-steps/s |
 |---|---:|---:|
