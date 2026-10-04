@@ -16,19 +16,13 @@ counterpart in every world.
 
 ## Inputs and ownership
 
-`load_run()` loads a scenario and its package-referenced declarations into
-`RunConfiguration`. Its `scene` property exposes a `SceneConfiguration` containing
-only the robot system, object instances and observation selection. Scene builders
-can consume this record independently of any task, controller or run duration;
-there is no second YAML schema or duplicate scene data in saved run metadata.
-
-`resolve_devices(scene)` resolves names, robot pose chains and sensor parents.
-`load_definitions(scene, world)` reads device/object metadata, checking
-supported worlds, physical bodies and observations.
-Scene builders load these declarations themselves. Robot adapters and sensor
-observation adapters remain device-owned; world construction calls their native
-entry points.
-Disabling observations preserves sensor bodies, mass and collision geometry.
+The [configuration reference](../../../../docs/api/configuration.rst) owns the
+loader and record contracts; the [device assembly reference](../../../../docs/api/worlds.rst)
+owns name resolution, metadata checks and SDK-independent world settings.
+Scene builders consume `load_run(...).scene` independently of task/autonomy and
+load their own device definitions. Ordinary robot assets are parsed by the world;
+specialized device behavior stays with the device. Disabling observations still
+preserves sensor bodies, mounts, inertia and collisions.
 
 A world receives ordinary Python scenario wiring through the required `configure`
 argument. It does not import a concrete scenario or interpret task/controller
@@ -132,9 +126,10 @@ silently discard new physics or substitute a bounding box.
    `RunConfiguration.time_step` if the world does not have simulated physics.
 2. Implement `scene.py:build_scene()` against `SceneConfiguration` and native
    settings. Reuse device resolution and declarations; extend support
-   checks in `devices.py` and implement native importers/adapters. Declare robot
-   support in `RobotDefinition`, sensor physical and observation support
-   separately, and object support in `ObjectDefinition`.
+   checks in `devices.py` and implement native importers/adapters. Robot support
+   follows the world's asset/behavior checks; `RobotDefinition` declares assets
+   and joint/frame conventions. Declare sensor physical and observation support
+   separately in `SensorDefinition`, and object support in `ObjectDefinition`.
    Preserve frames, joint order, mounts, geometry, inertia and material meaning;
    reject unsupported inputs and name deliberate approximations.
 3. Implement `scenario.py:run_scenario()` against `RunConfiguration` with an

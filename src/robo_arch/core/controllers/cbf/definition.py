@@ -6,7 +6,17 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Sphere:
-    """A center in its named frame, in meters; ``world`` denotes a fixed center."""
+    """Rigid protection sphere in a named frame.
+
+    :param name: Nonempty sphere identifier used by pair declarations.
+    :param frame: ``world`` for a fixed center, or ``instance/frame`` (including
+        nested instance names) for a controller-model frame.
+    :param center: Three finite coordinates in that frame, in metres.
+    :param radius: Finite, strictly positive radius in metres.
+    :raises ValueError: Empty names, invalid center or radius.
+
+    Frame existence and uniqueness within an assembly are checked by the runtime.
+    """
 
     name: str
     frame: str
@@ -24,7 +34,15 @@ class Sphere:
 
 @dataclass(frozen=True)
 class SpherePair:
-    """One enabled pair of named spheres, with additional clearance in meters."""
+    """One enabled pair of named spheres.
+
+    :param first: Name of the first sphere.
+    :param second: Distinct name of the second sphere.
+    :param margin: Finite nonnegative clearance beyond both radii, in metres.
+    :raises ValueError: Empty/equal names or invalid margin.
+
+    This record does not resolve sphere names or add any unlisted pairs.
+    """
 
     first: str
     second: str
@@ -42,6 +60,11 @@ class Plane:
     """Fixed world halfspace ``normal @ position >= offset``; offset in meters.
 
     Normal points into the permitted halfspace and must already have unit length.
+
+    :param name: Nonempty plane identifier, distinct from sphere names at assembly.
+    :param normal: Three finite world components, unit length within 1e-10.
+    :param offset: Finite signed plane offset in metres.
+    :raises ValueError: Invalid name, normal or offset; normals are not normalized.
     """
 
     name: str
@@ -61,7 +84,15 @@ class Plane:
 
 @dataclass(frozen=True)
 class SpherePlanePair:
-    """Keep a named sphere inside a plane halfspace, with margin in meters."""
+    """Select a sphere and fixed plane for halfspace protection.
+
+    :param sphere: Nonempty sphere name.
+    :param plane: Nonempty plane name, distinct from the sphere name.
+    :param margin: Finite nonnegative extra surface clearance, in metres.
+    :raises ValueError: Empty/equal names or invalid margin.
+
+    Defining a plane alone adds no constraint; a pair is required.
+    """
 
     sphere: str
     plane: str
@@ -81,6 +112,12 @@ class CbfParameters:
     Tolerance applies separately to effort bounds (N m) and the CBF residual
     (m²/s² for sphere pairs; m/s² for planes). Initial h and psi1 use 1e-10
     in each row's respective units: m², m²/s or m, m/s.
+
+    :param alpha1: Positive finite gain in ``psi1 = hdot + alpha1*h``.
+    :param alpha2: Positive finite gain in ``psi1dot + alpha2*psi1 >= 0``.
+    :param residual_tolerance: Positive finite runtime acceptance tolerance.
+        The numerical row builders do not apply it or check initial feasibility.
+    :raises ValueError: Any nonpositive or nonfinite setting.
     """
 
     alpha1: float = 5.0

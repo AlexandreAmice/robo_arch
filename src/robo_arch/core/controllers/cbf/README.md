@@ -10,13 +10,11 @@ and `diagnostics` outputs sharing one native cache entry per context. Each
 filter owns an independent dynamics context and optimization workspace; calls
 on an individual filter must be sequential.
 
-`config.ProtectionParameters` owns the reusable YAML fields: `profiles`,
-`protected`, `exclude_frames`, `margin`, `alpha1`, `alpha2`, and
-`residual_tolerance`. It selects no robot model, nominal controller or task.
-`assembly.resolve_geometry(scene, parameters, ground=...)` resolves coverings,
-fixed-object poses, exclusions and optional ground constraints into
-`ProtectionGeometry`. Both configuration and geometry assembly work without
-Drake or Isaac installed. Model-owned profile resources remain with their assets.
+The [shared controller reference](../../../../../docs/api/controllers.rst) owns
+the protection parameter, geometry and numerical-row contracts, including shapes,
+frames, units and validation limits. Configuration and geometry preparation work
+without Drake or Isaac installed. Model-owned profile resources stay beside their
+assets. This guide covers composition and the runtime filter's behavior.
 
 Given a loaded physical `scene`, a mapping of these protection settings,
 an independent nominal `model`, ordered `joints` and a nominal effort callable:
@@ -73,26 +71,12 @@ effort = protected_controller(initial_state, 0.0)
 Choose sphere centers/radii for your actual geometry; add named spheres and
 pairs to protect further objects without changing the nominal controller.
 
-Declare `Sphere(name, frame, center, radius)` in meters. Frames are `world` or
-`model_instance/frame`, including nested instance names. World spheres are
-fixed. Moving spheres must belong to the controller model. `SpherePair` names
-two spheres and an additional nonnegative clearance margin; explicit pairs
-also define exclusions. Declarations import no simulator SDK. Coverage profiles
-and `load_sphere_profile` in `geometry.py` conservatively cover collision assets
-using circumspheres of partitioned bounding boxes. These covers can be more
-restrictive than the original geometry.
-Fixed-object profiles must use a single-link collision asset in the object's
-declared base frame. Assets with additional links, joints, frames or nested
-models are rejected for fixed objects because their base-to-link transforms are
-not resolved. Device profiles retain link-local frames and may have many links.
-The caller is responsible for matching each profile to its physical instance.
-
-`Plane(name, normal, offset)` declares a fixed world halfspace
-`normal @ position >= offset`. Its normal must be finite and unit length;
-the offset is in meters. `SpherePlanePair` selects the sphere, plane and extra
-margin. Sphere and plane names share one namespace. Plane-only filters may omit
-`pairs`; plane declarations alone do not add constraints without `plane_pairs`.
-The physical world's ground and protection plane are separate declarations.
+The [geometry reference](../../../../../docs/api/controllers.rst#collision-coverage-and-assembly)
+describes supported assets, conservative covering and fixed-object restrictions.
+The caller matches each profile to its physical instance and moving frames to
+the controller model. Conservative covers can be more restrictive than the
+physical mesh. The physical world's ground and its protection plane remain
+separate declarations; enabling one does not implicitly configure the other.
 
 For center difference `d`, relative Jacobian `J`, bias acceleration `beta`,
 and combined radius plus margin `R`, the filter uses

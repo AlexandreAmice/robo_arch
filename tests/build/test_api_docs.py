@@ -12,11 +12,28 @@ from robo_arch.core.controllers.joint_pd.native import compute
 ROOT = Path(__file__).absolute().parents[2]
 
 
-def build_reference(tmp_path: Path, content: str) -> subprocess.CompletedProcess[str]:
+def build_reference(
+    tmp_path: Path, content: str, *, catalogue: bool = False
+) -> subprocess.CompletedProcess[str]:
     source = tmp_path / "source"
     source.mkdir()
     (source / "index.rst").write_text(content)
     (source / "conf.py").write_text((ROOT / "docs/api/conf.py").read_text())
+    if catalogue:
+        for name in ("configuration", "controllers", "worlds"):
+            (source / f"{name}.rst").write_text(
+                (ROOT / f"docs/api/{name}.rst").read_text()
+            )
+    # Even if the parent environment has an SDK, this reference must not import it.
+    with (source / "conf.py").open("a") as config:
+        config.write("""
+import sys
+class BlockSdk:
+    def find_spec(self, fullname, *args):
+        if fullname.split('.')[0] in {'pydrake', 'isaacsim', 'omni', 'rclpy'}:
+            raise AssertionError(f'Unexpected SDK import: {fullname}')
+sys.meta_path.insert(0, BlockSdk())
+""")
     return subprocess.run(
         [
             sys.executable,
@@ -35,13 +52,18 @@ def build_reference(tmp_path: Path, content: str) -> subprocess.CompletedProcess
 
 
 def test_combined_reference(tmp_path):
-    result = build_reference(tmp_path, (ROOT / "docs/api/index.rst").read_text())
+    result = build_reference(
+        tmp_path, (ROOT / "docs/api/index.rst").read_text(), catalogue=True
+    )
     assert result.returncode == 0, result.stdout + result.stderr
-    html = (tmp_path / "html/index.html").read_text()
+    html = "\n".join(path.read_text() for path in (tmp_path / "html").glob("*.html"))
     assert "Compute stateless joint PD feedback plus feedforward effort." in html
     assert "Python array interface" in html
     assert "Resolve a validated application-package URI" in html
     assert "robo_arch_native" not in html
+    assert "SphereProfile" in html
+    assert "Ros2Transport" in html
+    assert "resolve_devices" in html
 
 
 @pytest.mark.parametrize(

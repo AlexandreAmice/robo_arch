@@ -1,7 +1,11 @@
-exports_files(
-    [
+filegroup(
+    name = "sources",
+    srcs = [
         "conf.py",
+        "configuration.rst",
+        "controllers.rst",
         "index.rst",
+        "worlds.rst",
     ],
     visibility = ["//tests/build:__pkg__"],
 )

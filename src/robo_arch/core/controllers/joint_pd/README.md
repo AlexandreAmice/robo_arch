@@ -1,15 +1,11 @@
 # Native joint PD plus feedforward
 
-`joint_pd_cc` is an independently usable C++23 library. It computes
-`tau = feedforward + kp * (q_des - q) + kd * (v_des - v)` for ordered joint vectors.
-Positions are radians, velocities rad/s and efforts N m; `kp` is N m/rad and `kd`
-is N m s/rad. These are different units from `joint_tracking`'s acceleration gains.
-
-The nanobind extension accepts equally sized, nonempty, contiguous **CPU float64**
-vectors. Inputs are read-only borrows lasting only through the call, with no
-implicit dtype/layout conversion. Output has independent capsule-owned storage.
-The GIL remains held for this small stateless computation. Invalid dimensions,
-nonfinite values, negative gains and overflow raise exceptions.
+`joint_pd_cc` is an independently usable C++23 PD-plus-feedforward library.
+The [joint-control API reference](../../../../../docs/api/controllers.rst#joint-control)
+documents its equation, units, array contract, ownership and errors from the
+[C++ declaration](joint_pd.h) and [Python facade](native.py). Gain validation lives
+in [JointPdParameters](definition.py); its torque-feedback gains differ from
+`joint_tracking`'s acceleration-feedback gains.
 
 The Drake port adapter and the Isaac callable use the same extension. Each owns
 an independent nominal Drake model context for gravity feedforward, including

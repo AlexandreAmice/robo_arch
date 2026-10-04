@@ -120,11 +120,14 @@ distinct API. Do not duplicate shared prose. Private extension names are not
 public reference entries.
 
 `tools/docs/` uses the pinned Clang toolchain to parse explicitly selected
-declarations and Sphinx autodoc to render the combined reference. The initial
-catalogue in `docs/api/index.rst` covers joint PD, sphere constraints and
-configuration loading; extend it with public APIs as their documentation is
-maintained. The build fails on undocumented or duplicate entries and unresolved
-imports. SDK-dependent APIs need an explicit documentation environment before
+declarations and Sphinx autodoc to render the combined reference. The
+[catalogue](api/index.rst) covers shared configuration records/loaders, controller
+parameters, numerical barriers, collision coverage, device discovery and world
+settings. It lists the remaining runtime/device/scenario coverage gaps. Source
+docstrings own API contracts; the [documentation index](README.md) routes readers
+to tutorials, design rationale and operational guides. Extend the catalogue as
+public APIs are maintained. The build fails on undocumented or duplicate entries
+and unresolved imports. SDK-dependent APIs need an explicit documentation environment before
 joining this SDK-independent catalogue; do not mock away missing implementations.
 
 Each C++ owner declares a `cpp_docstrings` target and a `docstrings.json` mapping
@@ -154,6 +157,8 @@ python -m http.server 8000 --directory build/docs/html
 
 Open `http://localhost:8000`. For local checks, run
 `bazel test //tools/docs:extract_test //tests/build:api_docs //src/robo_arch/core/controllers/joint_pd:native_test`.
+The reference test blocks simulator/ROS imports while building every catalogue
+page. It does not measure documentation coverage outside that explicit catalogue.
 The same Python tests run under uv with the `test` and `docs` groups and the
 native wheel installed. Ordinary Python docstring edits need no native rebuild.
 

@@ -1,41 +1,39 @@
-Python API reference
-====================
+Shared Python API reference
+===========================
 
-These selected public APIs are documented from the installed package. Python
-docstrings and extracted C++ comments contribute to the same reference.
-Simulator adapters are described in the owning packages' README files; importing
-this reference requires neither a simulator SDK nor a running world.
+This catalogue covers shared configuration, controller declarations and numerical
+algorithms, geometry preparation, device discovery and world settings. It imports
+the installed package without simulator SDKs. Python-source docstrings and
+extracted C++ comments contribute to the same public reference; private extension
+names are excluded.
 
-Joint PD control
-----------------
+.. toctree::
+   :maxdepth: 2
 
-.. autoclass:: robo_arch.core.controllers.joint_pd.definition.JointPdParameters
+   configuration
+   controllers
+   worlds
 
-.. autofunction:: robo_arch.core.controllers.joint_pd.native.compute
+Start with :func:`robo_arch.core.config.loading.load_run` to load a scenario,
+then :func:`robo_arch.core.worlds.assembly.resolve_devices` to inspect its physical
+instances. World settings are declarations: validating them does not construct a
+simulator or establish hardware support.
 
-Sphere separation constraints
------------------------------
+Coverage boundary
+-----------------
 
-.. autoclass:: robo_arch.core.controllers.cbf.barrier.BarrierConstraint
+The repository's documentation index is ``docs/README.md``. Architecture and
+build decisions remain in its linked guides; owner READMEs contain examples,
+model provenance and runtime limitations. Source docstrings own API contracts.
 
-.. autoclass:: robo_arch.core.controllers.cbf.barrier.BarrierConstraints
-   :members: rows
+The following remain outside this reference and need a separate runtime audit:
 
-.. autofunction:: robo_arch.core.controllers.cbf.barrier.sphere_constraint
+* Drake/Isaac scene construction, controller adapters, visualization and execution.
+* Drake-dependent transform helpers (``pose_transform`` and ``base_pose``),
+  even though their containing module can be imported without Drake.
+* Device-specific sensor implementations, scenario runners and evaluation APIs.
+* Internal XML conversion helpers, command-line tools and schema validator methods.
 
-.. autofunction:: robo_arch.core.controllers.cbf.barrier.sphere_constraints
-
-Configuration loading
----------------------
-
-.. autofunction:: robo_arch.core.config.loading.resolve_resource
-
-.. autofunction:: robo_arch.core.config.loading.load_robot
-
-.. autofunction:: robo_arch.core.config.loading.load_world
-
-.. autofunction:: robo_arch.core.config.loading.load_run
-
-.. autoclass:: robo_arch.core.config.declarations.RunConfiguration
-
-.. autoclass:: robo_arch.core.config.declarations.SceneConfiguration
+These APIs are not implied to be documented by the SDK-independent build. The
+catalogue is explicit; passing documentation checks does not measure completeness
+outside its listed entries or automatically verify the semantics of prose.

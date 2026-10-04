@@ -8,7 +8,18 @@ from robo_arch.core.config.schema import Schema
 
 
 class IsaacPhysics(Schema):
-    """Native PhysX scene settings; the time step is in seconds."""
+    """PhysX scene settings, declared independently of the Isaac SDK.
+
+    :param time_step: Positive physics step in seconds (default 0.001).
+    :param solver: Temporal Gauss-Seidel (tgs) or projected Gauss-Seidel (pgs).
+    :param device: cpu or cuda:0 physics selection. This does not move autonomy
+        code onto the GPU or guarantee that the selected combination can run.
+    :param gpu_found_lost_aggregate_pairs_capacity: Positive integer broadphase
+        aggregate-pair capacity; default accommodates the segmented Mini45 mesh.
+
+    Unknown/invalid fields raise ValidationError; runtime compatibility requires
+    the separately pinned Isaac environment.
+    """
 
     time_step: float = Field(default=0.001, gt=0)
     solver: Literal["tgs", "pgs"] = "tgs"
@@ -18,6 +29,18 @@ class IsaacPhysics(Schema):
 
 
 class IsaacVisualization(Schema):
+    """Native Isaac Storm viewer settings; no viewer is created by this model.
+
+    :param type: Fixed discriminator ``isaac``.
+    :param mode: off or live; recording/RTX camera modes are not supported here.
+    :param publish_period: Positive simulation-time display interval in seconds.
+    :param width: Positive viewport width in pixels.
+    :param height: Positive viewport height in pixels.
+
+    Invalid fields raise ValidationError. Closing and holding the viewer belong
+    to the runner; the selected mode does not alter physical geometry.
+    """
+
     type: Literal["isaac"] = "isaac"
     mode: Literal["off", "live"] = "off"
     publish_period: float = Field(default=1 / 30, gt=0)
@@ -26,6 +49,19 @@ class IsaacVisualization(Schema):
 
 
 class IsaacWorld(Schema):
+    """Complete Isaac world profile, inspectable without importing Isaac.
+
+    :param type: Fixed discriminator ``isaac``.
+    :param ground: Static collision plane at world z=0 with a finite visual.
+    :param target_realtime_rate: Nonnegative simulated/wall-time pacing ratio
+        while viewing; zero is unpaced. Headless stepping does not wait.
+    :param physics: IsaacPhysics settings, using defaults when omitted.
+    :param visualization: IsaacVisualization settings, off by default.
+
+    Invalid fields raise ValidationError. Execution still requires the vendor
+    environment and compatible assets/devices; a valid profile alone is not proof.
+    """
+
     type: Literal["isaac"] = "isaac"
     # Static collision plane at world z=0, with a finite 10 m square visual.
     ground: bool = True

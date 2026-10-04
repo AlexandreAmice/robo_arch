@@ -96,7 +96,15 @@ _UniqueKeyLoader.add_constructor(
 
 
 def read_validated_yaml[T: BaseModel](path: Path, schema: type[T]) -> T:
-    """Parse strict YAML and validate its fields; preserve original exceptions."""
+    """Parse strict YAML and validate it with an SDK-independent Pydantic schema.
+
+    :param path: File to read as UTF-8; relative paths follow the caller's cwd.
+    :param schema: Model class used to validate the loaded mapping or root value.
+    :returns: A new validated model. YAML does not construct arbitrary objects.
+    :raises ValueError: Duplicate or non-string YAML mapping keys.
+
+    File, YAML parser and Pydantic validation exceptions propagate unchanged.
+    """
     with path.open(encoding="utf-8") as stream:
         document = yaml.load(stream, Loader=_UniqueKeyLoader)
     return schema.model_validate(document)
@@ -112,12 +120,28 @@ def _resolve_package_reference(owner: Path, reference: str) -> Path:
 
 
 def resolve_resource(reference: str) -> Path:
-    """Resolve a validated application-package URI independently of the cwd."""
+    """Resolve a validated application-package URI independently of the cwd.
+
+    :param reference: A ``package://robo_arch/...`` resource reference.
+    :returns: Absolute path in the installed package, editable tree or Bazel
+        runfiles. Existence is not checked and no file is opened.
+    :raises ValueError: Invalid URI syntax, traversal or a foreign package.
+
+    Package resources must be available as unpacked files, not zip-only imports.
+    """
     return _resolve_package_reference(Path("<resource>"), reference)
 
 
 def load_robot(path: str | Path) -> RobotDefinition:
-    """Load a robot's asset declaration without importing robot code or SDKs."""
+    """Load a robot's asset declaration without importing robot code or SDKs.
+
+    :param path: A declaration file path or ``package://robo_arch/...`` URI.
+        Relative file paths are relative to the caller's cwd, never another YAML.
+    :returns: Validated asset, joint order, default positions and base frame.
+
+    Resource syntax, file, YAML and validation errors propagate. This does not
+    parse the referenced model asset or establish world/hardware support.
+    """
     source = (
         resolve_resource(path)
         if isinstance(path, str) and path.startswith("package:")
@@ -131,7 +155,16 @@ class _WorldProfile(RootModel[WorldConfiguration]):
 
 
 def load_world(path: str | Path) -> WorldConfiguration:
-    """Load a profile from an explicit file or package URI at the Python/CLI boundary."""
+    """Load one complete world profile without importing simulator SDKs.
+
+    :param path: File path (cwd-relative if needed) or application-package URI.
+    :returns: DrakeWorld, IsaacWorld or RealWorld selected by ``type``.
+
+    Profiles have no inheritance or merge semantics. Unknown fields, an invalid
+    discriminator and foreign settings raise Pydantic ValidationError; file and
+    YAML errors propagate unchanged. Valid settings do not establish execution
+    support or the presence of an SDK.
+    """
     source = (
         _resolve_package_reference(Path("<world>"), path)
         if isinstance(path, str) and path.startswith("package:")
@@ -141,7 +174,25 @@ def load_world(path: str | Path) -> WorldConfiguration:
 
 
 def load_run(path: str | Path) -> RunConfiguration:
-    """Load a file or package URI; YAML references use installed package resources."""
+    """Load a scenario and its recursive physical composition without SDKs.
+
+    :param path: Scenario file (cwd-relative if needed) or application-package URI.
+    :returns: New RunConfiguration preserving local instance names and hierarchy.
+        Referenced world/system YAML uses ``package://robo_arch/...`` resources.
+    :raises ValueError: Recursive inclusions, duplicate instance names in a
+        system, duplicate YAML keys or invalid resource references.
+
+    File/YAML/schema errors propagate. Device assets, attachment frames and
+    controller/task parameter semantics are checked later by their owners.
+    Reusing a child-system file creates distinct records and parameter mappings;
+    no runtime devices are created. Treat returned nested dictionaries as read-only.
+
+    Example::
+
+        run = load_run("package://robo_arch/scenarios/arm_tracking/scenario.yaml")
+        scene = run.scene
+        print(run.world, run.duration)
+    """
     source = (
         _resolve_package_reference(Path("<run>"), path)
         if isinstance(path, str) and path.startswith("package:")

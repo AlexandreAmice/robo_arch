@@ -19,7 +19,15 @@ from robo_arch.core.worlds.assembly import resolve_devices
 
 @dataclass(frozen=True, kw_only=True)
 class DeviceDefinitions:
-    """Metadata shared by instances of each selected model; no runtime state."""
+    """Metadata keyed by model identifier, shared by instances of that model.
+
+    :param robots: RobotDefinition mapping loaded from robot YAML.
+    :param sensors: SensorDefinition mapping from declaration modules.
+    :param objects: ObjectDefinition mapping from declaration modules.
+
+    No runtime state is stored. Frozen records contain mutable dictionaries;
+    treat these mappings as read-only after loading.
+    """
 
     robots: dict[str, RobotDefinition]
     sensors: dict[str, SensorDefinition]
@@ -40,6 +48,16 @@ def load_device_module(
     Sensor/object declaration modules expose describe(); sensor observation
     adapters expose native construction functions. Robot assets are declared
     in YAML and loaded by the world, without importing a robot module.
+
+    :param category: Owning package category: robots, sensors or objects.
+    :param model: Model identifier, beginning with a letter and otherwise using
+        letters, digits and underscores.
+    :param module: Single module identifier with the same restrictions.
+    :returns: Imported module, reused from Python's module cache on repeated calls.
+    :raises ValueError: Invalid model or module identifier.
+
+    Import errors propagate. Selecting ``definition`` is SDK-independent by
+    convention; selecting a runtime adapter can import its SDK.
     """
     for label, value in ((f"{category} model", model), ("device module", module)):
         _identifier(value, label)
@@ -58,7 +76,21 @@ def _describe[T](
 
 
 def load_definitions(scene: SceneConfiguration, world: str) -> DeviceDefinitions:
-    """Load selected metadata and check world support before constructing devices."""
+    """Load selected metadata and check declared world support before assembly.
+
+    :param scene: Physical instances and observation selection.
+    :param world: Requested world name, normally drake, isaac or real.
+    :returns: Model-keyed DeviceDefinitions, with each selected model loaded once.
+    :raises ValueError: Invalid identifiers/attachments or unsupported world/asset.
+    :raises TypeError: A declaration module returns an unexpected metadata type.
+    :raises FileNotFoundError: Missing robot declaration/asset or resource file.
+
+    Sensor settings undergo their declared schema validation; observation support
+    is required only when enabled, but physical support is always required.
+    Robot support currently requires URDF plus Drake/Isaac. Metadata imports do
+    not start SDKs; file, import and schema errors propagate. Asset contents and
+    actual SDK availability are not validated here.
+    """
     devices = resolve_devices(scene)
     definitions = DeviceDefinitions(
         robots={
