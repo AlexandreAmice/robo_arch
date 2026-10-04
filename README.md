@@ -16,7 +16,7 @@ Use the pinned uv version in `pyproject.toml` and Bazelisk (`.bazelversion`):
 ```sh
 uv sync --locked
 uv run tools/dev.py native --profile drake
-uv run pytest
+uv run --group docs pytest
 bazel test //src/robo_arch/... //tests/build:core //tests/build:cxx23 //tests/build:drake
 uv run ruff check .
 uv run ruff format --check .
