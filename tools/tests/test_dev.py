@@ -24,6 +24,15 @@ def declarations(monkeypatch):
     "scenario, options, expected",
     [
         ("arm_tracking", [], ("drake", False)),
+        ("camera_protection", [], ("drake", False)),
+        (
+            "camera_protection",
+            [
+                "--world-config",
+                "package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml",
+            ],
+            ("isaac", False),
+        ),
         ("arm_tracking", ["--world", "isaac"], ("isaac", False)),
         ("arm_tracking", ["--world=isaac", "--visualization=live"], ("isaac", True)),
         ("batched_reaching", ["--backend", "newton"], ("isaac", False)),
@@ -92,18 +101,16 @@ def test_launch_routes_options_and_help(declarations, monkeypatch, operation):
         return Path("/vendor/bin/python")
 
     monkeypatch.setattr(dev, "install", install)
-    monkeypatch.setattr(
-        dev.subprocess, "run", lambda *a, **kw: launched.append((a, kw))
-    )
+    monkeypatch.setattr(dev.os, "execve", lambda *a: launched.append(a))
     dev.main([operation, "batched_reaching", "--help"])
     assert installed == ["isaac"]
-    assert launched[0][0][0] == [
+    assert launched[0][1] == [
         "/vendor/bin/python",
         "-m",
         f"robo_arch.scenarios.batched_reaching.{operation}",
         "--help",
     ]
-    assert launched[0][1]["check"]
+    assert launched[0][2]["OMNI_KIT_ACCEPT_EULA"] == "YES"
 
 
 def test_conflicting_profile_never_launches(declarations, monkeypatch):
@@ -115,7 +122,7 @@ def test_conflicting_profile_never_launches(declarations, monkeypatch):
 def test_legacy_python_launch(monkeypatch):
     monkeypatch.setattr(dev, "install", lambda profile: Path(f"/{profile}/python"))
     calls = []
-    monkeypatch.setattr(dev.subprocess, "run", lambda *a, **kw: calls.append(a[0]))
+    monkeypatch.setattr(dev.os, "execve", lambda *a: calls.append(a[1]))
     dev.main(["run", "--profile", "drake", "--", "python", "-c", "print(1)"])
     assert calls == [["/drake/python", "-c", "print(1)"]]
 

@@ -7,6 +7,10 @@ py_library(
         "__init__.py",
         "barrier.py",
         "definition.py",
+        "errors.py",
+        "filter.py",
+        "layout.py",
+        "velocity.py",
     ],
     visibility = [
         "//src/robo_arch:__subpackages__",
@@ -71,6 +75,7 @@ py_library(
         ":assembly",
         ":cbf",
         ":config",
+        "//src/robo_arch/core/worlds/drake",
         requirement("drake"),
         requirement("numpy"),
     ],
@@ -137,13 +142,51 @@ py_test(
     ],
 )
 
+# Torch and Moreau are optional runtime providers pinned in the Isaac profile.
 py_library(
-    name = "visualization",
-    srcs = ["visualization.py"],
+    name = "tensor",
+    srcs = [
+        "moreau.py",
+        "tensor.py",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        ":assembly",
         ":cbf",
-        "//src/robo_arch/core/worlds/drake",
-        requirement("drake"),
+        ":config",
+        "//src/robo_arch/core/controllers/dynamics:torch",
+    ],
+)
+
+filegroup(
+    name = "gpu_tests",
+    srcs = [
+        "tests/test_moreau.py",
+        "tests/test_tensor_barrier.py",
+        "tests/test_tensor_filter.py",
+    ],
+)
+
+py_library(
+    name = "isaac",
+    srcs = ["isaac.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":assembly",
+        ":cbf",
+        ":config",
+        ":tensor",
+        "//src/robo_arch/core/controllers/dynamics:drake",
+    ],
+)
+
+py_test(
+    name = "filter_test",
+    srcs = ["tests/test_filter.py"],
+    main = "tests/test_filter.py",
+    deps = [
+        ":cbf",
+        requirement("numpy"),
+        requirement("pytest"),
     ],
 )

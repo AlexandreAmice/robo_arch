@@ -30,6 +30,8 @@ Isaac settings
 
 .. autoclass:: robo_arch.core.worlds.isaac.config.IsaacPhysics
 
+.. autoclass:: robo_arch.core.worlds.isaac.config.NewtonPhysics
+
 .. autoclass:: robo_arch.core.worlds.isaac.config.IsaacVisualization
 
 .. autoclass:: robo_arch.core.worlds.isaac.config.IsaacWorld

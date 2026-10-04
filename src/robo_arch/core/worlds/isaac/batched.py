@@ -28,6 +28,9 @@ class BatchedExecution:
         }
         self.efforts = {name: torch.zeros_like(q) for name, q in self.initial.items()}
         self.time = 0.0
+        self.times = torch.zeros(
+            scene.world.num_envs, device=device, dtype=torch.float64
+        )
         scene.native.reset()
         self.reset(torch.ones(scene.world.num_envs, dtype=torch.bool, device=device))
 
@@ -42,6 +45,7 @@ class BatchedExecution:
             raise ValueError("Reset mask must contain one boolean per environment")
         if str(mask.device) != self.scene.world.physics.device:
             raise ValueError("Reset mask must be on the simulation device")
+        self.times.masked_fill_(mask, 0)
         native_mask = wp.from_torch(mask, dtype=wp.bool)
         for name, arm in self.scene.native.articulations.items():
             zero = torch.zeros_like(self.initial[name])
@@ -64,12 +68,37 @@ class BatchedExecution:
                 arm.data.joint_vel.torch,
                 arm.data.gravity_compensation_forces.torch,
             )
-            if effort.shape != self.initial[name].shape:
-                raise ValueError(f"Invalid tensor effort shape for {name}")
-            self.efforts[name] = effort
-            arm.actuators.target_command.set_effort_index(value=effort)
+            self.set_effort(name, effort)
+        self.advance(dt)
+
+    def set_effort(self, name: str, effort: Tensor) -> None:
+        """Validate and copy one robot's command into Lab's actuator buffer.
+
+        Commands are converted to the native state dtype on the simulation device.
+        Finite checks synchronize a status scalar; state and effort stay on device.
+        Controllers needing rounding guards must validate this native dtype.
+        """
+        expected = self.initial[name]
+        if (
+            not isinstance(effort, Tensor)
+            or effort.shape != expected.shape
+            or effort.device != expected.device
+            or not bool(torch.isfinite(effort).all())
+        ):
+            raise ValueError(f"Invalid tensor effort for {name}")
+        converted = effort.to(dtype=expected.dtype).contiguous()
+        if not bool(torch.isfinite(converted).all()):
+            raise ValueError(f"Effort overflows native dtype for {name}")
+        self.efforts[name] = converted
+        self.scene.native.articulations[name].actuators.target_command.set_effort_index(
+            value=converted
+        )
+
+    def advance(self, dt: float) -> None:
+        """Write buffered commands, step Lab once, and refresh its state buffers."""
         self.scene.native.write_data_to_sim()
         self.scene.simulation.cfg.dt = dt
         self.scene.simulation.step(render=False)
         self.scene.native.update(dt)
         self.time += dt
+        self.times.add_(dt)

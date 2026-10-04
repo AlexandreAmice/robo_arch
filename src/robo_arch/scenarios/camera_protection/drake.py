@@ -12,23 +12,21 @@ from pydrake.systems.framework import (
 )
 
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.controllers.cbf.assembly import resolve_geometry
 from robo_arch.core.controllers.cbf.drake import (
     CbfClearanceSystem,
     SphereCbfSystem,
-    build_filter,
-)
-from robo_arch.core.controllers.cbf.visualization import (
     add_ground_illustrations,
     add_sphere_illustrations,
+    build_filter,
 )
 from robo_arch.core.controllers.joint_tracking.drake import build
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.drake.scene import DrakeScene
 from robo_arch.scenarios.camera_protection.configuration import (
     TaskParameters,
-    parameters_for,
 )
+from robo_arch.scenarios.camera_protection.reference import desired_state
+from robo_arch.scenarios.camera_protection.setup import prepare
 
 
 class Reference(LeafSystem):
@@ -43,25 +41,15 @@ class Reference(LeafSystem):
         )
 
     def output(self, context: Context, output: BasicVector) -> None:
-        time = context.get_time()
-        if time < self.task.retreat_time:
-            start, end, elapsed = (
-                self.initial,
-                np.asarray(self.task.unsafe_target),
-                time,
-            )
-        else:
-            start, end = (
-                np.asarray(self.task.unsafe_target),
-                np.asarray(self.task.retreat_target),
-            )
-            elapsed = time - self.task.retreat_time
-        u = float(np.clip(elapsed / self.task.transition_seconds, 0, 1))
-        blend = 10 * u**3 - 15 * u**4 + 6 * u**5
-        speed = (30 * u**2 - 60 * u**3 + 30 * u**4) / self.task.transition_seconds
-        output.SetFromVector(
-            np.r_[start + blend * (end - start), speed * (end - start)]
+        q, v = desired_state(
+            np.asarray(context.get_time()),
+            self.initial,
+            np.asarray(self.task.unsafe_target),
+            np.asarray(self.task.retreat_target),
+            retreat_time=self.task.retreat_time,
+            transition_seconds=self.task.transition_seconds,
         )
+        output.SetFromVector(np.r_[q, v])
 
 
 def configure(
@@ -72,25 +60,19 @@ def configure(
     filtered: bool = True,
     description: dict[str, Any] | None = None,
 ) -> dict[str, OutputPort]:
-    control, task = parameters_for(run)
+    setup = prepare(run, resolve_devices(run.scene), scene.definitions)
+    control, task = setup.control, setup.task
     robot = control.robot
     if set(scene.robots) != {robot}:
         raise ValueError(
             "camera_protection requires the selected single controlled arm"
         )
     model = scene.controller_models[robot]
-    robot_instance = next(
-        item for item in resolve_devices(run.scene).robots if item.name == robot
+    joints = setup.definition.joints
+    setup.validate_targets(
+        model.GetPositionLowerLimits(), model.GetPositionUpperLimits()
     )
-    joints = scene.definitions.robots[robot_instance.model].joints
-    for target in (task.unsafe_target, task.retreat_target):
-        if len(target) != model.num_positions() or not np.all(np.isfinite(target)):
-            raise ValueError("Targets must match the selected robot's joint order")
-        if np.any(target < model.GetPositionLowerLimits()) or np.any(
-            target > model.GetPositionUpperLimits()
-        ):
-            raise ValueError("Target exceeds robot joint limits")
-    geometry = resolve_geometry(run.scene, control, ground=run.world_config.ground)
+    geometry = setup.geometry
     cbf = build_filter(
         model=model,
         geometry=geometry,
@@ -99,11 +81,11 @@ def configure(
     )
     if description is not None:
         description.update(
-            pair_names=cbf.pair_names,
-            spheres=[vars(sphere) for sphere in geometry.spheres],
-            pairs=[vars(pair) for pair in geometry.pairs],
-            planes=[vars(plane) for plane in geometry.planes],
-            plane_pairs=[vars(pair) for pair in geometry.plane_pairs],
+            setup.describe(
+                pair_names=cbf.pair_names,
+                velocity_bound_names=cbf.velocity_bound_names,
+                qp_constraint_count=cbf.qp_constraint_count,
+            )
         )
     cbf.validate_initial_state(
         np.r_[scene.initial_positions[robot], np.zeros(len(joints))]

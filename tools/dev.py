@@ -80,7 +80,7 @@ def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
 
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument("--inspect", type=Path)
-    parser.add_argument("--run" if scenario == "arm_tracking" else "--config")
+    parser.add_argument("--config" if scenario == "batched_reaching" else "--run")
     parser.add_argument("--world")
     parser.add_argument("--world-config")
     parser.add_argument("--visualization")
@@ -91,7 +91,7 @@ def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
         report = json.loads(args.inspect.read_text(encoding="utf-8"))
         run = TypeAdapter(RunConfiguration).validate_python(report["configuration"])
     else:
-        resource = args.run if scenario == "arm_tracking" else args.config
+        resource = args.config if scenario == "batched_reaching" else args.run
         run = load_run(
             resource or f"package://robo_arch/scenarios/{scenario}/scenario.yaml"
         )
@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> None:
         (
             i
             for i, value in enumerate(argv)
-            if value in {"arm_tracking", "batched_reaching", "--"}
+            if value in {"arm_tracking", "batched_reaching", "camera_protection", "--"}
         ),
         len(argv),
     )
@@ -148,12 +148,18 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("native accepts no child command")
     profile, environment = args.profile, None
     if args.operation != "native" and not command:
-        parser.error("choose arm_tracking or batched_reaching")
-    if command and command[0] in {"arm_tracking", "batched_reaching"}:
+        parser.error("choose arm_tracking, batched_reaching or camera_protection")
+    if command and command[0] in {
+        "arm_tracking",
+        "batched_reaching",
+        "camera_protection",
+    }:
         scenario, *options = command
         if args.operation == "benchmark":
-            if scenario != "batched_reaching":
-                parser.error("benchmark supports batched_reaching")
+            if scenario not in {"batched_reaching", "camera_protection"}:
+                parser.error(
+                    "benchmark supports batched_reaching and camera_protection"
+                )
             selected, live = "isaac", False
         else:
             selected, live = scenario_environment(scenario, options)
@@ -171,15 +177,17 @@ def main(argv: list[str] | None = None) -> None:
         ]
     elif command and (command[0] != "python" or args.operation != "run"):
         parser.error(
-            "choose arm_tracking or batched_reaching, "
+            "choose arm_tracking, batched_reaching or camera_protection, "
             "or use --profile <world> -- python <arguments>"
         )
     if profile is None:
         parser.error("native and raw Python commands require --profile")
     python = install(profile)
     if command:
-        subprocess.run(
-            [str(python), *command[1:]], cwd=ROOT, env=environment, check=True
+        # The simulator owns Ctrl-C, cleanup, and its process exit status.
+        os.chdir(ROOT)
+        os.execve(
+            str(python), [str(python), *command[1:]], environment or os.environ.copy()
         )
 
 

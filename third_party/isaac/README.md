@@ -154,3 +154,21 @@ The independent GPU free-fall diagnostic remains under `tools/isaac/`:
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
   third_party/isaac/.venv/bin/python tools/isaac/probe.py
 ```
+
+## Optional GPU camera controller
+
+Install the Moreau CUDA solver into this same locked Lab environment:
+
+```sh
+uv sync --project third_party/isaac --locked --group cbf-gpu --group test
+uv run tools/dev.py run camera_protection \
+  --world-config package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml \
+  --backend torch_moreau --batch-size 2 --compile-model --no-browser
+```
+
+The optional group adds Moreau 0.4.1 with CUDA 13 support; Lab's Torch 2.11 and
+backend compatibility overrides remain authoritative. Camera protection uses
+Lab's PhysX/PGS runtime, not a separate native PhysX loop. It retains mounted
+camera bodies with observations disabled. See the
+[scenario guide](../../src/robo_arch/scenarios/camera_protection/README.md) for
+numerical limitations, recorded evidence and native integration checks.

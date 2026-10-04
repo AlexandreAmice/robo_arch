@@ -22,6 +22,22 @@ def clearance_series(
     Clearances/gaps remain in meters here. Ground gap is measured from each
     protective sphere to its plane, before subtracting that pair's margin.
     """
+    if data.ndim == 3:
+        # Aggregate only for reporting; the controller retains every environment.
+        series = [
+            clearance_series(data[:, index], filtered=filtered, description=description)
+            for index in range(data.shape[1])
+        ]
+        return {
+            name: (
+                np.any([item[name] for item in series], axis=0)
+                if name == "ground_active"
+                else np.max([item[name] for item in series], axis=0)
+                if name == "torque_correction"
+                else np.min([item[name] for item in series], axis=0)
+            )
+            for name in series[0]
+        }
     count = (data.shape[1] - 3) // 5 if filtered else data.shape[1]
     clearances = data[:, :count]
     result = {}
@@ -108,7 +124,7 @@ def plot_trace(
                     else f"{margins.min():g}–{margins.max():g} mm"
                 )
                 axis.set_title(
-                    f"Minimum modeled sphere–ground gap: {1000 * series['ground_gap'].min():.3f} mm"
+                    f"Minimum logged sphere–ground gap: {1000 * series['ground_gap'].min():.3f} mm"
                     f"; safety margin: {margin_label}",
                     fontsize=10,
                 )

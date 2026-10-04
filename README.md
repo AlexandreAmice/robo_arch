@@ -125,6 +125,9 @@ estimated sensor inertias and nominal mounts are documented beside each device.
 The [batched reaching example](src/robo_arch/scenarios/batched_reaching/README.md)
 runs tensor PD, independent goals and selective resets on configurable PhysX or
 Newton/MuJoCo Warp backends, with a local throughput comparison and native viewing.
+The [camera protection example](src/robo_arch/scenarios/camera_protection/README.md)
+runs the shared sphere CBF in Drake or with optional Torch/Moreau CUDA control
+on Isaac Lab PhysX/PGS. Its guide includes the optional solver setup and commands.
 There is no hardware execution, gripper, nut placement or RTX viewer. Scalar CPU
 controllers are reported explicitly; shared code does not imply identical
 simulator contact forces.

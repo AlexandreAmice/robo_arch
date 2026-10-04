@@ -7,6 +7,7 @@ py_test(
         "dev.py",
         "tests/test_dev.py",
     ],
+    data = ["//src/robo_arch/scenarios/camera_protection:isaac_gpu.yaml"],
     main = "tests/test_dev.py",
     deps = [
         "//src/robo_arch/core/config",

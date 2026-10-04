@@ -26,7 +26,7 @@ from robo_arch.core.controllers.cbf.drake import (
 )
 
 
-def slider(*, limit=100, damping=0, vertical=False, time_step=0.0):
+def slider(*, limit=100, damping=0, vertical=False, time_step=0.0, velocity_limit=10):
     plant = MultibodyPlant(time_step)
     axis = "0 0 1" if vertical else "1 0 0"
     Parser(plant).AddModelsFromString(
@@ -35,7 +35,7 @@ def slider(*, limit=100, damping=0, vertical=False, time_step=0.0):
           <inertia ixx="1" iyy="1" izz="1" ixy="0" ixz="0" iyz="0"/>
         </inertial></link><joint name="slide" type="prismatic">
           <parent link="base"/><child link="body"/><axis xyz="{axis}"/>
-          <limit lower="-3" upper="3" effort="{limit}" velocity="10"/>
+          <limit lower="-3" upper="3" effort="{limit}" velocity="{velocity_limit}"/>
           <dynamics damping="{damping}"/>
         </joint></robot>''',
         "urdf",
@@ -516,6 +516,20 @@ def test_shared_factory_preserves_custom_gains_and_plane_geometry():
         controller.filter([0.5, 0], [-20]).effort, [5.25], atol=1e-7
     )
     assert controller.parameters.residual_tolerance == 1e-7
+
+
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_velocity_barrier_limits_outward_acceleration(direction):
+    controller = make_filter(vertical=True, velocity_limit=0.5, damping=0.3)
+    state = np.array([0.5, direction * 0.49])
+    controller.validate_initial_state(state)
+    result = controller.filter(state, [direction * 80.0])
+    acceleration = result.effort[0] - 9.81 - 0.3 * state[1]
+    np.testing.assert_allclose(acceleration, direction * 0.2, atol=1e-7)
+    assert abs(state[1] + 0.001 * acceleration) < 0.5
+    assert result.diagnostics.shape == (8,)
+    with pytest.raises(CbfFailure, match="initial velocity"):
+        controller.validate_initial_state(np.array([0.5, direction * 0.501]))
 
 
 if __name__ == "__main__":

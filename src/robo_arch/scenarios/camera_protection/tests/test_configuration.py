@@ -18,7 +18,7 @@ def run():
     return load_run("package://robo_arch/scenarios/camera_protection/scenario.yaml")
 
 
-@pytest.mark.parametrize("world", ["isaac", "real"])
+@pytest.mark.parametrize("world", ["real"])
 def test_unsupported_world_fails_before_execution(run, world):
     with pytest.raises(ValueError, match="only Drake"):
         parameters_for(replace(run, world_config=parse_world({"type": world})))
@@ -122,6 +122,46 @@ def test_ground_barriers_follow_world_floor_and_protected_instances(run, enabled
     assert all(
         pair.plane == planes[0].name and pair.margin == control.margin for pair in pairs
     )
+
+
+def test_isaac_requires_explicit_gpu_selection(run):
+    isaac = replace(run, world_config=parse_world({"type": "isaac"}))
+    with pytest.raises(ValueError, match="torch_moreau"):
+        parameters_for(isaac)
+    isaac = replace(
+        isaac,
+        world_config=parse_world(
+            {
+                "type": "isaac",
+                "num_envs": 8,
+                "physics": {"solver": "pgs"},
+            }
+        ),
+        autonomy=run.autonomy.model_copy(
+            update={
+                "parameters": {**run.autonomy.parameters, "backend": "torch_moreau"}
+            }
+        ),
+    )
+    assert parameters_for(isaac)[0].backend == "torch_moreau"
+    with pytest.raises(ValueError, match="requires PGS"):
+        parameters_for(
+            replace(
+                isaac,
+                world_config=parse_world({"type": "isaac"}),
+            )
+        )
+    with pytest.raises(ValueError, match="only PhysX"):
+        parameters_for(
+            replace(
+                isaac,
+                world_config=parse_world(
+                    {"type": "isaac", "physics": {"backend": "newton"}}
+                ),
+            )
+        )
+    with pytest.raises(ValueError, match="backend: drake"):
+        parameters_for(replace(isaac, world_config=run.world_config))
 
 
 if __name__ == "__main__":

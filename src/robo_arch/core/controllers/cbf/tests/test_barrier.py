@@ -118,5 +118,31 @@ def test_tilted_plane_derivatives_match_finite_difference():
     )
 
 
+def test_velocity_bounds_keep_one_sided_limits_and_unbounded_joints():
+    from robo_arch.core.controllers.cbf.velocity import compile_velocity_bounds
+
+    bounds = compile_velocity_bounds(
+        ("lower", "upper", "free"), [-2, -np.inf, -np.inf], [np.inf, 3, np.inf]
+    )
+    assert bounds.names == ("lower/velocity/lower", "upper/velocity/upper")
+    velocity = np.array([[-1.9, 2.8, 100], [-1.0, 2.0, -100]])
+    drift = np.array([[1, 2, 3], [4, 5, 6]])
+    control = np.broadcast_to(np.diag([2, 3, 4]), (2, 3, 3))
+    a, b = bounds.constraints(velocity, drift, control, gain=20)
+    np.testing.assert_allclose(bounds.slack(velocity), [[0.1, 0.2], [1, 1]])
+    np.testing.assert_allclose(a, [[[2, 0, 0], [0, -3, 0]]] * 2)
+    np.testing.assert_allclose(b, [[3, 2], [24, 15]])
+
+
+@pytest.mark.parametrize(
+    "lower,upper", [(1, 0), (np.nan, 1), (np.inf, np.inf), (-np.inf, -np.inf)]
+)
+def test_invalid_velocity_bounds_raise(lower, upper):
+    from robo_arch.core.controllers.cbf.velocity import compile_velocity_bounds
+
+    with pytest.raises(ValueError, match="velocity bounds"):
+        compile_velocity_bounds(("joint",), [lower], [upper])
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

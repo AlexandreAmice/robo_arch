@@ -55,6 +55,10 @@ composes a nominal effort controller with a reusable
 Model-owned sphere profiles describe conservative geometry; scenario autonomy
 selects protected instances, pairs, margins and explicit mounting exclusions.
 The Drake filter uses an independent dynamics model and bounded torque QPs.
+The optional Torch/Moreau filter extracts the same nominal model once, then
+batches dynamics and QPs on CUDA using shared barrier equations. Its camera
+scenario uses the shared Isaac Lab tensor execution path with PhysX/PGS;
+Newton camera protection remains unsupported.
 Its discrete simulation evidence does not establish hardware safety.
 
 YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Loaded records and device metadata live in `core/config/declarations.py`; `loading.py` owns the YAML document schemas, parses YAML and resolves referenced systems. `schema.py` defines the common strict validation policy used by document, world and parameter schemas. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.

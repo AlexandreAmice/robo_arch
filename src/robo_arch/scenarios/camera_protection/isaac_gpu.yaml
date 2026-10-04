@@ -1,0 +1,14 @@
+# Override the world of scenario.yaml; select autonomy.parameters.backend: torch_moreau.
+type: isaac
+num_envs: 32
+env_layout: grid
+env_spacing: 3.0
+log_every_n_steps: 10
+ground: true
+physics:
+  device: cuda:0
+  # Avoid the small-velocity position quantization of TGS's imported 32 substeps.
+  solver: pgs
+  time_step: 0.001
+visualization:
+  mode: "off"

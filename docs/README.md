@@ -11,7 +11,7 @@ boundary between them.
 | File placement, build, native development and documentation commands | [Build and layout](build_and_layout.md) |
 | Shared function/class contracts, units, shapes and errors | [Generated API catalogue](api/index.rst), rendered from source docstrings |
 | Constructing and extending a runtime | [World construction guide](../src/robo_arch/core/worlds/README.md) |
-| Running and inspecting simulations | [Arm tracking](../src/robo_arch/scenarios/arm_tracking/README.md), [camera protection](../src/robo_arch/scenarios/camera_protection/README.md) |
+| Running and inspecting simulations | [Arm tracking](../src/robo_arch/scenarios/arm_tracking/README.md), [camera protection](../src/robo_arch/scenarios/camera_protection/README.md), [batched reaching](../src/robo_arch/scenarios/batched_reaching/README.md) |
 | Controller examples, algorithms and runtime constraints | [Native PD](../src/robo_arch/core/controllers/joint_pd/README.md), [sphere effort filter](../src/robo_arch/core/controllers/cbf/README.md) |
 | Dependency pins and supported environments | [Compatibility](../third_party/compatibility.md), [Isaac environment](../third_party/isaac/README.md) |
 | Model provenance and approximations | [UR7e](../src/robo_arch/robots/ur7e/README.md), [iiwa 7](../src/robo_arch/robots/iiwa7/README.md), [D435](../src/robo_arch/sensors/realsense_d435/README.md), [Mini45](../src/robo_arch/sensors/ati_mini45/README.md), [box](../src/robo_arch/objects/box/README.md) |

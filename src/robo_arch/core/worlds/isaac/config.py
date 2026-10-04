@@ -10,6 +10,7 @@ from robo_arch.core.config.schema import Schema
 class IsaacPhysics(Schema):
     """PhysX scene settings, declared independently of the Isaac SDK.
 
+    :param backend: Fixed discriminator ``physx``.
     :param time_step: Positive physics step in seconds (default 0.001).
     :param solver: Temporal Gauss-Seidel (tgs) or projected Gauss-Seidel (pgs).
     :param device: cpu or cuda:0 physics selection. This does not move autonomy
@@ -30,7 +31,22 @@ class IsaacPhysics(Schema):
 
 
 class NewtonPhysics(Schema):
-    """Newton's GPU MuJoCo Warp solver; time step is in seconds."""
+    """Newton's GPU MuJoCo Warp solver, declared without importing the SDK.
+
+    :param backend: Required discriminator ``newton``.
+    :param solver: Fixed solver ``mujoco_warp``.
+    :param time_step: Positive physics step in seconds (default 0.001).
+    :param device: cuda:0; CPU execution is unsupported in this profile.
+    :param iterations: Positive maximum constraint solver iterations.
+    :param ls_iterations: Positive maximum line search iterations.
+    :param integrator: euler, implicitfast or rk4 native integration.
+    :param constraint_solver: newton or cg native constraint solver.
+    :param njmax: Positive constraint capacity per environment.
+    :param nconmax: Optional positive contact capacity per environment.
+
+    Invalid fields raise ValidationError. Sensor observations are unsupported;
+    disabling observations retains the mounted sensor bodies.
+    """
 
     backend: Literal["newton"]
     solver: Literal["mujoco_warp"] = "mujoco_warp"
@@ -71,7 +87,13 @@ class IsaacWorld(Schema):
     :param ground: Static collision plane at world z=0 with a finite visual.
     :param target_realtime_rate: Nonnegative simulated/wall-time pacing ratio
         while viewing; zero is unpaced. Headless stepping does not wait.
-    :param physics: IsaacPhysics settings, using defaults when omitted.
+    :param num_envs: Number of independent physical environments (default one).
+    :param env_layout: line or grid placement of environment origins.
+    :param env_spacing: Positive separation between origins, in metres.
+    :param log_every_n_steps: Positive trace stride for camera protection; its
+        controller still evaluates every physics step. Reaching owns separate
+        sampled-trace measurement settings.
+    :param physics: IsaacPhysics or NewtonPhysics settings; defaults to PhysX.
     :param visualization: IsaacVisualization settings, off by default.
 
     Invalid fields raise ValidationError. Execution still requires the vendor
@@ -79,6 +101,7 @@ class IsaacWorld(Schema):
     """
 
     type: Literal["isaac"] = "isaac"
+    log_every_n_steps: int = Field(default=1, ge=1)
     num_envs: int = Field(default=1, ge=1)
     env_layout: Literal["line", "grid"] = "line"
     env_spacing: float = Field(default=3.0, gt=0)

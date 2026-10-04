@@ -123,7 +123,7 @@ data is retained on stepping failures. Arm tracking owns its diagnostic plots.
 ## Physical limits
 
 All objects are fixed fixtures; movable objects and initial object velocity
-remain unsupported. Tensor effort control is exercised by batched reaching; supported capacity is
+remain unsupported. Tensor effort control is exercised by batched reaching and camera protection; supported capacity is
 workload- and hardware-dependent.
 Isaac authors downward gravity of 9.81 m/s²; Drake uses its plant default. Shared assets do not guarantee identical
 contact models or trajectories.
@@ -186,3 +186,23 @@ silently discard new physics or substitute a bounding box.
 Follow the [architecture](../../../../docs/architecture.md#world-implementations)
 and [testability requirements](../../../../docs/build_and_layout.md#testability),
 including actual-run visualizations when requesting human inspection.
+
+### GPU camera protection
+
+The [camera-protection scenario](../../scenarios/camera_protection/README.md)
+uses the same Lab scene and `BatchedExecution` as reaching. Its rollout supplies
+independent nominal dynamics and Moreau-filtered efforts, samples diagnostics,
+and saves partial traces on failure. It requires PhysX/PGS on CUDA; Newton is
+supported for reaching but not yet for this controller. Batch configuration uses
+`num_envs`, `env_layout` and `env_spacing` for both scenarios. Camera traces use
+`log_every_n_steps`; barrier statistics still include every control step.
+
+`BatchedExecution.reset(mask)` clears selected physical state, commanded efforts
+and environment clocks. Scenario-owned controller state must be reset separately.
+Native integration checks cover partial failure cleanup and low-speed PGS state:
+
+```sh
+OMNI_KIT_ACCEPT_EULA=YES ROBO_ARCH_ISAAC_GPU_TEST=1 \
+  third_party/isaac/.venv/bin/python -m pytest -q \
+  src/robo_arch/core/worlds/isaac/tests/test_gpu_execution.py
+```

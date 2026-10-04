@@ -85,7 +85,9 @@ environments.
 | Tensor / 64 | 7,596 | 10,929 |
 | Scalar / 16 | 3,025 | 5,259 |
 
-These are single sweeps on a shared desktop with variable CPU load. PhysX timings
+These measurements precede the shared runtime's finite-effort checks, which
+synchronize scalar GPU status. They are single sweeps on a shared desktop with
+variable CPU load. PhysX timings
 were repeated after an unrelated CUDA job ended. The small PD calculation did
 not show a tensor-control speedup at 16 environments in these runs; GPU-resident
 control does not guarantee lower latency. The example establishes batched

@@ -287,7 +287,7 @@ If local Isaac cannot run, publish the completed repository, development workflo
 
 ## Work-package status
 
-Status as of 2026-10-04. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. The local expansion below adds physical devices, mixed-arm execution and native control; partial packages retain their broader acceptance gates.
+Status as of 2026-10-04. Runtime, explicit assembly and world configuration are integrated through PRs #5, #7 and #6. API documentation, Isaac Lab execution and GPU camera protection share the main implementation; partial packages retain their broader acceptance gates.
 
 | Package | Status |
 |---|---|
@@ -301,7 +301,7 @@ Status as of 2026-10-04. Runtime, explicit assembly and world configuration are 
 | C0 | Local validation only; hosted CI and required remote checks removed by user decision |
 | S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration remains; batched reaching supplies local throughput diagnostics |
 | A0 | Nominal UR7e and iiwa 7 with model-specific collision meshes; D435 and Mini45 physical models; gripper and calibration remain |
-| K0 | Shared inverse dynamics and compiled PD + gravity run in Drake/Isaac Lab, including mixed arms; tensor PD supports GPU batched reaching |
+| K0 | Shared inverse dynamics and compiled PD + gravity run in Drake/Isaac Lab, including mixed arms; tensor PD supports GPU batched reaching; shared Torch dynamics and Moreau support camera protection on Lab PhysX/PGS |
 | D0 | Partial: native plant settings, standard Meshcat geometry/contact layers, hydroelastic fixture, camera and recording; deployment reuse remains |
 | X0 | Isaac Lab scene/stepping with PhysX and Newton/MuJoCo Warp selection; mixed-arm tracking, independent Mini45 sensing, contact examples and native Storm capture; RTX cameras remain unsupported |
 | X1 | Two complete environments with collision isolation, independent controller contexts and selective reset of physics, sensors and episode time |
