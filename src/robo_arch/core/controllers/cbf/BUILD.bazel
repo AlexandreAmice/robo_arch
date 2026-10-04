@@ -1,0 +1,149 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "cbf",
+    srcs = [
+        "__init__.py",
+        "barrier.py",
+        "definition.py",
+    ],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        "//src/robo_arch/core/controllers",
+        requirement("numpy"),
+    ],
+)
+
+py_library(
+    name = "config",
+    srcs = ["config.py"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        ":cbf",
+        "//src/robo_arch/core/config",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "assembly",
+    srcs = ["assembly.py"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        ":cbf",
+        ":config",
+        ":geometry",
+        "//src/robo_arch/core/config",
+        requirement("numpy"),
+    ],
+)
+
+py_library(
+    name = "geometry",
+    srcs = ["geometry.py"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        ":cbf",
+        "//src/robo_arch/core/config",
+        requirement("numpy"),
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "drake",
+    srcs = ["drake.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":assembly",
+        ":cbf",
+        ":config",
+        requirement("drake"),
+        requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "config_test",
+    srcs = ["tests/test_config.py"],
+    main = "tests/test_config.py",
+    deps = [
+        ":config",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "assembly_test",
+    srcs = ["tests/test_assembly.py"],
+    main = "tests/test_assembly.py",
+    deps = [
+        ":assembly",
+        ":config",
+        ":geometry",
+        "//src/robo_arch/core/config",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "barrier_test",
+    srcs = ["tests/test_barrier.py"],
+    main = "tests/test_barrier.py",
+    deps = [
+        ":cbf",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "drake_test",
+    srcs = ["tests/test_drake.py"],
+    main = "tests/test_drake.py",
+    deps = [
+        ":assembly",
+        ":cbf",
+        ":config",
+        ":drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "geometry_test",
+    srcs = ["tests/test_geometry.py"],
+    main = "tests/test_geometry.py",
+    deps = [
+        ":geometry",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_library(
+    name = "visualization",
+    srcs = ["visualization.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":cbf",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("drake"),
+    ],
+)

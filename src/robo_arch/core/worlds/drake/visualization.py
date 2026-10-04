@@ -6,7 +6,13 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-from pydrake.geometry import Meshcat, MeshcatParams, Rgba
+from pydrake.geometry import (
+    Meshcat,
+    MeshcatParams,
+    MeshcatVisualizer,
+    MeshcatVisualizerParams,
+    Rgba,
+)
 from pydrake.systems.framework import DiagramBuilder
 from pydrake.systems.lcm import ApplyLcmBusConfig
 from pydrake.visualization import ApplyVisualizationConfig, VisualizationConfig
@@ -68,6 +74,29 @@ def add_visualization(
         meshcat=meshcat,
         lcm_buses=ApplyLcmBusConfig({"default": None}, builder),
     )
+    inspector = scene.scene_graph.model_inspector()
+    if any(
+        properties is not None
+        and properties.HasProperty("meshcat", "accepting")
+        and properties.GetProperty("meshcat", "accepting") == "protections"
+        for geometry in inspector.GetAllGeometryIds()
+        for properties in [inspector.GetIllustrationProperties(geometry)]
+    ):
+        # Native accepting tags also exclude these overlays from illustration.
+        # A separate visualizer keeps moving geometry and recordings synchronized.
+        MeshcatVisualizer.AddToBuilder(
+            builder,
+            scene.scene_graph,
+            meshcat,
+            MeshcatVisualizerParams(
+                publish_period=config.publish_period,
+                prefix="protections",
+                include_unspecified_accepting=False,
+                visible_by_default=False,
+                enable_alpha_slider=True,
+                delete_on_initialization_event=config.delete_on_initialization_event,
+            ),
+        )
 
 
 def start_recording(meshcat: Meshcat, config: DrakeVisualization) -> None:

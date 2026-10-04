@@ -58,6 +58,21 @@ is no Python sampling loop or forced publication in simulation execution. A
 scenario connects control using native ports; arm tracking's `drake.configure()`
 is an example.
 
+Illustration geometries tagged with `("meshcat", "accepting") = "protections"`
+appear exclusively in `/drake/protections`, hidden by default and independently
+toggleable in Meshcat's tree. Its live `protections α` slider adjusts opacity;
+native HTML recordings retain the layer and motion but omit server-dependent
+sliders. Untagged physical visuals remain in the standard illustration layer;
+camera protection tags all sphere coverings and its ground boundary. Tags change
+no collision or perception roles.
+
+Drake wiring may return a mapping of diagnostic names to vector output ports,
+or `None`. The runner logs these alongside the world signals; each diagnostic
+has a separate `<name>/times` array, including when a failure interrupts logging.
+Names must not overlap world channels or another channel's timestamps.
+`build_simulation(..., initialize=False)` transfers initialization to the caller;
+the runner uses this to preserve partial logs when initialization fails.
+
 Isaac's `build_scene(run.scene, run.world_config, directory=...)` constructs a
 Lab `SimulationContext` and `InteractiveScene` after Kit startup, using the
 selected PhysX or Newton/MuJoCo Warp backend. Converted assets stay alive until teardown. Each articulation
@@ -118,6 +133,19 @@ remain unsupported. Tensor effort control is exercised by batched reaching; supp
 workload- and hardware-dependent.
 Isaac authors downward gravity of 9.81 m/s²; Drake uses its plant default. Shared assets do not guarantee identical
 contact models or trajectories.
+
+Drake and Isaac enable `world.ground: true` by default: an infinite static
+collision plane at world z=0 with a 10×10 m gray visible surface. The ground has
+nominal static/dynamic friction 0.8/0.6 and remains physical when visualization
+is disabled. Set `world.ground: false` for an installation with its own floor.
+Autonomy must explicitly include the floor in its constraints; the camera
+protection scenario does so for every selected protected sphere.
+
+Drake results include `simulation_wall_seconds` and `realtime_rate`, measured
+around `Simulator.AdvanceTo`. The rate is simulated seconds per wall-clock
+second; startup, HTML export and plotting are excluded. It includes controller
+evaluation and scheduled logging/viewer work during stepping. A positive
+`target_realtime_rate` only limits pacing; it cannot speed up computation.
 
 Drake uses its native object parser. Isaac's `objects.py` explicitly supports only
 SDF 1.7 fixtures with one unoffset link, one visual box and an identical collision

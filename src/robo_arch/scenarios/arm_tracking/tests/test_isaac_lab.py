@@ -133,19 +133,23 @@ def run_case(case: str, destination: Path) -> None:
         physics = stage.GetPrimAtPath(execution.scene.simulation.cfg.physics_prim_path)
         assert physics.GetAttribute("physxScene:invertCollisionGroupFilter").Get()
         groups = stage.GetPrimAtPath("/World/collisions").GetChildren()
-        assert len(groups) == 2
+        assert len(groups) == 3
+        global_group = stage.GetPrimAtPath("/World/collisions/global_group")
+        assert stage.GetPrimAtPath("/_world/ground/collision")
         included = set()
         for group in groups:
-            assert group.GetRelationship("physics:filteredGroups").GetTargets() == [
-                group.GetPath()
-            ]
+            if group != global_group:
+                assert group.GetRelationship("physics:filteredGroups").GetTargets() == [
+                    group.GetPath(),
+                    global_group.GetPath(),
+                ]
             included.update(
                 str(path)
                 for path in group.GetRelationship(
                     "collection:colliders:includes"
                 ).GetTargets()
             )
-        assert included == {"/World/envs/env_0", "/World/envs/env_1"}
+        assert included == {"/World/envs/env_0", "/World/envs/env_1", "/_world/ground"}
         before = execution.sample()
         untouched_commands = execution.commands[1]
         untouched_counts = counters[1].copy()

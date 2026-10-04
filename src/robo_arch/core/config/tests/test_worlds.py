@@ -74,6 +74,14 @@ def test_isaac_live_settings_round_trip_without_sdk():
     assert parse_world(world.model_dump()) == world
 
 
+@pytest.mark.parametrize("kind", ["drake", "isaac"])
+def test_simulation_ground_defaults_on_and_can_be_disabled(kind):
+    assert parse_world({"type": kind}).ground is True
+    world = parse_world({"type": kind, "ground": False})
+    assert world.ground is False
+    assert parse_world(world.model_dump()) == world
+
+
 def test_drake_meshcat_settings_round_trip_without_sdk():
     world = parse_world(
         {

@@ -69,3 +69,15 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+py_test(
+    name = "ground_test",
+    srcs = ["tests/test_ground.py"],
+    main = "tests/test_ground.py",
+    deps = [
+        ":config",
+        ":isaac",
+        "//src/robo_arch/core/config",
+        requirement("pytest"),
+    ],
+)

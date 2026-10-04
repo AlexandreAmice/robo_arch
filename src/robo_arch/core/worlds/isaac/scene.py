@@ -41,6 +41,45 @@ class IsaacScene:
         return self.simulation.stage
 
 
+def add_ground(stage: Any, *, enabled: bool = True) -> None:
+    """Author a static z=0 collision plane and separate 10 m square visual.
+
+    PhysX treats UsdGeom.Plane as an infinite collision plane. Hydra renders the
+    finite mesh instead, matching Isaac's native ground-plane representation.
+    Material values are the ground's own nominal contact assumptions.
+    """
+    if not enabled:
+        return
+    from pxr import Gf, UsdGeom, UsdPhysics, UsdShade
+
+    # Declared device names start with letters, leaving this namespace reserved.
+    UsdGeom.Xform.Define(stage, "/_world")
+    UsdGeom.Xform.Define(stage, "/_world/ground")
+    plane = UsdGeom.Plane.Define(stage, "/_world/ground/collision")
+    plane.CreateAxisAttr(UsdGeom.Tokens.z)
+    plane.CreatePurposeAttr(UsdGeom.Tokens.guide)
+    UsdPhysics.CollisionAPI.Apply(plane.GetPrim())
+
+    material = UsdShade.Material.Define(stage, "/_world/ground/material")
+    physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+    physics.CreateStaticFrictionAttr(0.8)
+    physics.CreateDynamicFrictionAttr(0.6)
+    physics.CreateRestitutionAttr(0.0)
+    UsdShade.MaterialBindingAPI.Apply(plane.GetPrim()).Bind(
+        material, materialPurpose="physics"
+    )
+
+    visual = UsdGeom.Mesh.Define(stage, "/_world/ground/visual")
+    visual.CreatePointsAttr(
+        [(-5.0, -5.0, 0.0), (5.0, -5.0, 0.0), (5.0, 5.0, 0.0), (-5.0, 5.0, 0.0)]
+    )
+    visual.CreateFaceVertexCountsAttr([4])
+    visual.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+    visual.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    visual.CreateDoubleSidedAttr(True)
+    visual.CreateDisplayColorAttr([Gf.Vec3f(0.55, 0.57, 0.60)])
+
+
 def build_scene(
     scene: SceneConfiguration, config: IsaacWorld, *, directory: Path
 ) -> IsaacScene:
@@ -92,6 +131,7 @@ def build_scene(
         )
     )
     stage = simulation.stage
+    add_ground(stage, enabled=config.ground)
     prototype = "/World/envs/env_0"
     UsdGeom.Xform.Define(stage, prototype)
     roots = {}
@@ -168,7 +208,9 @@ def build_scene(
                 raise ValueError(f"Expected an articulation fixed to world at {root}")
             joint.GetLocalPos0Attr().Set(joint.GetLocalPos0Attr().Get() + offset)
     if config.physics.backend == "physx":
-        native.filter_collisions()
+        native.filter_collisions(
+            global_prim_paths=["/_world/ground"] if config.ground else []
+        )
     observations = {}
     for sensor in devices.sensors if scene.sensors_enabled else ():
         parent = sensor.parent.rsplit("/", 1)[0]

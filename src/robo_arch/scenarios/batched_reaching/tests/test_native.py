@@ -67,6 +67,7 @@ def run_case(backend: str, destination: Path) -> None:
     run = replace(run, world_config=IsaacWorld.model_validate(world), duration=2.5)
 
     def check(scene, viewer):
+        assert scene.stage.GetPrimAtPath("/_world/ground/collision")
         execution = BatchedExecution(scene)
         arm = scene.native.articulations["arm"]
         q = execution.initial["arm"]
@@ -112,14 +113,25 @@ def run_case(backend: str, destination: Path) -> None:
         if backend == "newton":
             model = arm.root_view.model
             assert set(model.body_world.numpy().tolist()) == {0, 1}
+            assert set(model.shape_world.numpy().tolist()) == {-1, 0, 1}
         else:
             physics = scene.stage.GetPrimAtPath(scene.simulation.cfg.physics_prim_path)
             assert physics.GetAttribute("physxScene:invertCollisionGroupFilter").Get()
             groups = scene.stage.GetPrimAtPath("/World/collisions").GetChildren()
-            assert len(groups) == 2
+            assert len(groups) == 3
+            global_group = scene.stage.GetPrimAtPath("/World/collisions/global_group")
+            assert [
+                str(path)
+                for path in global_group.GetRelationship(
+                    "collection:colliders:includes"
+                ).GetTargets()
+            ] == ["/_world/ground"]
             for group in groups:
+                if group == global_group:
+                    continue
                 assert group.GetRelationship("physics:filteredGroups").GetTargets() == [
-                    group.GetPath()
+                    group.GetPath(),
+                    global_group.GetPath(),
                 ]
         result = rollout(
             scene, viewer, run=run, measurement=Measurement(), destination=destination

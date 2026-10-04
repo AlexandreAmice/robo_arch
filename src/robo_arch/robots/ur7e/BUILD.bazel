@@ -15,6 +15,7 @@ py_library(
         "__init__.py",
     ],
     data = [
+        "protection.yaml",
         "robot.yaml",
         ":assets",
     ],

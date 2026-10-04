@@ -1,0 +1,120 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "configuration",
+    srcs = [
+        "__init__.py",
+        "configuration.py",
+    ],
+    data = [
+        "scenario.yaml",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robot_system/ur7e_three_d435:resources",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/sensors/realsense_d435",
+    ],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:config",
+        "//src/robo_arch/core/controllers/joint_tracking",
+        "//src/robo_arch/scenarios",
+        requirement("pydantic"),
+    ],
+)
+
+py_library(
+    name = "camera_protection",
+    srcs = [
+        "drake.py",
+        "plotting.py",
+        "run.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        ":configuration",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:assembly",
+        "//src/robo_arch/core/controllers/cbf:drake",
+        "//src/robo_arch/core/controllers/cbf:visualization",
+        "//src/robo_arch/core/controllers/joint_pd",
+        "//src/robo_arch/core/controllers/joint_pd:drake",
+        "//src/robo_arch/core/controllers/joint_tracking:drake",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/sensors/realsense_d435",
+        "//src/robo_arch/sensors/realsense_d435/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pydantic"),
+        requirement("matplotlib"),
+    ],
+)
+
+py_binary(
+    name = "run",
+    srcs = ["run.py"],
+    deps = [":camera_protection"],
+)
+
+py_test(
+    name = "run_test",
+    srcs = ["tests/test_run.py"],
+    main = "tests/test_run.py",
+    deps = [
+        ":camera_protection",
+        ":configuration",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:drake",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "configuration_test",
+    srcs = ["tests/test_configuration.py"],
+    main = "tests/test_configuration.py",
+    deps = [
+        ":camera_protection",
+        ":configuration",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:assembly",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "plotting_test",
+    srcs = ["tests/test_plotting.py"],
+    main = "tests/test_plotting.py",
+    deps = [
+        ":camera_protection",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "ground_test",
+    srcs = ["tests/test_ground.py"],
+    main = "tests/test_ground.py",
+    deps = [
+        ":camera_protection",
+        ":configuration",
+        "//src/robo_arch/core/config",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

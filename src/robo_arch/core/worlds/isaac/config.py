@@ -46,6 +46,8 @@ class IsaacWorld(Schema):
     num_envs: int = Field(default=1, ge=1)
     env_layout: Literal["line", "grid"] = "line"
     env_spacing: float = Field(default=3.0, gt=0)
+    # Static collision plane at world z=0, with a finite 10 m square visual.
+    ground: bool = True
     # Pacing applies only when viewing; headless physics runs without wall-clock waits.
     target_realtime_rate: float = Field(default=1.0, ge=0)
     physics: IsaacPhysics | NewtonPhysics = Field(default_factory=IsaacPhysics)

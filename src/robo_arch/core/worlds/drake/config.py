@@ -47,6 +47,8 @@ class DrakeVisualization(Schema):
 
 class DrakeWorld(Schema):
     type: Literal["drake"] = "drake"
+    # Physical floor at world z=0, independent of viewer selection.
+    ground: bool = True
     # Wall-clock pacing is independent of the physics and viewer publication step.
     target_realtime_rate: float = Field(default=0.0, ge=0)
     physics: DrakePhysics = Field(default_factory=DrakePhysics)

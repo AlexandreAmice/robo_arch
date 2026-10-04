@@ -1,0 +1,23 @@
+# Nominal simulation mounts; brackets and cables are not modeled.
+robots:
+  arm:
+    model: ur7e
+sensors:
+  forearm_camera:
+    model: realsense_d435
+    parent: arm/forearm_link
+    pose:
+      translation: [-0.20, 0.0, 0.10]
+    parameters: {width: 64, height: 48}
+  wrist_camera:
+    model: realsense_d435
+    parent: arm/wrist_1_link
+    pose:
+      translation: [0.0, 0.0, 0.14]
+    parameters: {width: 64, height: 48}
+  tool_camera:
+    model: realsense_d435
+    parent: arm/wrist_3_link
+    pose:
+      translation: [0.0, 0.0, 0.10]
+    parameters: {width: 64, height: 48}
