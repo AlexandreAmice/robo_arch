@@ -1,0 +1,62 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# Execute with the independently locked Isaac vendor Python (Torch and Kit).
+py_library(
+    name = "batched_reaching",
+    srcs = [
+        "__init__.py",
+        "benchmark.py",
+        "config.py",
+        "run.py",
+        "task.py",
+    ],
+    data = [
+        "scenario.yaml",
+        "//src/robo_arch/robot_system/ur7e_d435:resources",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/joint_pd",
+        "//src/robo_arch/core/controllers/joint_pd:native",
+        "//src/robo_arch/core/controllers/joint_pd:tensor",
+        "//src/robo_arch/core/worlds/isaac",
+        "//src/robo_arch/core/worlds/isaac:config",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/scenarios",
+        "//src/robo_arch/sensors/realsense_d435",
+        requirement("numpy"),
+        requirement("pydantic"),
+        requirement("matplotlib"),
+    ],
+)
+
+py_test(
+    name = "task_test",
+    srcs = ["tests/test_task.py"],
+    main = "tests/test_task.py",
+    deps = [
+        ":batched_reaching",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "native_test",
+    size = "large",
+    srcs = ["tests/test_native.py"],
+    main = "tests/test_native.py",
+    tags = [
+        "local",
+        "manual",
+        "no-cache",
+    ],
+    deps = [
+        ":batched_reaching",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/isaac",
+        "//src/robo_arch/core/worlds/isaac:config",
+        requirement("pytest"),
+    ],
+)

@@ -24,10 +24,10 @@ expressed in its frame, with **mounting side acting on tool side** sign. This is
 ideal mechanical sensing: no electronics, filtering, bias, saturation or automatic
 gravity compensation. The model has no hardware driver.
 
-Drake reads joint reactions from its plant output. PhysX reads the incoming
-six-axis joint force by **link name**, not by actuated-joint index. Samples are
-recorded after physics steps; time-zero wrench values are NaN because the solver
-has not stepped from the selected initial state. Sensor bodies remain when
+Drake reads joint reactions from its plant output. Isaac Lab uses
+`JointWrenchSensor` with the incoming joint frame and resolves the sensed body
+by **link name**. Samples are recorded after physics steps; time-zero and
+just-reset wrench values are NaN until the solver steps from the initial state. Sensor bodies remain when
 observations are disabled. The analytic test checks rotated gravity, an offset
 payload and an external force/torque:
 
@@ -35,3 +35,8 @@ payload and an external force/torque:
 uv run pytest src/robo_arch/sensors/ati_mini45/tests
 ROBO_ARCH_VISUALIZE=1 uv run pytest src/robo_arch/sensors/ati_mini45/tests -s
 ```
+
+Isaac Lab's pinned Newton joint-wrench sensor excludes fixed joints, including
+the Mini45 sensing joint. Newton observations are rejected before startup;
+`sensors_enabled: false` retains the physical model without claiming a wrench
+measurement. PhysX sensing remains supported.

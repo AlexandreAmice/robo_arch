@@ -1,10 +1,7 @@
 """Check ground declaration and native USD authoring without starting Kit."""
 
-from pathlib import Path
-
 import pytest
 
-from robo_arch.core.config.declarations import Pose, RobotSystem, SceneConfiguration
 from robo_arch.core.worlds.isaac import scene
 from robo_arch.core.worlds.isaac.config import IsaacWorld
 
@@ -16,23 +13,13 @@ def test_ground_setting_defaults_on_and_round_trips():
 
 
 @pytest.mark.parametrize("enabled", [True, False])
-def test_scene_ground_authors_collision_visual_and_material(
-    tmp_path, monkeypatch, enabled
-):
+def test_scene_ground_authors_collision_visual_and_material(enabled):
+    Usd = pytest.importorskip("pxr.Usd")
     UsdGeom = pytest.importorskip("pxr.UsdGeom")
     UsdPhysics = pytest.importorskip("pxr.UsdPhysics")
     UsdShade = pytest.importorskip("pxr.UsdShade")
-    # Scene assembly runs against real USD. Only the unrelated PhysX extension
-    # scene settings are omitted, so Kit and a live simulation are unnecessary.
-    monkeypatch.setattr(scene, "apply_physics", lambda scene, config: None)
-    declaration = SceneConfiguration(
-        robot_system=RobotSystem(source=Path("unused.yaml"), name="", pose=Pose()),
-        sensors_enabled=False,
-        objects=(),
-    )
-    stage = scene.build_scene(
-        declaration, IsaacWorld(ground=enabled), directory=tmp_path
-    ).stage
+    stage = Usd.Stage.CreateInMemory()
+    scene.add_ground(stage, enabled=enabled)
     ground = stage.GetPrimAtPath("/_world/ground")
     assert bool(ground) == enabled
     if not enabled:

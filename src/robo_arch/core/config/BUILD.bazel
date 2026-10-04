@@ -32,6 +32,7 @@ py_library(
     visibility = [
         "//src/robo_arch:__subpackages__",
         "//tests/build:__pkg__",
+        "//tools:__pkg__",
     ],
     deps = [
         ":resources",

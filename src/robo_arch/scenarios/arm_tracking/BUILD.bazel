@@ -67,3 +67,24 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+# Native integration needs an explicit vendor interpreter and NVIDIA driver.
+py_test(
+    name = "isaac_lab_test",
+    size = "large",
+    srcs = ["tests/test_isaac_lab.py"],
+    main = "tests/test_isaac_lab.py",
+    tags = [
+        "local",
+        "manual",
+        "no-cache",
+    ],
+    deps = [
+        ":arm_tracking",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/isaac",
+        "//src/robo_arch/core/worlds/isaac:config",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

@@ -1,0 +1,33 @@
+world:
+  type: isaac
+  num_envs: 16
+  env_layout: grid
+  env_spacing: 1.5
+  target_realtime_rate: 1.0
+  physics:
+    backend: physx
+    solver: tgs
+    device: cuda:0
+    time_step: 0.001
+  visualization:
+    mode: "off"
+duration: 6.0
+sensors_enabled: false
+robot_system:
+  definition: package://robo_arch/robot_system/ur7e_d435/system.yaml
+  autonomy:
+    controller: joint_pd
+    parameters:
+      # N m/rad and N m s/rad, ordered as the UR7e declaration.
+      kp: [400, 400, 300, 20, 15, 8]
+      kd: [40, 40, 30, 1, 0.5, 0.15]
+task:
+  type: batched_reaching
+  parameters:
+    seed: 7
+    target_radius: 0.15
+    tolerance: 0.02
+    velocity_tolerance: 0.05
+    settle_seconds: 0.1
+    episode_seconds: 2.0
+    feedforward: simulator_gravity

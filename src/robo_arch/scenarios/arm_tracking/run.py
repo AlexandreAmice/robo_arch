@@ -38,14 +38,9 @@ def _json_value(value: object) -> object:
 
 
 def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
-    args = ["uv", "run", "--locked"]
-    if run.world == "isaac":
-        args.extend(["--project", "third_party/isaac"])
+    args = ["uv", "run", "--locked", "tools/dev.py", "run", "arm_tracking"]
     args.extend(
         [
-            "python",
-            "-m",
-            "robo_arch.scenarios.arm_tracking.run",
             "--inspect",
             str(metadata.resolve()),
             "--visualization",
@@ -84,7 +79,11 @@ def _prepare_report(run: RunConfiguration, destination: Path) -> dict:
         "robo-arch",
         "drake",
         "robo-arch-native",
-        *(("isaacsim",) if run.world == "isaac" else ()),
+        *(
+            ("isaacsim", "isaaclab", "newton", "mujoco-warp", "torch", "warp-lang")
+            if run.world == "isaac"
+            else ()
+        ),
     ):
         versions[package] = installed.get(package, "not installed")
     package_root = Path(str(files("robo_arch")))
@@ -281,7 +280,27 @@ def _run_isaac(run, parameters, tasks, trace_path, keep_viewer_open):
         trace_path=trace_path,
         keep_viewer_open=keep_viewer_open,
     )
-    return {**_results(run, tasks, result.pop("trace")), **result}
+    trace = result.pop("trace")
+    if run.world_config.num_envs == 1:
+        return {**_results(run, tasks, trace), **result}
+    environments = {}
+    for env in range(run.world_config.num_envs):
+        prefix = f"env_{env}/"
+        local = {
+            key.removeprefix(prefix): value
+            for key, value in trace.items()
+            if key.startswith(prefix)
+        }
+        local["times"] = trace["times"]
+        environments[f"env_{env}"] = _results(run, tasks, local)
+    return {
+        "world": run.world,
+        "controller": run.autonomy.controller,
+        "duration_seconds": float(trace["times"][-1]),
+        "environments": environments,
+        "success": all(value["success"] for value in environments.values()),
+        **result,
+    }
 
 
 def main() -> None:

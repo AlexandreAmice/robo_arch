@@ -139,3 +139,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+# Torch is provided by the independently locked Isaac vendor profile.
+py_library(
+    name = "tensor",
+    srcs = ["tensor.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [":joint_pd"],
+)
+
+py_test(
+    name = "tensor_test",
+    srcs = ["tests/test_tensor.py"],
+    main = "tests/test_tensor.py",
+    deps = [
+        ":native",
+        ":tensor",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

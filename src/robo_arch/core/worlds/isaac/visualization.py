@@ -1,4 +1,4 @@
-"""Native Isaac viewport observing the same USD stage that PhysX advances."""
+"""Native Isaac viewport observing sampled state from the selected backend."""
 
 import asyncio
 import signal
@@ -11,7 +11,7 @@ from robo_arch.core.worlds.isaac.config import IsaacVisualization
 class Viewer:
     """Own the observational camera, frame cadence and viewport capture lifecycle."""
 
-    def __init__(self, app, stage, config: IsaacVisualization) -> None:
+    def __init__(self, app, scene, config: IsaacVisualization) -> None:
         import omni.kit.app
         import omni.timeline
         import omni.usd
@@ -19,6 +19,9 @@ class Viewer:
         from omni.kit.viewport.utility import get_active_viewport
         from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
+        self.scene = scene
+        stage = scene.stage
+        self._body_transforms = None
         self.app = app
         self.config = config
         timeline = omni.timeline.get_timeline_interface()
@@ -37,15 +40,16 @@ class Viewer:
         self.closed = False
         self._kit = omni.kit.app.get_app()
         self._quit_subscription = None
-        success, error = self._wait(self.context.attach_stage_async(stage))
-        if not success:
-            raise RuntimeError(f"Could not attach Isaac viewport stage: {error}")
+        if self.context.get_stage() != stage:
+            success, error = self._wait(self.context.attach_stage_async(stage))
+            if not success:
+                raise RuntimeError(f"Could not attach Isaac viewport stage: {error}")
         self.viewport = get_active_viewport()
         if self.viewport is None:
             raise RuntimeError("Isaac did not create a native viewport")
         self.camera = UsdGeom.Camera.Define(stage, "/inspection/camera")
         self.camera.CreateClippingRangeAttr(Gf.Vec2f(0.01, 1000))
-        self.camera.CreateFocalLengthAttr(18)
+        self.camera.CreateFocalLengthAttr(30)
         self._camera_transform = self.camera.AddTransformOp()
         self._frame_scene()
         self._framed = False
@@ -89,7 +93,7 @@ class Viewer:
         )
 
     def _request_close(self, event) -> None:
-        # Keep Kit alive until the caller saves traces and detaches PhysX.
+        # Keep Kit alive until the caller saves traces and detaches physics.
         self._kit.try_cancel_shutdown("robo_arch is cleaning up its physics stage")
         self.closed = True
 
@@ -107,11 +111,49 @@ class Viewer:
                 task.cancel()
 
     def _publish(self) -> None:
+        if self.scene.world.physics.backend == "newton":
+            self._publish_newton()
+            return
         from omni.physx import get_physx_interface
 
         # Control samples every physics step; USD transforms need only be copied
         # at the display cadence. Writing USD at 1 kHz stalls the scene delegate.
         get_physx_interface().update_transformations(False, True)
+
+    def _publish_newton(self) -> None:
+        """Publish sampled link poses to USD for Storm (which does not use Fabric).
+
+        This CPU copy occurs at display cadence only. Physics reads native state.
+        """
+        from pxr import Gf, Usd, UsdGeom, UsdPhysics
+
+        with Usd.EditContext(self.stage, self.stage.GetSessionLayer()):
+            if self._body_transforms is None:
+                self._body_transforms = []
+                for name, arm in self.scene.native.articulations.items():
+                    body_ids = {name: i for i, name in enumerate(arm.body_names)}
+                    for env in range(self.scene.world.num_envs):
+                        root = self.stage.GetPrimAtPath(f"/World/envs/env_{env}/{name}")
+                        for prim in Usd.PrimRange(root):
+                            if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                                body = body_ids[prim.GetName()]
+                                transform = UsdGeom.Xformable(prim).MakeMatrixXform()
+                                self._body_transforms.append(
+                                    (name, env, body, prim, transform)
+                                )
+            poses = {
+                name: arm.data.body_link_pose_w.torch.cpu().numpy()
+                for name, arm in self.scene.native.articulations.items()
+            }
+            cache = UsdGeom.XformCache()
+            for name, env, body, prim, transform in self._body_transforms:
+                pose = poses[name][env, body].astype(float)
+                matrix = Gf.Matrix4d(1)
+                matrix.SetRotate(Gf.Quatd(pose[6], Gf.Vec3d(*pose[3:6])))
+                matrix.SetTranslateOnly(Gf.Vec3d(*pose[:3]))
+                parent = cache.GetLocalToWorldTransform(prim.GetParent())
+                transform.Set(matrix * parent.GetInverse())
+                cache.Clear()
 
     def update(self, t: float, realtime_rate: float) -> None:
         """Render sampled states without advancing the physics or its timeline."""
@@ -167,25 +209,37 @@ class Viewer:
         finally:
             signal.signal(signal.SIGINT, handler)
 
-    def close(self) -> None:
+    def pause_rendering(self) -> None:
+        """Stop viewport drawing and drain work before native stage teardown."""
         import omni.appwindow
         import omni.kit.renderer.bind
 
         self.viewport.updates_enabled = False
+        renderer = omni.kit.renderer.bind.get_renderer_interface()
+        renderer.wait_idle(omni.appwindow.get_default_app_window())
+
+    def close(self, *, close_stage: bool = True) -> None:
+        import omni.appwindow
+        import omni.kit.renderer.bind
+
+        self.pause_rendering()
         renderer = omni.kit.renderer.bind.get_renderer_interface()
         window = omni.appwindow.get_default_app_window()
         try:
             # Image writing and GPU rendering have separate completion fences.
             # Drain drawing before destroying its stage or unloading Kit.
             renderer.wait_idle(window)
-            success, error = self._wait(self.context.close_stage_async())
-            if not success:
-                raise RuntimeError(f"Could not close Isaac viewport stage: {error}")
+            if close_stage:
+                success, error = self._wait(self.context.close_stage_async())
+                if not success:
+                    raise RuntimeError(f"Could not close Isaac viewport stage: {error}")
             renderer.wait_idle(window)
         finally:
             self._quit_subscription = None
             self._camera_transform = None
             self.camera = None
+            self._body_transforms = None
+            self.scene = None
             self.stage = None
             self.viewport = None
             self.context = None
