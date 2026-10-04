@@ -181,13 +181,15 @@ minimum joint-velocity slack and velocity-barrier residual at every control step
 assumes one uninterrupted approach/retreat episode; the lower-level world reset
 API is available to other training loops.
 
-Before the Isaac Lab migration, on the RTX 3060 Laptop GPU, two-environment compiled runs at the 1 ms control
-period retained positive clearance: 8.2 µm beyond the 10 mm margin in the obstacle
-case and 69.1 µm beyond it in the floor approach. Both environments retreated
-within the configured tolerance. The unfiltered obstacle comparison reached
-−57.0 mm clearance, and the unfiltered floor comparison reached −26.2 mm. The six-second filtered obstacle run took 222.6 s of measured
-simulation wall time, excluding setup/compilation and artifact export; this is
-not real-time control.
+On an RTX 3060 Laptop GPU with the pinned Isaac Lab PhysX/PGS profile,
+two-environment compiled runs at the 1 ms control period retained positive
+clearance: 8.23 µm beyond the 10 mm margin in the obstacle case and 69.11 µm
+beyond it in the floor approach. Both environments retreated within the configured
+tolerance. The unfiltered obstacle comparison reached −57.95 mm clearance, and
+the unfiltered floor comparison reached −26.17 mm. These local correctness runs
+shared a heavily loaded workstation; the six-second filtered obstacle run took
+699.9 s of simulation wall time, excluding setup/compilation and artifact export.
+It does not provide real-time control.
 
 The control-only benchmark includes independent dynamics, nominal control, all
 128 geometry rows, 12 velocity rows, Moreau and status synchronization, excluding physics, rendering
