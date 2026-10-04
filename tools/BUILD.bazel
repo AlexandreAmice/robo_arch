@@ -1,0 +1,19 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "dev",
+    srcs = ["dev.py"],
+    deps = ["//src/robo_arch/core/config"],
+)
+
+py_test(
+    name = "dev_test",
+    srcs = ["tests/test_dev.py"],
+    main = "tests/test_dev.py",
+    deps = [
+        ":dev",
+        "//src/robo_arch/core/config",
+        requirement("pytest"),
+    ],
+)

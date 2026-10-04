@@ -7,11 +7,14 @@
 | `bimanual.yaml` | UR7e + nested iiwa system | Independent native PD per arm | Two named wrenches |
 | `iiwa7_contact.yaml` | iiwa 7 + Mini45-R, fixed block | Native PD into an obstructed target | Wrench peak check |
 
-All use `python -m robo_arch.scenarios.arm_tracking.run --run
-package://robo_arch/scenarios/arm_tracking/<resource>`. Build/install the native
-controller first with `uv run tools/dev.py native --profile drake`; use the
-`isaac` profile in that separate environment. Both new systems run in Drake and
-Isaac; the mixed system uses `left_arm`, `left_ft`, `right/arm` and
+Use `uv run tools/dev.py run arm_tracking --world <drake|isaac> --run
+package://robo_arch/scenarios/arm_tracking/<resource> --visualization live`.
+The launcher selects the environment and builds/installs the native controller.
+It also accepts `--world-config` instead of `--world`; with neither option it
+uses the scenario or inspection report's world. Direct
+`python -m robo_arch.scenarios.arm_tracking.run` remains available in a prepared
+environment. Both new systems run in Drake and Isaac; the mixed system uses
+`left_arm`, `left_ft`, `right/arm` and
 `right/wrist_ft`. The system definition never fixes its controller.
 
 Execution lives in each world’s `scenario.py`; this package supplies task-specific
@@ -51,10 +54,10 @@ collisions. Unsupported observations are errors, never silently dropped.
 ## Inspection
 
 ```sh
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --record recordings/bimanual_drake.html --no-browser
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --inspect recordings/bimanual_drake.json --visualization live_and_record
 ```
 

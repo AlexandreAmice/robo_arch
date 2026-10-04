@@ -19,7 +19,7 @@ dev = [
 drake = ["drake==1.57.0"]
 
 [tool.uv]
-required-version = "==0.12.17"
+required-version = "==0.12.20"
 default-groups = ["dev", "drake"]
 
 [tool.hatch.build.targets.wheel]
@@ -41,5 +41,5 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
-testpaths = ["tests", "src/robo_arch"]
+testpaths = ["tests", "src/robo_arch", "tools"]
 norecursedirs = [".git", ".venv*", "bazel-*", "dist", "__pycache__"]

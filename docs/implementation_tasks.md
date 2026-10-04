@@ -124,9 +124,22 @@ Provide `native` and `run` operations, with an explicit environment profile:
 - Launch the requested Python command in a fresh process.
 - Stop on build/install failure rather than running stale native code.
 
+Generate the public Python API reference from the installed package, including
+Python-source docstrings and docstrings extracted from public C++ Doxygen
+comments. Use a Bazel-owned Clang extraction step to produce C++ constants for
+nanobind. For a thin Python facade, compose the extracted description with a
+Python-source addendum containing only Python-specific behavior. A facade that
+changes the contract instead owns a complete Python docstring as a distinct API.
+Reject duplicate ownership, unresolved composition and stale committed output.
+
 Use a small numerical C++ library to prove the mechanism. Keep its Python binding thin and its C++ target independently linkable. Shared native algorithms live with their shared owner; device-specific native code stays with the device. The wheel manifest maps either location to private extensions. The source-development profile must not pull in a competing released native wheel.
 
-**Complete when:** changing C++ changes the result observed from editable Python, ordinary Python edits require no native rebuild, and a failed native build prevents launch.
+**Complete when:** changing C++ changes the result observed from editable Python,
+changing a public C++ documentation comment updates the corresponding Python
+`__doc__`, Python-authored public APIs appear from their source docstrings, and a
+representative facade contains one shared description plus its Python-specific
+notes. Stale or conflicting documentation is rejected, ordinary Python edits
+require no native rebuild, and a failed native build prevents launch.
 
 **C0 — Local validation**
 
@@ -264,7 +277,7 @@ Task/scene and hardware work can proceed independently. Hardware-specific implem
 
 **Repository gate:** private upstream exists, initial commit is pushed, and fresh-clone instructions are correct.
 
-**Development gate:** editable Python works without Bazel; native changes reach Python through one command; ABI mismatch and failed builds stop clearly; installed artifacts work outside the checkout.
+**Development gate:** editable Python works without Bazel; native changes reach Python through one command; the public API reference includes Python-source and C++-sourced documentation under the ownership rules above; ABI mismatch, stale or conflicting documentation and failed builds stop clearly; installed artifacts work outside the checkout.
 
 **Configuration gate:** robot systems, their devices, task objects and layout can vary independently; nested physical systems load independently of Python-authored autonomy; reused child definitions retain distinct instances; incompatible joint/command interfaces, calibration or world support fail with instance-specific diagnostics. Packaged owner-local assets resolve without checkout-relative paths.
 
@@ -288,7 +301,7 @@ Status as of 2026-09-30. Runtime, explicit assembly and world configuration are 
 | G0 | Complete, limited feasibility: [PR #3](https://github.com/AlexandreAmice/robo_arch/pull/3); small GPU physics probe passes, vendor VRAM check fails |
 | L0 | Complete: device-oriented core migration integrated in PR #5 |
 | I1 | Partial: scenario selects recursive robot systems; nominal mounts and instance namespaces implemented; calibration and exported device interfaces remain |
-| B1 | Implemented: C++ PD library, nanobind arrays, private local wheel and build/install/run helper for Drake/Isaac |
+| B1 | Partial: C++ PD library, nanobind arrays, private local wheel and build/install/run helper are implemented; generated C++ docstrings and the combined Python API reference remain |
 | C0 | Local validation only; hosted CI and required remote checks removed by user decision |
 | S0 | Partial: strict package-resource loading, typed native world/viewer settings and effective-input inspection; calibration and batched performance diagnostics remain |
 | A0 | Nominal UR7e and iiwa 7 with model-specific collision meshes; D435 and Mini45 physical models; gripper and calibration remain |

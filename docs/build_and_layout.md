@@ -108,6 +108,16 @@ Keep `uv.lock` authoritative for each supported environment. Bazel reads the roo
 
 Use thin **nanobind** bindings around project C++, with explicit ownership, array layout, device and GIL behavior. Call existing pydrake APIs directly where appropriate. Exchanging bound Drake objects requires compatible Drake libraries, compiler/C++ ABI and nanobind ABI/domain/Python-ABI settings, even though both projects use nanobind. Pin that combination in build tooling. [nanobind Bazel integration](https://nanobind.readthedocs.io/en/latest/bazel.html), [interoperability requirements](https://nanobind.readthedocs.io/en/latest/faq.html#how-can-i-avoid-conflicts-with-other-projects-using-nanobind)
 
+### API documentation
+
+Generate the Python API reference from the installed public `robo_arch` namespace, including both Python-authored APIs and bound C++ APIs. Importability alone does not make a private extension symbol public. Each public symbol has one semantic documentation owner:
+
+- A Python-authored symbol uses its source docstring.
+- A directly exposed C++ symbol uses its public C++ Doxygen comment. Following Drake's generated-docstrings pattern, a Bazel-owned Clang extraction step emits C++ string constants that the owning binding target passes to nanobind.
+- A thin Python facade over a bound operation composes that generated C++ description with a Python-source addendum limited to the Python signature, conversion, ownership and GIL behavior. If the facade materially changes the contract, it is a distinct Python API and its Python docstring owns the complete public description instead.
+
+Do not copy shared prose between C++ and Python. Map C++ overloads explicitly, adding extractor annotations only when declarations are ambiguous. Generated output must be deterministic; if it is committed so ordinary binding builds do not require the extractor, a local Bazel check compares it with freshly generated output. The API-reference build must diagnose duplicate public entries and unresolved facade inputs rather than silently choosing one source. [Drake generated docstrings](https://github.com/RobotLocomotion/drake/tree/master/bindings/generated_docstrings)
+
 ### The C++ edit–run loop
 
 Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Implemented commands:
@@ -117,11 +127,15 @@ uv sync --locked
 uv run python -m robo_arch.scenarios.arm_tracking.run # ordinary Python work
 uv run pytest path/to/test.py
 uv run tools/dev.py native --profile drake            # refresh native code for IDE/notebook use
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run
+uv run tools/dev.py run arm_tracking --world drake --visualization live
+uv run tools/dev.py run arm_tracking --world isaac --visualization live --no-sensors
 bazel test //tests/build:core //src/robo_arch/scenarios/arm_tracking:run_test
 ```
 
-The combined development command performs these steps:
+The scenario launcher selects the environment from `--world`, `--world-config`,
+or the scenario/inspection report, and forwards runtime options unchanged.
+`run --profile <world> -- python <arguments>` remains available for arbitrary
+Python commands. Both forms perform these steps:
 
 1. Select a declared build/environment profile and check interpreter/ABI compatibility.
 2. Ask Bazel to incrementally build that profile's native wheel and dependencies. Bazel decides what changed; the helper maintains no separate C++ dependency graph.

@@ -5,7 +5,7 @@ host glibc; it is not yet a portable manylinux release build.
 
 | Dependency | Pinned version | Configuration |
 |---|---|---|
-| uv | 0.12.17 | `pyproject.toml` |
+| uv | 0.12.20 | `pyproject.toml` |
 | CPython | 3.12.13 | `.python-version` and Bazel Python toolchain |
 | Pydantic / PyYAML | 2.13.5 / 6.0.3 | `pyproject.toml` and `uv.lock` |
 | Drake | 1.57.0 | Optional uv dependency group and explicit Bazel target dependencies |

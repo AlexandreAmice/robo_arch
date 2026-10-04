@@ -58,24 +58,41 @@ worktree. Pass extra build flags after `--`, for example
 
 ## Run the examples
 
+Use one launcher for both worlds, from the repository root:
+
+```sh
+uv run tools/dev.py run arm_tracking --world drake --visualization live
+uv run tools/dev.py run arm_tracking --world isaac --visualization live --no-sensors
+```
+
+The launcher selects the Python environment, builds/installs the native controller
+with Bazel, and forwards scenario options unchanged. Drake opens Meshcat in a
+browser; Isaac opens a native Storm window. Both hold the final scene until you
+close inspection/the window or press Ctrl-C. The default UR7e motion is small.
+Create Isaac's environment and accept its runtime EULA as described below.
+`--world isaac` selects GPU/TGS; its desktop profile below selects CPU/PGS.
+
+Without `--world` or `--world-config`, the launcher selects the environment from
+the scenario or saved `--inspect` report. Choose other examples with `--run`:
+
 ```sh
 # UR7e, detailed meshes, physical D435 and ideal RGB-D rendering in Drake.
-uv run python -m robo_arch.scenarios.arm_tracking.run
+uv run tools/dev.py run arm_tracking
 
 # Seven-axis native PD + gravity feedforward, with wrist force/torque sensing.
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking --world drake --visualization live_and_record \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7.yaml
 
 # Different arm models and independent controllers/sensors in one nested system.
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking --world drake --visualization live_and_record \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 
 # Deliberate sensor-face contact with a fixed block; evaluates measured force.
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7_contact.yaml
 ```
 
-Drake saves and opens interactive Meshcat playback. Use `--record <path.html>`
+Drake's `record` mode saves and opens Meshcat playback. Use `--record <path.html>`
 to choose the destination, `--no-browser` to suppress opening it, or `--headless`
 for local automated checks. Live proximity/contact inspection uses
 `--visualization live_and_record`; select the layers in Meshcat's controls.
@@ -89,9 +106,8 @@ Isaac uses a separate pinned environment:
 
 ```sh
 uv sync --project third_party/isaac --locked
-uv run tools/dev.py native --profile isaac
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  third_party/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+  uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
@@ -99,15 +115,15 @@ env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
 For a native desktop view, keep `DISPLAY` set and use:
 
 ```sh
-OMNI_KIT_ACCEPT_EULA=YES third_party/isaac/.venv/bin/python \
-  -m robo_arch.scenarios.arm_tracking.run \
+OMNI_KIT_ACCEPT_EULA=YES uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml
 ```
 
 This selects CPU PhysX and Kit's Storm renderer, retains the final scene for
 inspection, and saves a viewport PNG. Close the window or press Ctrl-C to exit.
-The environment variable accepts NVIDIA's runtime EULA. Both new systems and the
+The environment variable accepts NVIDIA's runtime EULA; the launcher preserves
+your environment and does not accept the EULA itself. Both new systems and the
 contact example support Isaac force/torque sensing. D435 image generation remains
 Drake-only: the original camera-equipped example needs `--no-sensors` in Isaac,
 which retains its physical housing and inertia. See [Isaac setup and limits](third_party/isaac/README.md).

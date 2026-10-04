@@ -9,9 +9,8 @@ The vendor environment does not enter the root dependency resolution.
 
 ```sh
 uv sync --project third_party/isaac --locked
-uv run tools/dev.py native --profile isaac
 env -u DISPLAY -u WAYLAND_DISPLAY OMNI_KIT_ACCEPT_EULA=YES \
-  third_party/isaac/.venv/bin/python -m robo_arch.scenarios.arm_tracking.run \
+  uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
@@ -39,8 +38,7 @@ visualization:
 Run from a desktop terminal, keeping `DISPLAY` set:
 
 ```sh
-OMNI_KIT_ACCEPT_EULA=YES third_party/isaac/.venv/bin/python \
-  -m robo_arch.scenarios.arm_tracking.run \
+OMNI_KIT_ACCEPT_EULA=YES uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml \
   --metadata recordings/bimanual_isaac_live.json
