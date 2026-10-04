@@ -46,7 +46,7 @@ def add_to_stage(
         raise ValueError("URDF conversion must contain one fixed base joint")
     joint = fixed_joints[0]
     # World is the empty body0 relationship. Its local frame follows base pose.
-    joint.GetBody0Rel().ClearTargets(True)
+    joint.GetBody0Rel().SetTargets([])
     local = Gf.Matrix4d(1)
     local.SetRotate(Gf.Quatd(joint.GetLocalRot0Attr().Get()))
     local.SetTranslateOnly(Gf.Vec3d(joint.GetLocalPos0Attr().Get()))

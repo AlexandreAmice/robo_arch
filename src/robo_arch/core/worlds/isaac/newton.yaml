@@ -1,0 +1,8 @@
+type: isaac
+physics:
+  backend: newton
+  solver: mujoco_warp
+  device: cuda:0
+  time_step: 0.001
+visualization:
+  mode: "off"

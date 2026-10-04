@@ -15,10 +15,12 @@ py_library(
     ],
 )
 
-# Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
+# Isaac Lab and Kit/PhysX are supplied by third_party/isaac, not the core Bazel environment.
 py_library(
     name = "isaac",
     srcs = [
+        "backend.py",
+        "batched.py",
         "convert.py",
         "objects.py",
         "scenario.py",
@@ -27,7 +29,9 @@ py_library(
         "visualization.py",
     ],
     data = [
+        "batch.yaml",
         "desktop.yaml",
+        "newton.yaml",
         "physics.kit",
         "viewport.kit",
     ],
@@ -51,6 +55,17 @@ py_test(
         "//src/robo_arch/core/worlds",
         "//src/robo_arch/objects/box",
         "//src/robo_arch/robots/ur7e",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "execution_test",
+    srcs = ["tests/test_execution.py"],
+    main = "tests/test_execution.py",
+    deps = [
+        ":config",
+        ":isaac",
         requirement("pytest"),
     ],
 )

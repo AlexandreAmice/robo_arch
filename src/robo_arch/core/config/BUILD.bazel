@@ -29,7 +29,10 @@ py_library(
         "parameters.py",
         "worlds.py",
     ],
-    visibility = ["//src/robo_arch:__subpackages__"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tools:__pkg__",
+    ],
     deps = [
         ":resources",
         ":schema",

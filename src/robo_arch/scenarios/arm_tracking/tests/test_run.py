@@ -147,9 +147,44 @@ def test_isaac_inspection_uses_vendor_dependency_profile(tmp_path, monkeypatch):
     metadata = tmp_path / "result.json"
     run_scenario(run, metadata=metadata)
     command = shlex.split(json.loads(metadata.read_text())["inspection_command"])
-    assert command[:5] == ["uv", "run", "--locked", "--project", "third_party/isaac"]
+    assert command[:6] == [
+        "uv",
+        "run",
+        "--locked",
+        "tools/dev.py",
+        "run",
+        "arm_tracking",
+    ]
     assert command[command.index("--inspect") + 1] == str(metadata.resolve())
     assert command[-2:] == ["--visualization", "live"]
+
+
+def test_isaac_batch_report_evaluates_each_environment(monkeypatch):
+    import numpy as np
+
+    from robo_arch.scenarios.arm_tracking.evaluation import tracking_tasks
+
+    run = replace(
+        load_run(default_run()),
+        world_config=IsaacWorld(num_envs=2),
+        sensors_enabled=False,
+    )
+    target = np.asarray(tracking_tasks(run.task.parameters)["arm"].target)
+    trace = {"times": np.array([0.0, run.duration])}
+    for env, error in enumerate((0.0, 0.1)):
+        trace[f"env_{env}/arm/q"] = np.stack([target, target + error])
+        trace[f"env_{env}/arm/v"] = np.zeros((2, len(target)))
+        trace[f"env_{env}/arm/effort"] = np.zeros((2, len(target)))
+        trace[f"env_{env}/episode_time"] = trace["times"].copy()
+    monkeypatch.setattr(
+        "robo_arch.core.worlds.isaac.scenario.run_scenario",
+        lambda *args, **kwargs: {"trace": trace, "num_envs": 2},
+    )
+    result = run_scenario(run)
+    assert result["environments"]["env_0"]["success"]
+    assert not result["environments"]["env_1"]["success"]
+    assert not result["success"]
+    assert result["num_envs"] == 2
 
 
 def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, capsys):

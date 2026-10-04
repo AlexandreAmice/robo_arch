@@ -51,8 +51,9 @@ requires a compatible native Drake build, compiler/standard-library ABI,
 nanobind ABI/domain and ownership conventions. Matching nanobind version numbers
 alone is insufficient. The PD controller’s local wheel is implemented without crossing that boundary: only CPU float64 arrays enter the extension. Native pydrake object interoperability remains unimplemented.
 
-Isaac uses an [independent dependency profile](isaac/README.md) rather than the
-root Python dependency resolution. The initial LLVM download/extraction can
+Isaac Lab 3.0 Early Access uses an [independent dependency profile](isaac/README.md)
+with Isaac Sim 6.1, Python 3.12 and vendor-scoped dependency overrides. It does
+not enter the root Python dependency resolution. The initial LLVM download/extraction can
 consume approximately 13 GB of cache storage.
 
 Build references: [Drake dependencies](https://github.com/RobotLocomotion/drake/blob/v1.57.0/MODULE.bazel),

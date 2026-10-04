@@ -7,11 +7,11 @@
 | `bimanual.yaml` | UR7e + nested iiwa system | Independent native PD per arm | Two named wrenches |
 | `iiwa7_contact.yaml` | iiwa 7 + Mini45-R, fixed block | Native PD into an obstructed target | Wrench peak check |
 
-All use `python -m robo_arch.scenarios.arm_tracking.run --run
-package://robo_arch/scenarios/arm_tracking/<resource>`. Build/install the native
-controller first with `uv run tools/dev.py native --profile drake`; use the
-`isaac` profile in that separate environment. Both new systems run in Drake and
-Isaac; the mixed system uses `left_arm`, `left_ft`, `right/arm` and
+All use `uv run tools/dev.py run arm_tracking --run
+package://robo_arch/scenarios/arm_tracking/<resource>`. The helper selects the
+environment and refreshes the native controller. Add `--world isaac` to select
+Isaac's environment. Both new systems run in Drake and
+Isaac Lab using Sim/PhysX; the mixed system uses `left_arm`, `left_ft`, `right/arm` and
 `right/wrist_ft`. The system definition never fixes its controller.
 
 Execution lives in each world’s `scenario.py`; this package supplies task-specific
@@ -48,13 +48,33 @@ Physics time steps, solvers and viewer settings belong to the selected world.
 `--no-sensors` disables observations while preserving device bodies, masses and
 collisions. Unsupported observations are errors, never silently dropped.
 
+For two independent copies of the complete system, select
+`--world-config package://robo_arch/core/worlds/isaac/batch.yaml`. The `isaac`
+world name is retained. Batch reports contain `environments.env_<id>` results;
+NPZ keys add `env_<id>/` before device names and include each environment's
+`episode_time` in seconds. Single-environment keys remain unchanged. Control
+runs on CPU and reports GPU transfers; batching does not imply GPU autonomy.
+
+Native integration checks run in fresh vendor processes:
+
+```sh
+uv sync --project third_party/isaac --locked --group test
+ROBO_ARCH_ISAAC_TESTS=1 uv run pytest src/robo_arch/scenarios/arm_tracking/tests/test_isaac_lab.py
+```
+
+Set `ROBO_ARCH_VISUALIZE=1` for the same cases with native viewing and viewport
+capture. Test artifacts are saved under `recordings/isaac_lab_tests/`; failures
+print the exact case command. The reset case verifies unaffected physics,
+observations and controller contexts while another environment starts a fresh
+episode. The failure case checks retained partial traces and exception propagation.
+
 ## Inspection
 
 ```sh
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --record recordings/bimanual_drake.html --no-browser
-uv run python -m robo_arch.scenarios.arm_tracking.run \
+uv run tools/dev.py run arm_tracking \
   --inspect recordings/bimanual_drake.json --visualization live_and_record
 ```
 
