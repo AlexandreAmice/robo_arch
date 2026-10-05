@@ -349,7 +349,7 @@ def initialize_objects(scene: DrakeScene, context) -> None:
             )
             scene.plant.SetFreeBodyPose(context, body, pose_transform(obj.pose))
             scene.plant.SetFreeBodySpatialVelocity(
+                context,
                 body,
                 SpatialVelocity(w=obj.angular_velocity, v=obj.linear_velocity),
-                context,
             )
