@@ -9,7 +9,6 @@ from pydrake.geometry import Box, GeometryInstance, MakePhongIllustrationPropert
 from pydrake.geometry import Sphere as DrakeSphere
 from pydrake.math import RigidTransform
 from pydrake.multibody.plant import MultibodyPlant
-from pydrake.multibody.tree import JacobianWrtVariable, MultibodyForces
 from pydrake.solvers import ClarabelSolver, MathematicalProgram, SolverOptions
 from pydrake.systems.framework import BasicVector, Context, LeafSystem, ValueProducer
 
@@ -35,6 +34,7 @@ from robo_arch.core.controllers.cbf.filter import (
 )
 from robo_arch.core.controllers.cbf.layout import compile_geometry
 from robo_arch.core.controllers.cbf.velocity import compile_velocity_bounds
+from robo_arch.core.controllers.dynamics.drake import build_tensor_model
 from robo_arch.core.worlds.drake.scene import DrakeScene
 
 
@@ -97,17 +97,15 @@ class SphereCbfFilter:
             self._velocity_bounds.names
         )
         self.diagnostics_size = 5 * self.constraint_count + 3
-        self._context = model.CreateDefaultContext()
-        self._frames = {}
-        for sphere in spheres:
-            if sphere.frame == "world":
-                self._frames[sphere.name] = model.world_frame()
-            else:
-                if "/" not in sphere.frame:
-                    raise ValueError("Sphere frame must be world or instance/frame")
-                instance_name, frame_name = sphere.frame.rsplit("/", 1)
-                instance = model.GetModelInstanceByName(instance_name)
-                self._frames[sphere.name] = model.GetFrameByName(frame_name, instance)
+        self._nominal = build_tensor_model(
+            model,
+            joints,
+            tuple(s.frame for s in spheres),
+            tuple(s.center for s in spheres),
+            device="cpu",
+        )
+        self._state = None
+        self._evaluation = None
         self._first = layout.first
         self._second = layout.second
         self._separation = layout.separation
@@ -115,18 +113,6 @@ class SphereCbfFilter:
         self._plane_spheres = layout.plane_spheres
         self._plane_normals = layout.plane_normals
         self._plane_offsets = layout.plane_offsets
-        grouped = {}
-        for i, sphere in enumerate(spheres):
-            if sphere.frame != "world":
-                grouped.setdefault(sphere.frame, []).append(i)
-        self._frame_groups = tuple(
-            (
-                self._frames[spheres[indices[0]].name],
-                np.array(indices),
-                np.asfortranarray(self._local_centers[indices].T),
-            )
-            for indices in grouped.values()
-        )
         self._limits = np.asarray([a.effort_limit() for a in actuators])
         if not np.isfinite(self._limits).all() or np.any(self._limits <= 0):
             raise ValueError("CBF requires finite positive actuator effort limits")
@@ -161,32 +147,18 @@ class SphereCbfFilter:
             raise ValueError("CBF state must contain finite ordered [q, v]")
         if not np.isfinite(time):
             raise ValueError("CBF time must be finite")
-        self._context.SetTime(time)
-        self.model.SetPositionsAndVelocities(self._context, state)
+        if self._state is None or not np.array_equal(state, self._state):
+            self._evaluation = self._nominal.evaluate_numpy(state[None, :])
+            self._state = state.copy()
         return state
 
-    def _kinematics(
-        self, *, derivatives: bool
-    ) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
-        model, context = self.model, self._context
-        world = model.world_frame()
-        positions = self._local_centers.copy()
-        jacobians = (
-            np.zeros((len(self.spheres), 3, self.count)) if derivatives else None
+    def _kinematics(self, *, derivatives: bool):
+        data = self._evaluation
+        return (
+            data.positions[0],
+            data.jacobians[0] if derivatives else None,
+            data.bias_accelerations[0] if derivatives else None,
         )
-        biases = np.zeros((len(self.spheres), 3)) if derivatives else None
-        for frame, indices, points in self._frame_groups:
-            positions[indices] = model.CalcPointsPositions(
-                context, frame, points, world
-            ).T
-            if derivatives:
-                jacobians[indices] = model.CalcJacobianTranslationalVelocity(
-                    context, JacobianWrtVariable.kV, frame, points, world, world
-                ).reshape(len(indices), 3, self.count)
-                biases[indices] = model.CalcBiasTranslationalAcceleration(
-                    context, JacobianWrtVariable.kV, frame, points, world, world
-                ).T
-        return positions, jacobians, biases
 
     def clearances(self, state: np.ndarray, time: float = 0.0) -> np.ndarray:
         """Inspect pair clearances without computing derivatives or dynamics."""
@@ -204,14 +176,12 @@ class SphereCbfFilter:
 
     def _constraints(self, state: np.ndarray, time: float) -> BarrierConstraints:
         state = self._set_state(state, time)
-        model, context = self.model, self._context
-        forces = MultibodyForces(model)
-        # This API includes gravity AND joint damping; do not add either again.
-        model.CalcForceElementsContribution(context, forces)
-        drift_force = -model.CalcInverseDynamics(context, np.zeros(self.count), forces)
-        mass = model.CalcMassMatrix(context)
-        acceleration = np.linalg.solve(
-            mass, np.column_stack((drift_force, self._actuation))
+        data = self._evaluation
+        acceleration = np.column_stack(
+            (
+                data.acceleration_drift[0],
+                data.acceleration_control[0],
+            )
         )
         positions, jacobians, biases = self._kinematics(derivatives=True)
         self._velocity_coefficient, self._velocity_constant = (
@@ -388,8 +358,6 @@ def build_filter(
     The model supplies nominal dynamics; the calling world supplies actual state.
     Call ``validate_initial_state`` before applying commands in that world.
     """
-    if parameters.backend != "drake":
-        raise ValueError("Drake CBF factory requires backend: drake")
     return SphereCbfFilter(
         model=model,
         joints=joints,
