@@ -1,0 +1,75 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "package",
+    srcs = ["__init__.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = ["//src/robo_arch"],
+)
+
+py_library(
+    name = "configuration",
+    srcs = ["configuration.py"],
+    data = ["//src/robo_arch/scenarios/arm_tracking:resources"],
+    deps = [
+        ":package",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+    ],
+)
+
+py_library(
+    name = "drake_scene",
+    srcs = ["drake_scene.py"],
+    data = ["//src/robo_arch/scenarios/arm_tracking:resources"],
+    deps = [
+        ":package",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/sensors/realsense_d435",
+        "//src/robo_arch/sensors/realsense_d435/drake",
+        requirement("drake"),
+    ],
+)
+
+py_library(
+    name = "cbf_filter",
+    srcs = ["cbf_filter.py"],
+    deps = [
+        ":package",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers/cbf:drake",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/scenarios/camera_protection:setup",
+        "//src/robo_arch/sensors/realsense_d435",
+        requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "configuration_test",
+    srcs = ["tests/test_configuration.py"],
+    main = "tests/test_configuration.py",
+    deps = [
+        ":configuration",
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "drake_test",
+    srcs = ["tests/test_drake.py"],
+    main = "tests/test_drake.py",
+    deps = [
+        ":cbf_filter",
+        ":drake_scene",
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

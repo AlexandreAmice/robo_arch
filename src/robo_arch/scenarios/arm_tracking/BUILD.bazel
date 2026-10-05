@@ -1,6 +1,17 @@
 load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
+filegroup(
+    name = "resources",
+    srcs = glob(["*.yaml"]),
+    data = [
+        "//src/robo_arch/robot_system/iiwa7_mini45:resources",
+        "//src/robo_arch/robot_system/ur7e_d435:resources",
+        "//src/robo_arch/robot_system/ur7e_iiwa7:resources",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+)
+
 py_library(
     name = "arm_tracking",
     srcs = [
@@ -12,11 +23,7 @@ py_library(
         "plotting.py",
         "run.py",
     ],
-    data = glob(["**/*.yaml"]) + [
-        "//src/robo_arch/robot_system/iiwa7_mini45:resources",
-        "//src/robo_arch/robot_system/ur7e_d435:resources",
-        "//src/robo_arch/robot_system/ur7e_iiwa7:resources",
-    ],
+    data = [":resources"],
     visibility = [
         "//src/robo_arch:__subpackages__",
         "//tests/build:__pkg__",

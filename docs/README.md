@@ -1,33 +1,28 @@
 # Documentation
 
 Start with the [repository quickstart](../README.md) to install dependencies and
-run an example. These guides describe the implemented code alongside the target
-architecture; consult [implementation status](implementation_tasks.md) for the
-boundary between them.
+run a scenario. For implementation, prefer the executable examples and the source
+files they import over prose descriptions of current code.
 
 | Need | Authoritative location |
 |---|---|
-| System concepts, ownership and design constraints | [Architecture](architecture.md) |
-| File placement, build, native development and documentation commands | [Build and layout](build_and_layout.md) |
-| Shared function/class contracts, units, shapes and errors | [Generated API catalogue](api/index.rst), rendered from source docstrings |
-| Constructing and extending a runtime | [World construction guide](../src/robo_arch/core/worlds/README.md) |
-| Running and inspecting simulations | [Arm tracking](../src/robo_arch/scenarios/arm_tracking/README.md), [camera protection](../src/robo_arch/scenarios/camera_protection/README.md), [batched reaching](../src/robo_arch/scenarios/batched_reaching/README.md) |
-| Controller examples, algorithms and runtime constraints | [Native PD](../src/robo_arch/core/controllers/joint_pd/README.md), [sphere effort filter](../src/robo_arch/core/controllers/cbf/README.md) |
-| Dependency pins and supported environments | [Compatibility](../third_party/compatibility.md), [Isaac environment](../third_party/isaac/README.md) |
-| Model provenance and approximations | [UR7e](../src/robo_arch/robots/ur7e/README.md), [iiwa 7](../src/robo_arch/robots/iiwa7/README.md), [D435](../src/robo_arch/sensors/realsense_d435/README.md), [Mini45](../src/robo_arch/sensors/ati_mini45/README.md), [box](../src/robo_arch/objects/box/README.md) |
+| Load and inspect a declared system | [`examples/configuration.py`](../src/robo_arch/examples/configuration.py) |
+| Construct a native Drake scene | [`examples/drake_scene.py`](../src/robo_arch/examples/drake_scene.py) |
+| Compose and evaluate the effort CBF | [`examples/cbf_filter.py`](../src/robo_arch/examples/cbf_filter.py) |
+| System concepts and design constraints | [Architecture](architecture.md) |
+| File placement, builds and native development | [Build and layout](build_and_layout.md) |
+| Public units, shapes, ownership and errors | [Generated API catalogue](api/index.rst) |
+| Remaining architecture work | [Implementation plan](implementation_tasks.md) |
+| Model provenance and approximations | Owner READMEs under [`robots/`](../src/robo_arch/robots), [`sensors/`](../src/robo_arch/sensors) and [`objects/`](../src/robo_arch/objects) |
+| Dependency and runtime compatibility | [Compatibility](../third_party/compatibility.md) and [Isaac profile](../third_party/isaac/README.md) |
 
-The API catalogue has three sections: [configuration](api/configuration.rst),
-[controllers and geometry](api/controllers.rst), and [device assembly/world
-settings](api/worlds.rst). Follow the [build instructions](build_and_layout.md#api-documentation)
-to render it locally. It is not a hosted site.
+Scenario READMEs contain launch, inspection, benchmark and visual-test commands.
+Their `run.py`, native adapter, task/evaluation and tests are the maintained
+implementation examples. Package READMEs should link to those files rather than
+restate their control flow.
 
-Maintain API descriptions in Python docstrings or public C++ Doxygen comments;
-thin Python facades add only their Python-specific contract. Keep examples,
-reasoning and operational guidance in the owning README, linking to the API
-catalogue rather than maintaining another parameter list. New catalogue entries
-need an explicit Bazel dependency and must import without simulator SDKs.
-
-The [catalogue's coverage boundary](api/index.rst#coverage-boundary) identifies
-remaining reference work. The current pass does not audit all SDK adapters,
-device implementations or scenario APIs; their existing guides remain useful but
-have not been verified by the SDK-independent documentation build.
+Maintain public contracts in Python docstrings or public C++ declaration comments.
+The API catalogue imports those sources without simulator SDKs and fails on
+missing or duplicate selected entries. See
+[API documentation](build_and_layout.md#api-documentation) for build commands and
+the current coverage boundary.

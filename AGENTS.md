@@ -30,6 +30,7 @@ Application source belongs under `src/robo_arch/`. Shared declarations and confi
 | `objects/<object>/` | Object geometry, physical metadata and provenance |
 | `scenarios/<scenario>/` | System/object selection, task and evaluation, scene layout, fixture calibration, task-specific autonomy, run configs and tests |
 | `core/<responsibility>/` | Reusable algorithms, contracts, config loading, model utilities, world assembly, learning and visualization; no concrete device/scenario imports |
+| `examples/` | Small executable walkthroughs that compose maintained APIs without copying algorithms |
 
 - Keep C++, Python bindings, YAML and assets beside their owner. Put tests in that owner's `tests/`; root `tests/` is for cross-package integration and installed artifacts.
 - Device-specific `drake/`, `isaac/` and `real/` code stays with the device. Generic world/transport services belong under `core/worlds/`. Do not duplicate algorithms between these locations.
@@ -38,12 +39,24 @@ Application source belongs under `src/robo_arch/`. Shared declarations and confi
   `third_party/` contains dependency metadata, independently locked vendor
   profiles and patches; `deployment/` contains deployable runtime images and
   launch material. None is a second home for device implementations.
-- Put maintained design/user documentation in the existing `docs/` pages or an owning package's README. Create directories only when they have content; avoid catch-all `utils/` and duplicate asset/configuration trees.
+- Put maintained design documentation in the existing `docs/` pages. Use
+  executable modules under `examples/` to explain implementation and composition;
+  keep them small, import the real owning code and test them like other source.
+  Package READMEs should primarily contain prerequisites, run/inspection commands,
+  concise compatibility limits and links to the source files worth reading. Do not
+  restate implementation flow or public API contracts there. Create directories
+  only when they have content; avoid catch-all `utils/` and duplicate
+  asset/configuration trees.
 
 ## Cleanup and maintained documentation
 
 - Leave a maintainer-facing result, not an agent work diary. Do not put agent names, work-package labels, completion claims, handoffs or chronological command transcripts in source, README files or dependency notes. Work-package identifiers and status belong only in `docs/implementation_tasks.md` or PR descriptions.
 - Keep durable information: how to use the code, dependencies, compatibility limits, reproducible diagnostics and measured results that affect a decision. Explain them without requiring knowledge of the implementation assignment. Do not repeat pass/fail checklists across documents.
+- Keep callable contracts, units, shapes, ownership and errors in source
+  docstrings or C++ declaration comments. Keep architecture rationale in the
+  authoritative design pages, model provenance beside the asset owner and vendor
+  compatibility in `third_party/`. Prefer a tested code example over a Markdown
+  snippet when readers need to understand how components compose.
 - Use ignored `plans/` or temporary storage for scratch notes and raw output. Before handing off, remove temporary files created for the task, abandoned approaches, stale comments, broken references and debug scaffolding. Keep a diagnostic script only when it has an ongoing purpose and a documented owner/location.
 - Inspect the final diff and report only changes that actually remain. Do not delete user work, other agents' active files, useful environments or caches merely to make the tree look clean. No tests or builds are needed for prose/comment-only cleanup.
 

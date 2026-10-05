@@ -1,42 +1,26 @@
 # Batched nominal dynamics
 
-`drake.build_tensor_model` extracts a fixed-base, fully actuated model once,
-including welded bodies, mounted inertias, joint frames, damping, gravity and
-reflected rotor inertia. Ordered scalar revolute/prismatic joints and identity
-actuation are supported; unsupported joints, extra force elements, loops and
-floating bases raise errors. The generic `torch.TensorModel` runtime imports no simulator SDK and retains no
-Drake model or context. Its constructor takes owned device constants; the Drake
-loader owns source-model validation and conversion.
+The tensor model is exercised by the executable
+[CBF composition example](../../../examples/cbf_filter.py) and the
+[camera-protection benchmark](../../../scenarios/camera_protection/benchmark.py).
 
-`evaluate(state)` accepts float64 `[batch, 2*joints]` tensors in q/v order and
-returns world-expressed point positions, velocity Jacobians, bias accelerations,
-mass matrices and joint dynamics. `bias_force` includes Coriolis, gravity and
-damping, so `effort = mass @ desired_acceleration + bias_force`. Constants and
-outputs stay on the selected CPU/CUDA device. Loops traverse the body tree, not
-environments; Torch batches the numerical operations. This implementation has
-not established a speedup over scalar Drake for one arm.
+Read [`drake.py`](drake.py) for fixed-model validation and constant extraction,
+then [`torch.py`](torch.py) for the SDK-independent batched kinematics and
+dynamics. Their docstrings define supported joint/body structure, array shapes,
+device ownership and failure reporting.
 
-`enable_compilation()` opts into `torch.compile` on the same equations. The
-first call for a new shape incurs compilation/warmup; eager evaluation remains
-the default. Compiled outputs are cloned outside the graph to preserve ownership
-across subsequent calls. Use the camera scenario benchmark with `--compile-model`
-to measure the complete control loop, including ownership copies and the QP.
+The model supports fixed-base scalar revolute/prismatic joints, welds, uniform
+gravity, damping and reflected rotor inertia. It does not infer contact or other
+external forces. `torch.compile` is opt-in and the first call includes compilation
+and warmup. No single-arm speedup over scalar Drake is claimed.
 
-`valid` is a per-environment device boolean covering finite input and successful
-finite mass solves. Callers must reject invalid environments before applying
-effort. The mass solve uses `solve_ex(check_errors=False)` to avoid implicit
-CUDA synchronization; the caller decides when to surface failures on the host.
-No contact or externally applied forces are inferred from the simulator.
-
-Run the same parity tests in the optional vendor profile:
+Run CPU/CUDA parity checks in the optional vendor profile:
 
 ```sh
 third_party/isaac/.venv/bin/python -m pytest -q \
   src/robo_arch/core/controllers/dynamics/tests
 ```
 
-The tests compare independent Drake kinematics/dynamics on CPU and CUDA for a
-batched mechanism with a rotated base, offset joint frames, mixed joint types,
-joint damping, reflected rotor inertia and a welded payload. Bazel exposes the
-test source as `gpu_tests`; execute it in the vendor profile above. The core
-Bazel environment does not supply Torch and does not validate GPU execution.
+These tests compare the tensor implementation with independent Drake evaluations.
+The core Bazel environment exposes the test sources but does not supply Torch or
+validate CUDA execution.

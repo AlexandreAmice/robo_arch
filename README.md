@@ -1,17 +1,13 @@
 # Robotics architecture
 
-Local robotics development with shared autonomy across Drake and Isaac Lab (PhysX or Newton/MuJoCo Warp). Examples
-exercise a UR7e with a RealSense D435 housing, an iiwa 7 with an ATI Mini45-R, and
-a mixed UR7e–iiwa bimanual assembly with two independent force/torque sensors.
-Both robots and both sensors have physical collision geometry.
+Local robotics development with shared autonomy across Drake and Isaac Lab. The
+implemented examples cover UR7e and iiwa 7 assemblies, mounted D435 and Mini45
+sensors, native viewing, batched simulation and effort control. Hardware
+execution, a gripper and nut-on-pin manipulation remain future work.
 
-The [documentation index](docs/README.md) connects the architecture, build guide,
-API reference, examples and model provenance. For commands to render the shared
-Python/C++ reference, see [API documentation](docs/build_and_layout.md#api-documentation).
+## Set up development
 
-## Local development
-
-Use the pinned uv version in `pyproject.toml` and Bazelisk (`.bazelversion`):
+Use the pinned uv version in `pyproject.toml` and Bazelisk from `.bazelversion`:
 
 ```sh
 uv sync --locked
@@ -24,92 +20,73 @@ uv lock --check
 bazel run //:buildifier
 ```
 
-There are no hosted CI workflows or required remote checks. Python edits remain
-editable through uv; Bazel builds C++ and offers an independent local test path.
-Tests use importlib collection so owner-local tests can share filenames.
-Select `.venv/bin/python` in your IDE. Core declarations can be inspected in an
-SDK-independent environment using `uv sync --locked --no-group drake`.
+Isaac uses its own locked environment:
 
-Direct scenario scripts incrementally build and refresh the native wheel in the
-selected environment before running. Unchanged payloads are not reinstalled;
-build/install failures stop the launch. Exact `uv sync` can remove the wheel;
-the next scenario launch restores it automatically. The explicit installer in
-the test setup above is also available for IDEs and notebooks. See the
-[controller](src/robo_arch/core/controllers/joint_pd/README.md) for ownership,
-units and ABI details.
+```sh
+uv sync --project third_party/isaac --locked
+```
 
-For C++ autocomplete and navigation in VS Code, install the recommended
-**clangd** extension (`llvm-vs-code-extensions.vscode-clangd`). Open the
-repository/worktree root and run:
+There are no hosted CI workflows or required remote checks. Select
+`.venv/bin/python` in an IDE. To inspect declarations without Drake, use
+`uv sync --locked --no-group drake`.
+
+For C++ navigation, install the clangd extension and generate the ignored
+compilation database after changing native sources, BUILD files or toolchains:
 
 ```sh
 bazel run //:refresh_compile_commands
 ```
 
-This uses [Hedron's extractor](https://github.com/hedronvision/bazel-compile-commands-extractor)
-to generate an ignored `compile_commands.json` with Bazel's C++23 flags and
-toolchain paths, plus an ignored `external` link into Bazel's dependencies. The
-workspace settings use clangd bundled with the pinned LLVM toolchain and disable
-Microsoft C++ IntelliSense to avoid duplicate diagnostics. After the first run,
-use **clangd: Restart language server** if clangd started before the toolchain
-was available. Regenerate after changing BUILD files, dependencies or compiler
-options, and separately in each
-worktree. Pass extra build flags after `--`, for example
-`bazel run //:refresh_compile_commands -- --compilation_mode=dbg`.
+## Read executable examples
 
-## Run the examples
-
-Use `uv run src/robo_arch/scenarios/<scenario>/run.py` for either simulator. The script selects
-the environment from the run configuration (including `--world`, `--world-config`
-or saved `--inspect` inputs) and refreshes native code before launching. Append
-`--help` for scenario options; help does not build or import simulators.
-`--run` selects a YAML file or package URI; named flags such as `--duration 5`
-override its settings. `--world isaac` replaces the world with Isaac defaults,
-while `--world-config` selects a complete world YAML. Environments must be synced
-once as shown here. Switching worlds does not add unsupported scenario behavior.
+These examples are small programs that import the maintained implementation:
 
 ```sh
-# UR7e, detailed meshes, physical D435 and ideal RGB-D rendering in Drake.
+# Strict YAML loading and nested physical-instance resolution; no simulator SDK.
+uv run python -m robo_arch.examples.configuration
+
+# Native Drake scene construction in a caller-owned DiagramBuilder.
+uv run python -m robo_arch.examples.drake_scene
+
+# Camera-protection geometry, nominal dynamics and one accepted CBF command.
+uv run python -m robo_arch.examples.cbf_filter
+```
+
+Read the corresponding source under [`src/robo_arch/examples/`](src/robo_arch/examples)
+and follow its imports. Public contracts are rendered from source docstrings in
+the [API catalogue](docs/api/index.rst).
+
+## Run scenarios
+
+Scenario scripts select the configured environment, refresh changed native code
+and then launch. `--help` does not build or import a simulator.
+
+```sh
+# UR7e, physical D435 housing and ideal Drake RGB-D output.
 uv run src/robo_arch/scenarios/arm_tracking/run.py
 
-# Seven-axis native PD + gravity feedforward, with wrist force/torque sensing.
+# iiwa 7 with native PD and wrist force/torque sensing.
 uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7.yaml
 
-# Different arm models and independent controllers/sensors in one nested system.
+# Mixed UR7e/iiwa assembly with independent controllers and sensors.
 uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 
-# Deliberate sensor-face contact with a fixed block; evaluates measured force.
+# Deliberate Mini45 contact against a fixed block.
 uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7_contact.yaml
+
+# Batched UR7e reaching in Isaac with Newton/MuJoCo Warp.
+uv run src/robo_arch/scenarios/batched_reaching/run.py \
+  --backend newton --num-envs 16 --live --hold
+
+# Filtered camera-protection motion in Drake.
+uv run src/robo_arch/scenarios/camera_protection/run.py --no-browser
 ```
 
-Drake saves and opens interactive Meshcat playback. Use `--record <path.html>`
-to choose the destination, `--no-browser` to suppress opening it, or `--headless`
-for local automated checks. Live proximity/contact inspection uses
-`--visualization live_and_record`; select the layers in Meshcat's controls.
-
-Each CLI run saves resolved configuration, source/asset hashes, versions and an
-inspection command. NPZ traces and PNG plots contain measured positions, efforts
-and wrenches. `--inspect <report.json>` restores inputs using the current code
-and assets; it does not overwrite the original recording.
-
-Isaac uses a separate pinned environment:
-
-```sh
-uv sync --project third_party/isaac --locked
-
-# Sixteen independent UR7e reaching environments, with native viewing.
-uv run src/robo_arch/scenarios/batched_reaching/run.py --backend newton --live --hold
-
-# The same scalar tracking command, selecting Isaac instead of Drake.
-uv run src/robo_arch/scenarios/arm_tracking/run.py \
-  --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
-  --world isaac --headless --metadata recordings/bimanual_isaac.json
-```
-
-For a native desktop view, keep `DISPLAY` set and use:
+Use `--world isaac` or a complete `--world-config` on supported scenarios. A
+desktop Isaac view can be selected with:
 
 ```sh
 uv run src/robo_arch/scenarios/arm_tracking/run.py \
@@ -117,23 +94,17 @@ uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml
 ```
 
-This selects CPU PhysX and Kit's Storm renderer, retains the final scene for
-inspection, and saves a viewport PNG. Close the window or press Ctrl-C to exit.
-The script sets `OMNI_KIT_ACCEPT_EULA=YES` (accepting NVIDIA's runtime EULA)
-unless already set, and removes display variables for headless Isaac runs.
-Both new systems and the contact example support Isaac force/torque sensing. D435 image generation remains
-Drake-only: the original camera-equipped example needs `--no-sensors` in Isaac,
-which retains its physical housing and inertia. See [Isaac setup and limits](third_party/isaac/README.md).
+Each run saves resolved inputs and versions, results or errors, source/asset
+hashes and a copyable inspection command. Drake can save interactive Meshcat HTML;
+Isaac live runs save a final viewport PNG. Use the generated command or pass
+`--inspect <report.json>` to rerun the recorded inputs with current code.
 
-These are nominal simulation examples. Robot collision uses model-specific mesh
-hulls; the Mini45's segmented geometry preserves its bore. Ideal sensing,
-estimated sensor inertias and nominal mounts are documented beside each device.
-The [batched reaching example](src/robo_arch/scenarios/batched_reaching/README.md)
-runs tensor PD, independent goals and selective resets on configurable PhysX or
-Newton/MuJoCo Warp backends, with a local throughput comparison and native viewing.
-The [camera protection example](src/robo_arch/scenarios/camera_protection/README.md)
-runs the shared sphere CBF in Drake or with optional Torch/Moreau CUDA control
-on Isaac Lab PhysX/PGS. Its guide includes the optional solver setup and commands.
-There is no hardware execution, gripper, nut placement or RTX viewer. Scalar CPU
-controllers are reported explicitly; shared code does not imply identical
-simulator contact forces.
+For scenario-specific flags, artifacts, benchmarks and visual tests, read:
+
+- [arm tracking](src/robo_arch/scenarios/arm_tracking/README.md)
+- [batched reaching](src/robo_arch/scenarios/batched_reaching/README.md)
+- [camera protection](src/robo_arch/scenarios/camera_protection/README.md)
+
+The [documentation index](docs/README.md) points to architecture, build rules,
+API contracts, model provenance and dependency compatibility. Isaac setup and
+known vendor limits remain in [its dependency profile](third_party/isaac/README.md).
