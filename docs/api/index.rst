@@ -23,8 +23,9 @@ Coverage boundary
 -----------------
 
 The repository's documentation index is ``docs/README.md``. Architecture and
-build decisions remain in its linked guides; owner READMEs contain examples,
-model provenance and runtime limitations. Source docstrings own API contracts.
+build decisions remain in its linked guides; executable modules contain code
+examples, while owner READMEs retain commands, provenance and runtime limits.
+Source docstrings own API contracts.
 
 The following remain outside this reference and need a separate runtime audit:
 

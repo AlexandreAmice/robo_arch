@@ -28,6 +28,10 @@ src/robo_arch/
     isaac.py                     # task references for native effort callbacks
     run.py                       # CLI, world dispatch, evaluation and reports
     tests/
+  examples/
+    configuration.py            # SDK-free loading and physical composition tour
+    drake_scene.py               # native scene construction without simulation
+    cbf_filter.py                # controller-model and effort-filter composition
   core/
     config/                      # validated configuration and physical instances
     controllers/joint_tracking/  # shared control and native world adapters
@@ -125,10 +129,12 @@ declarations and Sphinx autodoc to render the combined reference. The
 parameters, numerical barriers, collision coverage, device discovery and world
 settings. It lists the remaining runtime/device/scenario coverage gaps. Source
 docstrings own API contracts; the [documentation index](README.md) routes readers
-to tutorials, design rationale and operational guides. Extend the catalogue as
-public APIs are maintained. The build fails on undocumented or duplicate entries
-and unresolved imports. SDK-dependent APIs need an explicit documentation environment before
-joining this SDK-independent catalogue; do not mock away missing implementations.
+to executable examples, design rationale and operational commands. Package
+READMEs point to maintained source instead of narrating its control flow. Extend
+the catalogue as public APIs are maintained. The build fails on undocumented or
+duplicate entries and unresolved imports. SDK-dependent APIs need an explicit
+documentation environment before joining this SDK-independent catalogue; do not
+mock away missing implementations.
 
 Each C++ owner declares a `cpp_docstrings` target and a `docstrings.json` mapping
 of identifiers to qualified symbols and exact Clang signatures, so overloads
