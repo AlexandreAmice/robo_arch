@@ -4,9 +4,10 @@ from collections.abc import Callable
 
 import numpy as np
 from pydrake.multibody.plant import MultibodyPlant
-from pydrake.systems.controllers import InverseDynamicsController
-from pydrake.systems.framework import DiagramBuilder, InputPort
+from pydrake.systems.framework import BasicVector, DiagramBuilder, InputPort, LeafSystem
 
+from robo_arch.core.controllers.dynamics.drake import build_tensor_model
+from robo_arch.core.controllers.feedback import inverse_dynamics
 from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
 from robo_arch.core.worlds.drake.scene import DrakeScene
 
@@ -16,7 +17,7 @@ def build(
     model: MultibodyPlant,
     parameters: JointTrackingParameters,
     joints: tuple[str, ...],
-) -> InverseDynamicsController:
+) -> "JointTrackingSystem":
     """Return a controller; the caller adds it to a DiagramBuilder.
 
     Input 0 is [q, v], input 1 is [q_desired, v_desired], output 0 is effort.
@@ -36,13 +37,49 @@ def build(
     )
     if actuator_joints != joints:
         raise ValueError("Controller model joint order must match the expected joints")
-    return InverseDynamicsController(
-        model,
-        kp=parameters.kp,
-        ki=[0.0] * count,
-        kd=parameters.kd,
-        has_reference_acceleration=False,
-    )
+    return JointTrackingSystem(model, parameters, joints)
+
+
+class JointTrackingSystem(LeafSystem):
+    """Native ports around the shared numerical law and independent JAX model."""
+
+    def __init__(self, model, parameters, joints):
+        super().__init__()
+        self.model = build_tensor_model(
+            model, joints, ("world",), ((0, 0, 0),), device="cpu"
+        )
+        self.kp, self.kd = np.asarray(parameters.kp), np.asarray(parameters.kd)
+        self._state = self.DeclareVectorInputPort("estimated_state", 2 * len(joints))
+        self._reference = self.DeclareVectorInputPort("desired_state", 2 * len(joints))
+        self._effort = self.DeclareVectorOutputPort(
+            "effort", BasicVector(len(joints)), self._output
+        )
+
+    def get_input_port_estimated_state(self):
+        return self._state
+
+    def get_input_port_desired_state(self):
+        return self._reference
+
+    def get_output_port_control(self):
+        return self._effort
+
+    def _output(self, context, output):
+        state = self._state.Eval(context)
+        reference = self._reference.Eval(context)
+        count = self.model.count
+        data = self.model.evaluate_numpy(state[None, :])
+        output.SetFromVector(
+            inverse_dynamics(
+                state,
+                reference[:count],
+                reference[count:],
+                self.kp,
+                self.kd,
+                data.mass[0],
+                data.bias_force[0],
+            )
+        )
 
 
 def connect(

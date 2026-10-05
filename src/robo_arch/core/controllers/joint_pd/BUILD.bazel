@@ -106,6 +106,8 @@ py_library(
     srcs = ["drake.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
+        "//src/robo_arch/core/controllers/dynamics:drake",
+        "//src/robo_arch/core/controllers",
         ":joint_pd",
         ":native",
         requirement("drake"),
