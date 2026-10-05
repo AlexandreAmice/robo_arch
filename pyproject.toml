@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "robo-arch"
 version = "0.1.0"
 description = "Reusable robotics autonomy declarations and implementations"
-license = "BSD-3-Clause"
+license = "0BSD"
 requires-python = ">=3.12"
 dependencies = ["numpy>=2.3.1,<3", "pydantic==2.13.5", "PyYAML==6.0.3"]
 

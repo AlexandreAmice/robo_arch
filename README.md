@@ -5,8 +5,9 @@ exercise a UR7e with a RealSense D435 housing, an iiwa 7 with an ATI Mini45-R, a
 a mixed UR7e–iiwa bimanual assembly with two independent force/torque sensors.
 Both robots and both sensors have physical collision geometry.
 
-This project is open source under the [BSD 3-Clause License](LICENSE), the same
-permissive license used by Drake. Third-party components retain their own
+This project is open source under the [BSD Zero Clause License](LICENSE), which
+allows use, modification and distribution without requiring preservation of
+the copyright notice or license text. Third-party components retain their own
 licenses as documented beside their source or assets.
 
 The [documentation index](docs/README.md) connects the architecture, build guide,
