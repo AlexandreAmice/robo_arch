@@ -24,7 +24,7 @@ Robot/tool attachments name an instance-qualified parent frame and child mountin
 
 The proposed first gripper is the articulated [WSG 50 with stock tips](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/sdf/schunk_wsg_50_with_tip.sdf) used by [manipulation's AddWsg](https://github.com/RussTedrake/manipulation/blob/master/manipulation/scenarios.py). Its [provenance](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/README.md) identifies WSG 050-110-P drawings and a [BSD-3-Clause license](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/LICENSE). Propose one audited URDF derivative for both current loaders, preserving upstream revision/license and recording changes; avoid separately maintained world models. Audit inertia and contact assumptions before accepting its physics: the source assigns each 0.05 kg finger a diagonal inertia of 0.16 kg m², which needs justification. Mount its `body` frame to the UR7e `flange` through a declared adapter transform; the actual adapter geometry, inertia and transform remain open. The example's iiwa mount is not a UR mount calibration.
 
-Keep gripper commands as aperture/rate in metres and metres per second with an explicit force limit in newtons, mapped to the two prismatic joints. [Drake's WSG controller](https://github.com/RobotLocomotion/drake/blob/master/manipulation/schunk_wsg/schunk_wsg_position_controller.h) models mechanical centering with feedback on the two independently modeled fingers. Preserve that named approximation through shared computation or choose an explicit coupling model; do not silently replace it with welded fingers or independent unconstrained commands. Hardware driver selection remains separate.
+The proposed gripper command uses aperture/rate in metres and metres per second with an explicit force limit in newtons, mapped to the two prismatic joints. [Drake's WSG controller](https://github.com/RobotLocomotion/drake/blob/master/manipulation/schunk_wsg/schunk_wsg_position_controller.h) models mechanical centering with feedback on the two independently modeled fingers. Preserve that named approximation through shared computation or choose an explicit coupling model; do not silently replace it with welded fingers or independent unconstrained commands. Hardware driver selection remains separate.
 
 Swapping robot systems, or selecting another device within a system definition, can retain the same scenario objects and task. It may require different calibration, layout or configured autonomy. Robot-system composition and autonomy composition remain separate: physical assembly does not force a particular control stack.
 
@@ -57,14 +57,11 @@ Compose autonomy in Python using the selected runtime's native facilities. In Dr
 
 Keep scene/device assembly reusable under `core/worlds/`; put task-specific connections in the scenario and reusable stacks with their robot, system or shared algorithm owner. Controller `connect` functions wire robot observations and commands, then return native task-reference ports. The scenario supplies desired-state wiring; the world constructs and initializes the native simulator. Drake exposes its `Simulator` and scene directly, without another simulation wrapper. Construction code checks robot identity, joint order, units, command mode and frames where they matter; equal vector lengths alone do not establish compatibility.
 
-The scenario selects algorithms, composition and parameters. The selected world
-resolves compatible execution adapters centrally, preserving those algorithm
-semantics. Scenarios must not contain world/backend compatibility ladders or
-substitute a different control law or nominal model to obtain a supported
-runtime. Keep this selection ordinary construction code; it requires no universal
-graph, component registry or factory framework.
-
-Concretely, world construction calls the selected algorithm owner's construction
+The scenario selects algorithms, composition and parameters; world construction
+resolves compatible execution adapters centrally. Scenarios must not contain
+backend compatibility ladders or substitute another control law or nominal model.
+Use ordinary construction code, without a universal graph, registry or factory
+framework. World construction calls the selected algorithm owner's construction
 function with the resolved mechanism, device command/observation capabilities
 and execution settings. That owner selects its native port or array adapter;
 the scenario supplies references and connects the returned native interfaces.
@@ -92,9 +89,10 @@ YAML selects physical assets, instances, layout, task, autonomy settings and wor
 
 ## World implementations
 
-Use explicit world adapters around one authoritative numerical implementation
-of each algorithm, including nominal dynamics. A world switch reuses algorithm
-code and parameters; it need not reuse a parsed execution graph. A separately
+Use explicit world adapters around one authoritative implementation of each
+control law. Target shared nominal dynamics as well; any native dynamics
+exception must satisfy the query requirements below. A world switch reuses
+algorithm code and parameters; it need not reuse a parsed execution graph. A separately
 maintained CPU/GPU dynamics tree is not an acceptable reuse boundary, even with
 parity tests. The numerical library and batched execution mechanism remain open.
 Existing Drake computation provides a shared scalar baseline, with explicit transfer and
@@ -125,8 +123,10 @@ replacement selection and validation remain open.
 If a shared dynamics implementation cannot cover a required mode, document the
 specific limitation before accepting a narrow native query. For the current
 effort controllers it must evaluate caller-supplied mechanism state and identify
-the terms in `M(q) vdot + h(q,v) = B(q) u`; CBF control also needs point positions,
-velocity Jacobians and their bias accelerations. Specify joint/frame order,
+the terms in `M(q) vdot + h(q,v) = B(q) u`. Rigid gripper coupling requires
+reduced coordinates or explicit constraint-force treatment; the unconstrained
+equation alone is insufficient. CBF control also needs point positions, velocity
+Jacobians and their bias accelerations. Specify joint/frame order,
 actuation mapping, units, model/calibration identity, batch/device ownership and
 which gravity, passive, contact or external forces are included. Deployment needs
 a nominal-model provider for the same contract; reading simulator buffers is
