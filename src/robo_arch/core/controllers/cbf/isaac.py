@@ -38,8 +38,6 @@ def build_filter(
         points=tuple(sphere.center for sphere in geometry.spheres),
         device=device,
     )
-    if parameters.compile_model:
-        tensor_model.enable_compilation()
     projection = MoreauProjection(
         count=tensor_model.count,
         constraint_count=len(geometry.pairs)

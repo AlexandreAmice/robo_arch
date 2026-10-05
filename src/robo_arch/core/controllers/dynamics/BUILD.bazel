@@ -3,9 +3,17 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
     name = "jax",
-    srcs = ["__init__.py", "jax.py"],
+    srcs = [
+        "__init__.py",
+        "jax.py",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
-    deps = ["//src/robo_arch/core/controllers", requirement("jax"), requirement("jaxsim"), requirement("numpy")],
+    deps = [
+        "//src/robo_arch/core/controllers",
+        requirement("jax"),
+        requirement("jaxsim"),
+        requirement("numpy"),
+    ],
 )
 
 # Torch is only required when callers request the DLPack tensor boundary.
@@ -20,7 +28,16 @@ py_library(
     name = "drake",
     srcs = ["drake.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
-    deps = [":jax", requirement("drake"), requirement("numpy"), requirement("jax"), requirement("jaxsim")],
+    deps = [
+        ":jax",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("jax"),
+        requirement("jaxsim"),
+    ],
 )
 
-filegroup(name = "gpu_tests", srcs = ["tests/test_torch.py"])
+filegroup(
+    name = "gpu_tests",
+    srcs = ["tests/test_torch.py"],
+)

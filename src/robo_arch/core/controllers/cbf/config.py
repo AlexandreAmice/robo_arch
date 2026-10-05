@@ -11,7 +11,6 @@ from robo_arch.core.config.resources import validate_package_reference
 class ProtectionParameters(Parameters):
     """Protection selection and tuning, independent of nominal control.
 
-    :param compile_model: Retained compilation request; shared JAX numerics always compile.
     :param velocity_limit_gain: Positive gain in s^-1 for velocity-bound barriers.
     :param profiles: Instance name to ``package://robo_arch/...`` sphere-profile
         URI. Instance names must match the physical assembly; treat as read-only.
@@ -30,7 +29,6 @@ class ProtectionParameters(Parameters):
     robot, nominal controller or task is selected by these parameters.
     """
 
-    compile_model: bool = False
     profiles: dict[str, str]
     protected: tuple[str, ...]
     exclude_frames: tuple[tuple[str, str], ...] = ()
