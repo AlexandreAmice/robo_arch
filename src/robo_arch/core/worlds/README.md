@@ -1,5 +1,12 @@
 # World construction and execution
 
+This guide describes current entry points. The
+[architecture acceptance work](../../../../docs/implementation_tasks.md#architecture-acceptance-work)
+requires central world-driven controller selection, one native Isaac lifecycle,
+mounted actuated tools and movable objects. Existing scalar callbacks and
+scenario-owned tensor rollouts are transitional, not interfaces to duplicate in
+new scenarios. Real execution is still absent.
+
 Every world has the same responsibility split:
 
 | File | Responsibility |
@@ -172,10 +179,13 @@ silently discard new physics or substitute a bounding box.
 4. Implement `visualization.py` and connect it from the world execution path.
    Viewing must not change physics or sensor selection. Preserve inspectable
    partial results on failures. Document native input/output and lifecycle limits.
-5. Add scenario wiring and dispatch. Arm tracking has native wiring in `drake.py`
-   and `isaac.py`; `run.py` selects the world, evaluates traces and records inputs.
-   Its CLI choices and inspection commands also need the new world. Never select
-   another controller silently; warn about supported scalar/CPU execution costs.
+5. Add native scenario wiring and route world selection through reusable
+   controller implementation resolution. Arm tracking's current `drake.py` and
+   `isaac.py` illustrate native wiring; its dispatch and camera protection's
+   backend checks still need migration. Scenarios select algorithms, not backend
+   compatibility tables. Keep evaluation and reporting with the scenario; extend
+   CLI and inspection world selection as needed. Never substitute another
+   algorithm silently; report supported CPU execution and transfer costs.
 6. Declare narrow Bazel targets and packaged resources. Put incompatible vendor
    dependencies in a separately locked `third_party/<world>/` profile. Test
    SDK-free rejection, independent scene construction, native settings and asset

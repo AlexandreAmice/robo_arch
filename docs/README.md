@@ -2,8 +2,8 @@
 
 Start with the [repository quickstart](../README.md) to install dependencies and
 run an example. These guides describe the implemented code alongside the target
-architecture; consult [implementation status](implementation_tasks.md) for the
-boundary between them.
+architecture; consult the [open implementation work](implementation_tasks.md) for
+remaining requirements and acceptance gates.
 
 | Need | Authoritative location |
 |---|---|
