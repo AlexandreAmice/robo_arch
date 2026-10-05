@@ -1,6 +1,7 @@
 """Independent nominal dynamics using maintained JaxSim algorithms on CPU/CUDA."""
 
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import jax
@@ -58,11 +59,20 @@ class NominalModel:
         self._inverse = jnp.argsort(self._order)
         self._damping = jnp.asarray(damping)
         self._rotor = jnp.asarray(rotor)
-        self._indices = jnp.asarray(point_bodies)
+        self._indices = tuple(int(i) for i in point_bodies)
         self._points = jnp.asarray(points)
         self._limits = np.array(limits, copy=True)
         self._torch_device = device
-        self._evaluate = jax.jit(jax.vmap(self._one))
+        self._evaluate = partial(
+            evaluate_batch,
+            self._native,
+            self._order,
+            self._inverse,
+            self._damping,
+            self._rotor,
+            self._indices,
+            self._points,
+        )
 
     @property
     def device(self):
@@ -82,53 +92,6 @@ class NominalModel:
 
         return torch.tensor(self._limits, device=self.device, dtype=self.dtype)
 
-    def enable_compilation(self) -> None:
-        """JAX always compiles this model; retained for existing configuration."""
-
-    def _positions(self, q):
-        data = js.data.JaxSimModelData.build(
-            self._native, joint_positions=q[self._order]
-        )
-        transforms = js.model.forward_kinematics(self._native, data)[self._indices]
-        return (
-            jnp.einsum("sij,sj->si", transforms[:, :3, :3], self._points)
-            + transforms[:, :3, 3]
-        )
-
-    def _one(self, state):
-        n = self.count
-        q, v = state[:n], state[n:]
-        data = js.data.JaxSimModelData.build(
-            self._native,
-            joint_positions=q[self._order],
-            joint_velocities=v[self._order],
-        )
-        mass = js.model.free_floating_mass_matrix(self._native, data)[6:, 6:]
-        mass = mass[self._inverse[:, None], self._inverse[None, :]] + jnp.diag(
-            self._rotor
-        )
-        bias = (
-            js.model.free_floating_bias_forces(self._native, data)[6:][self._inverse]
-            + self._damping * v
-        )
-        positions = self._positions(q)
-        jacobian = jax.jacfwd(self._positions)(q)
-        jacobian_rate = jax.jvp(jax.jacfwd(self._positions), (q,), (v,))[1]
-        acceleration = jnp.linalg.solve(
-            mass, jnp.concatenate((-bias[:, None], jnp.eye(n)), axis=-1)
-        )
-        valid = jnp.isfinite(state).all() & jnp.isfinite(acceleration).all()
-        return (
-            positions,
-            jacobian,
-            jacobian_rate @ v,
-            mass,
-            bias,
-            acceleration[:, 0],
-            acceleration[:, 1:],
-            valid,
-        )
-
     def evaluate_numpy(self, state: np.ndarray) -> ModelEvaluation:
         """Evaluate owned float64 CPU arrays; no Torch dependency."""
         state = np.asarray(state, dtype=np.float64)
@@ -147,3 +110,54 @@ class NominalModel:
             raise ValueError("Tensor dynamics state dtype/device must match its model")
         result = self._evaluate(jax.dlpack.from_dlpack(state.detach().contiguous()))
         return ModelEvaluation(*(torch.from_dlpack(value).clone() for value in result))
+
+
+@partial(jax.jit, static_argnames=("indices",))
+def evaluate_batch(native, order, inverse, damping, rotor, indices, points, states):
+    """Compile once per model topology and batch shape, reusing across owners."""
+
+    def positions(q):
+        data = js.data.JaxSimModelData.build(native, joint_positions=q[order])
+        transforms = js.model.forward_kinematics(native, data)[jnp.asarray(indices)]
+        return (
+            jnp.einsum("sij,sj->si", transforms[:, :3, :3], points)
+            + transforms[:, :3, 3]
+        )
+
+    def one(state):
+        n = len(order)
+        q, v = state[:n], state[n:]
+        data = js.data.JaxSimModelData.build(
+            native,
+            joint_positions=q[order],
+            joint_velocities=v[order],
+        )
+        mass = js.model.free_floating_mass_matrix(native, data)[6:, 6:]
+        mass = mass[inverse[:, None], inverse[None, :]] + jnp.diag(rotor)
+        bias = (
+            js.model.free_floating_bias_forces(native, data)[6:][inverse] + damping * v
+        )
+        if all(index == 0 for index in indices):
+            xyz = points
+            jacobian = jnp.zeros((len(indices), 3, n))
+            jacobian_rate = jnp.zeros_like(jacobian)
+        else:
+            xyz = positions(q)
+            jacobian = jax.jacfwd(positions)(q)
+            jacobian_rate = jax.jvp(jax.jacfwd(positions), (q,), (v,))[1]
+        acceleration = jnp.linalg.solve(
+            mass, jnp.concatenate((-bias[:, None], jnp.eye(n)), axis=-1)
+        )
+        valid = jnp.isfinite(state).all() & jnp.isfinite(acceleration).all()
+        return (
+            xyz,
+            jacobian,
+            jacobian_rate @ v,
+            mass,
+            bias,
+            acceleration[:, 0],
+            acceleration[:, 1:],
+            valid,
+        )
+
+    return jax.vmap(one)(states)

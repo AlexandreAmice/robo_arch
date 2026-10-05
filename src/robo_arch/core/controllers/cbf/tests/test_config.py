@@ -48,8 +48,6 @@ def test_defaults_preserve_existing_barrier_tuning():
     assert selected.residual_tolerance == 1e-6
     assert selected.exclude_frames == ()
     assert selected.protected == ("device",)
-    assert not selected.compile_model
-    assert parameters(compile_model=True).compile_model
 
 
 if __name__ == "__main__":

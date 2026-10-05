@@ -2,7 +2,10 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
     name = "controllers",
-    srcs = ["__init__.py", "feedback.py"],
+    srcs = [
+        "__init__.py",
+        "feedback.py",
+    ],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = ["//src/robo_arch/core"],
 )
@@ -11,9 +14,12 @@ py_library(
     name = "selection",
     srcs = ["selection.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
-    deps = [":controllers", "//src/robo_arch/core/contracts:commands",
-            "//src/robo_arch/core/controllers/joint_pd:drake",
-            "//src/robo_arch/core/controllers/joint_tracking:drake"],
+    deps = [
+        ":controllers",
+        "//src/robo_arch/core/contracts:commands",
+        "//src/robo_arch/core/controllers/joint_pd:drake",
+        "//src/robo_arch/core/controllers/joint_tracking:drake",
+    ],
 )
 
 py_library(
