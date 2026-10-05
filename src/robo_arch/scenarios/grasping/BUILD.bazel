@@ -1,5 +1,5 @@
 load("@python_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 py_library(
     name = "grasping",
@@ -21,5 +21,18 @@ py_library(
         "//src/robo_arch/scenarios",
         requirement("drake"),
         requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "reference_test",
+    srcs = ["tests/test_reference.py"],
+    main = "tests/test_reference.py",
+    deps = [
+        ":grasping",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
     ],
 )

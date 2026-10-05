@@ -96,5 +96,95 @@ def test_calibration_identity_and_mount_revision_checked_without_sdk():
         )
 
 
+def test_two_installations_keep_mounts_state_and_calibration_independent():
+    from pydrake.systems.framework import DiagramBuilder
+
+    from robo_arch.core.worlds.drake.scene import build_scene
+
+    selected = run()
+    copies = []
+    for name, x, gap in (("left", -1.0, 0.04), ("right", 1.0, 0.06)):
+        arm, grip = selected.robot_system.robots
+        arm = replace(arm, binding=DeviceBinding(identity=name + "-arm"))
+        grip = replace(
+            grip,
+            binding=DeviceBinding(identity=name + "-gripper"),
+            calibration=grip.calibration.model_copy(
+                update={
+                    "identity": name + "-gripper",
+                    "parent_identity": name + "-arm",
+                    "pose": Pose(translation=(gap, 0, 0), rpy=(0, 0, -np.pi / 2)),
+                }
+            ),
+        )
+        copies.append(
+            replace(
+                selected.robot_system,
+                name=name,
+                pose=Pose(translation=(x, 0, 0)),
+                robots=(arm, grip),
+            )
+        )
+    scene_config = replace(
+        selected.scene,
+        objects=(),
+        robot_system=replace(selected.robot_system, robots=(), systems=tuple(copies)),
+    )
+    builder = DiagramBuilder()
+    scene = build_scene(scene_config, selected.world_config, builder=builder)
+    context = scene.plant.CreateDefaultContext()
+    before = scene.plant.GetPositions(context, scene.robots["right/arm"]).copy()
+    scene.plant.SetPositions(context, scene.robots["left/arm"], np.ones(6) * 0.1)
+    np.testing.assert_array_equal(
+        scene.plant.GetPositions(context, scene.robots["right/arm"]), before
+    )
+    assert (
+        scene.mechanism_models["left/arm"].plant
+        is not scene.mechanism_models["right/arm"].plant
+    )
+    for name, gap in (("left", 0.04), ("right", 0.06)):
+        flange = scene.plant.GetFrameByName("flange", scene.robots[name + "/arm"])
+        body = scene.plant.GetFrameByName("body", scene.robots[name + "/gripper"])
+        np.testing.assert_allclose(
+            scene.plant.CalcRelativeTransform(context, flange, body).translation(),
+            (gap, 0, 0),
+            atol=1e-14,
+        )
+
+
+def test_free_object_drop_and_reset_restore_pose_and_origin_twist():
+    from pydrake.systems.analysis import Simulator
+    from pydrake.systems.framework import DiagramBuilder
+
+    from robo_arch.core.worlds.drake.scene import build_scene, initialize_objects
+
+    selected = run()
+    obj = replace(
+        selected.objects[0],
+        pose=Pose(translation=(2, 0, 0.3)),
+        linear_velocity=(0.1, 0, 0),
+        angular_velocity=(0, 0, 0.2),
+    )
+    builder = DiagramBuilder()
+    scene = build_scene(
+        replace(selected.scene, objects=(obj,)), selected.world_config, builder=builder
+    )
+    diagram = builder.Build()
+    simulator = Simulator(diagram)
+    context = scene.plant.GetMyMutableContextFromRoot(simulator.get_mutable_context())
+    initialize_objects(scene, context)
+    body = scene.plant.GetBodyByName("box", scene.objects["block"])
+    np.testing.assert_allclose(
+        body.EvalSpatialVelocityInWorld(context).translational(), obj.linear_velocity
+    )
+    simulator.AdvanceTo(1.0)
+    assert 0.02 < body.EvalPoseInWorld(context).translation()[2] < 0.03
+    initialize_objects(scene, context)
+    np.testing.assert_allclose(body.EvalPoseInWorld(context).translation(), (2, 0, 0.3))
+    np.testing.assert_allclose(
+        body.EvalSpatialVelocityInWorld(context).rotational(), obj.angular_velocity
+    )
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
