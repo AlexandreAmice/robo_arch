@@ -1,8 +1,8 @@
 """Load declared physical assemblies and run settings from strict YAML.
 
-Mounts are nominal transforms, not measured calibration. Robot bases are fixed
-relative to their containing system in this initial schema. Autonomy wiring
-lives in Python; measured calibration profiles are not yet supported.
+Instance selections retain explicit installation and calibration identities.
+World loaders validate named frames and native assets before building devices.
+Autonomy remains Python code selected independently of physical composition.
 """
 
 from dataclasses import replace

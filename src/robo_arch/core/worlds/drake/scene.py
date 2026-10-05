@@ -45,6 +45,7 @@ from robo_arch.core.worlds.devices import (
 from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeWorld
 from robo_arch.core.worlds.drake.models import add_robot
 from robo_arch.core.worlds.drake.sensors import add_sensor_body
+from robo_arch.core.worlds.urdf import mount_to_base
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def _add_mechanism(plant, mechanism, definitions, sensors):
     instances = {}
     for robot in mechanism.robots:
         definition = definitions.robots[robot.model]
+        mount_to_base(robot, definitions)  # Validate the shared rigid-mount contract.
         instance = add_robot(plant, definition, name=robot.name)
         if robot.parent:
             parent, frame = robot.parent.rsplit("/", 1)
@@ -89,6 +91,11 @@ def _add_mechanism(plant, mechanism, definitions, sensors):
         parent, frame = sensor.parent.rsplit("/", 1)
         if parent in instances:
             definition = definitions.sensors[sensor.model]
+            if (
+                sensor.calibration
+                and sensor.calibration.child_frame != definition.base_frame
+            ):
+                raise ValueError(f"Calibration child frame differs for {sensor.name}")
             sensor_instances[sensor.name] = add_sensor_body(
                 plant,
                 sensor,
@@ -222,8 +229,8 @@ def build_scene(
 ) -> DrakeScene:
     """Add the physical scene; the caller supplies autonomy and builds the diagram.
 
-    Objects are fixed fixtures. Controller models have the scene's base poses
-    and gravity and contain their robot plus its mounted devices.
+    Objects are fixed or free as declared. Independent controller models contain
+    the full connected mechanism, including actuated tools and mounted sensors.
     """
     if not isinstance(config, DrakeWorld):
         raise ValueError("Drake scene construction requires DrakeWorld")

@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 from robo_arch.core.config.declarations import SceneConfiguration
-from robo_arch.core.worlds.assembly import Devices, base_pose, resolve_devices
+from robo_arch.core.worlds.assembly import Devices, attachment_pose, resolve_devices
 from robo_arch.core.worlds.devices import (
     DeviceDefinitions,
     load_definitions,
@@ -20,7 +20,7 @@ from robo_arch.core.worlds.isaac.backend import validate_observations
 from robo_arch.core.worlds.isaac.config import IsaacWorld
 from robo_arch.core.worlds.isaac.objects import add_objects
 from robo_arch.core.worlds.isaac.urdf import add_to_stage
-from robo_arch.core.worlds.urdf import compose_mechanism, robot_link
+from robo_arch.core.worlds.urdf import compose_mechanism, mount_to_base, robot_link
 
 
 @dataclass
@@ -157,7 +157,9 @@ def populate_scene(
         root = add_to_stage(
             stage,
             name=prototype.lstrip("/") + "/" + robot.name,
-            X_WB=base_pose(robot).GetAsMatrix4(),
+            X_WB=(
+                attachment_pose(robot) @ mount_to_base(robot, definitions)
+            ).GetAsMatrix4(),
             directory=destination / "usd",
             urdf=urdf,
         )

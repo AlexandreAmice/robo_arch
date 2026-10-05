@@ -6,7 +6,7 @@ from pathlib import Path
 
 from robo_arch.core.config.declarations import SensorInstance
 from robo_arch.core.config.loading import resolve_resource
-from robo_arch.core.worlds.assembly import PlacedRobot
+from robo_arch.core.worlds.assembly import Mechanism, PlacedRobot
 from robo_arch.core.worlds.devices import DeviceDefinitions
 
 
@@ -31,41 +31,12 @@ def compose(
     definitions: DeviceDefinitions,
     destination: Path,
 ) -> None:
-    """Preserve all sensing joints and inertias, including disabled observations."""
-    model = _asset(definitions.robots[robot.model].asset)
-    model.set("name", "assembly")
-    for sensor in sensors:
-        parent, frame = sensor.parent.rsplit("/", 1)
-        if parent != robot.name:
-            continue
-        definition = definitions.sensors[sensor.model]
-        body = _asset(
-            f"package://robo_arch/sensors/{sensor.model}/{definition.resource}"
-        )
-        for original in body:
-            node = copy.deepcopy(original)
-            for element in node.iter():
-                for attribute in ("name", "link"):
-                    if attribute in element.attrib:
-                        element.set(
-                            attribute, sensor_link(sensor.name, element.get(attribute))
-                        )
-            model.append(node)
-        joint = ET.SubElement(
-            model, "joint", name=sensor_link(sensor.name, "attachment"), type="fixed"
-        )
-        ET.SubElement(joint, "parent", link=frame)
-        ET.SubElement(
-            joint, "child", link=sensor_link(sensor.name, definition.base_frame)
-        )
-        ET.SubElement(
-            joint,
-            "origin",
-            xyz=" ".join(map(str, sensor.pose.translation)),
-            rpy=" ".join(map(str, sensor.pose.rpy)),
-        )
-    ET.indent(model, space="  ")
-    ET.ElementTree(model).write(destination, encoding="unicode", xml_declaration=True)
+    """Compatibility entry point for one root and its mounted sensor bodies."""
+    if robot.parent is not None:
+        raise ValueError("An attached robot requires its complete mechanism")
+    compose_mechanism(
+        Mechanism(robot.name, (robot,)), sensors, definitions, destination
+    )
 
 
 def robot_link(name: str, link: str) -> str:
@@ -73,7 +44,12 @@ def robot_link(name: str, link: str) -> str:
     return "robot_" + name.encode().hex() + "__" + link
 
 
-def compose_mechanism(mechanism, sensors, definitions, destination: Path):
+def compose_mechanism(
+    mechanism: Mechanism,
+    sensors: tuple[SensorInstance, ...],
+    definitions: DeviceDefinitions,
+    destination: Path,
+) -> dict[str, tuple[str, ...]]:
     """Compose a connected tree and return each device's native joint names.
 
     The physical root keeps its original names for existing scalar consumers.
@@ -106,10 +82,6 @@ def compose_mechanism(mechanism, sensors, definitions, destination: Path):
         parent, frame = robot.parent.rsplit("/", 1)
         asset = _asset(definition.asset)
         links = {link.get("name") for link in asset.findall("link")}
-        if (robot.mount_frame or definition.base_frame) != definition.base_frame:
-            raise ValueError(
-                "Compound URDF child mount must be its declared base frame"
-            )
         if definition.base_frame not in links:
             raise ValueError(f"Missing child base frame for {robot.name}")
         if native(parent, frame) not in {
@@ -122,7 +94,7 @@ def compose_mechanism(mechanism, sensors, definitions, destination: Path):
         )
         ET.SubElement(joint, "parent", link=native(parent, frame))
         ET.SubElement(joint, "child", link=native(robot.name, definition.base_frame))
-        transform = attachment_pose(robot)
+        transform = attachment_pose(robot) @ mount_to_base(robot, definitions)
         from pydrake.math import RollPitchYaw
 
         ET.SubElement(
@@ -158,3 +130,44 @@ def compose_mechanism(mechanism, sensors, definitions, destination: Path):
     ET.indent(model, space="  ")
     ET.ElementTree(model).write(destination, encoding="unicode", xml_declaration=True)
     return names
+
+
+def mount_to_base(robot: PlacedRobot, definitions: DeviceDefinitions):
+    """Transform a named rigid mount frame to the declared URDF base.
+
+    Mounting a moving child link would require rerooting its kinematic tree and
+    changing coordinate conventions, so that case fails explicitly.
+    """
+    from pydrake.math import RigidTransform, RollPitchYaw
+
+    definition = definitions.robots[robot.model]
+    mount = robot.mount_frame or definition.base_frame
+    if robot.calibration and robot.calibration.child_frame != mount:
+        raise ValueError(f"Calibration child frame differs for {robot.name}")
+    model = _asset(definition.asset)
+    graph = {}
+    for joint in model.findall("joint[@type='fixed']"):
+        parent, child = (
+            joint.find("parent").get("link"),
+            joint.find("child").get("link"),
+        )
+        origin = joint.find("origin")
+        xyz = origin.get("xyz", "0 0 0") if origin is not None else "0 0 0"
+        rpy = origin.get("rpy", "0 0 0") if origin is not None else "0 0 0"
+        transform = RigidTransform(
+            RollPitchYaw([float(value) for value in rpy.split()]),
+            [float(value) for value in xyz.split()],
+        )
+        graph.setdefault(parent, []).append((child, transform))
+        graph.setdefault(child, []).append((parent, transform.inverse()))
+    transforms = {definition.base_frame: RigidTransform()}
+    pending = [definition.base_frame]
+    while pending:
+        parent = pending.pop()
+        for child, transform in graph.get(parent, ()):
+            if child not in transforms:
+                transforms[child] = transforms[parent] @ transform
+                pending.append(child)
+    if mount not in transforms:
+        raise ValueError(f"Mount frame {robot.name}/{mount} must be fixed to its base")
+    return transforms[mount].inverse()
