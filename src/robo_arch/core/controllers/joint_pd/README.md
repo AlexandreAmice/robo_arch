@@ -23,7 +23,9 @@ tested in float32 and float64. Torch remains in the vendor runtime profile.
 Batched reaching supplies Isaac Lab gravity forces explicitly; the feedback
 function itself has no simulator dependency or privileged state access.
 
-The local wheel targets CPython 3.12 on Linux x86-64 with host glibc. Nanobind and
+The binding is included in the project aggregate `//tools/native:wheel`; this
+package owns the C++ library and extension target. The local wheel targets
+CPython 3.12 on Linux x86-64 with host glibc. Nanobind and
 the C++ runtime are linked statically with hidden archive symbols; only the Python
 entry point is exported. This prevents symbol interposition with Kit's C++
 libraries. No Drake C++ objects cross the binding boundary. The wheel is not a

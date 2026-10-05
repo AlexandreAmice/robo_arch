@@ -8,7 +8,21 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGET = "//src/robo_arch/core/controllers/joint_pd:wheel"
+TARGET = "//tools/native:wheel"
+
+PAYLOAD_PROBE = """
+import importlib.util, hashlib, json
+from pathlib import Path
+spec = importlib.util.find_spec("robo_arch_native")
+# A missing __init__.py leaves a namespace package, which must be reinstalled.
+root = Path(spec.origin).parent if spec and spec.origin else None
+print(json.dumps({
+    "robo_arch_native/" + file.relative_to(root).as_posix():
+        hashlib.sha256(file.read_bytes()).hexdigest()
+    for file in root.rglob("*")
+    if file.is_file() and "__pycache__" not in file.parts
+} if root else None))
+"""
 
 
 def install(profile: str) -> Path:
@@ -41,16 +55,9 @@ def install(profile: str) -> Path:
             for name in archive.namelist()
             if name.startswith("robo_arch_native/") and not name.endswith("/")
         }
-    probe = (
-        "import importlib.util,hashlib,json; from pathlib import Path; "
-        "s=importlib.util.find_spec('robo_arch_native'); "
-        "p=Path(s.origin).parent if s else None; "
-        "print(json.dumps({ 'robo_arch_native/'+f.relative_to(p).as_posix(): "
-        "hashlib.sha256(f.read_bytes()).hexdigest() for f in p.rglob('*') "
-        "if f.is_file() and '__pycache__' not in f.parts } if p else None))"
-    )
+        modules = json.loads(archive.read("robo_arch_native/build.json"))["extensions"]
     installed = json.loads(
-        subprocess.check_output([str(python), "-c", probe], text=True)
+        subprocess.check_output([str(python), "-c", PAYLOAD_PROBE], text=True)
     )
     if installed != expected:
         subprocess.run(
@@ -67,7 +74,16 @@ def install(profile: str) -> Path:
             cwd=ROOT,
             check=True,
         )
-    subprocess.run([str(python), "-c", "import robo_arch_native._joint_pd"], check=True)
+    subprocess.run(
+        [
+            str(python),
+            "-c",
+            "import importlib,json,sys; "
+            "[importlib.import_module(name) for name in json.loads(sys.argv[1])]",
+            json.dumps(modules),
+        ],
+        check=True,
+    )
     return python
 
 

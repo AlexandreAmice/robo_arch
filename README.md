@@ -30,13 +30,18 @@ Tests use importlib collection so owner-local tests can share filenames.
 Select `.venv/bin/python` in your IDE. Core declarations can be inspected in an
 SDK-independent environment using `uv sync --locked --no-group drake`.
 
-Direct scenario scripts incrementally build and refresh the native wheel in the
+Direct scenario scripts incrementally build `//tools/native:wheel` and refresh it in the
 selected environment before running. Unchanged payloads are not reinstalled;
 build/install failures stop the launch. Exact `uv sync` can remove the wheel;
 the next scenario launch restores it automatically. The explicit installer in
 the test setup above is also available for IDEs and notebooks. See the
 [controller](src/robo_arch/core/controllers/joint_pd/README.md) for ownership,
 units and ABI details.
+
+Component libraries and bindings stay with their owners; the project package
+collects their explicitly declared extensions and runtime resources. Adding a
+native component does not change launch/install code. See the
+[native edit–run workflow](docs/build_and_layout.md#the-c-editrun-loop).
 
 For C++ autocomplete and navigation in VS Code, install the recommended
 **clangd** extension (`llvm-vs-code-extensions.vscode-clangd`). Open the

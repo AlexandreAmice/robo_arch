@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-NATIVE_PACKAGE = "src/robo_arch/core/controllers/joint_pd"
+NATIVE_PACKAGE = "tools/native"
 
 
 def run(

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import subprocess
+import sys
 import zipfile
 
 import pytest
@@ -20,6 +21,9 @@ def build(tmp_path, monkeypatch):
     payload = {
         "robo_arch_native/_joint_pd.so": b"extension",
         "robo_arch_native/__init__.py": b"package",
+        "robo_arch_native/build.json": json.dumps(
+            {"extensions": ["robo_arch_native._example", "robo_arch_native._second"]}
+        ).encode(),
     }
     with zipfile.ZipFile(wheel, "w") as archive:
         for name, data in payload.items():
@@ -54,7 +58,10 @@ def test_install_only_when_payload_differs(build, monkeypatch, state):
     assert install.install("drake") == root / ".venv/bin/python"
     assert calls[0] == ["bazel", "build", install.TARGET]
     assert any(command[:2] == ["uv", "pip"] for command in calls) == (state != "same")
-    assert calls[-1][-1] == "import robo_arch_native._joint_pd"
+    assert json.loads(calls[-1][-1]) == [
+        "robo_arch_native._example",
+        "robo_arch_native._second",
+    ]
 
 
 @pytest.mark.parametrize("stage", ["build", "install"])
@@ -73,7 +80,7 @@ def test_failure_stops_before_import(build, monkeypatch, stage):
     monkeypatch.setattr(install.subprocess, "run", run)
     with pytest.raises(subprocess.CalledProcessError):
         install.install("drake")
-    assert all(command[-1] != "import robo_arch_native._joint_pd" for command in calls)
+    assert all(command[1:2] != ["-c"] for command in calls)
 
 
 def test_incompatible_python_never_builds(build, monkeypatch):
@@ -87,6 +94,44 @@ def test_incompatible_python_never_builds(build, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="CPython 3.12"):
         install.install("drake")
+
+
+@pytest.mark.parametrize("missing", [None, "__init__.py", "_example.so", "data.bin"])
+def test_real_payload_probe_detects_missing_files(tmp_path, missing):
+    package = tmp_path / "robo_arch_native"
+    package.mkdir()
+    contents = {
+        "__init__.py": b"raise AssertionError('probe must not import native package')",
+        "_example.so": b"native bytes",
+        "data.bin": b"runtime resource",
+    }
+    for name, content in contents.items():
+        if name != missing:
+            (package / name).write_bytes(content)
+    script = (
+        "import sys; sys.path[:] = [sys.argv[1], "
+        "*[p for p in sys.path if 'site-packages' not in p]]\n" + install.PAYLOAD_PROBE
+    )
+    result = json.loads(
+        subprocess.check_output(
+            [sys.executable, "-I", "-c", script, str(tmp_path)], text=True
+        )
+    )
+    expected = {
+        f"robo_arch_native/{name}": hashlib.sha256(content).hexdigest()
+        for name, content in contents.items()
+    }
+    if missing == "__init__.py":
+        assert result is None
+    elif missing is not None:
+        assert result != expected
+        assert result == {
+            name: value
+            for name, value in expected.items()
+            if name.split("/")[-1] != missing
+        }
+    else:
+        assert result == expected
 
 
 if __name__ == "__main__":

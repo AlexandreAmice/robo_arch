@@ -175,6 +175,15 @@ uv run src/robo_arch/scenarios/batched_reaching/run.py --backend newton --live -
 bazel test //tests/build:core //src/robo_arch/scenarios/arm_tracking:run_test
 ```
 
+`//tools/native:wheel` owns the project native package. Components own their C++
+libraries and binding targets; the aggregate explicitly lists their outputs and
+runtime files as Bazel inputs. Add an extension with `--extension <module> <file>`
+and a runtime file with `--resource robo_arch_native/<path> <file>` in that target.
+The packager generates the module inventory used to verify installed imports.
+Adding a component changes these packaging dependencies, not the launcher or
+installer. Bazel owns incremental rebuild decisions; the installer compares all
+package payload bytes, including resources, before deciding whether to reinstall.
+
 Each direct development launch performs these steps:
 
 1. Resolve the runtime profile from the scenario's world selection and check interpreter/ABI compatibility. `--world`, `--world-config` and saved inspection inputs are honored. Both environments must already exist from `uv sync`.

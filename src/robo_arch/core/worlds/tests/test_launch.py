@@ -1,6 +1,9 @@
 """Development launch preserves process semantics without importing simulators."""
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -93,6 +96,58 @@ def test_inspection_selects_source_project_from_any_directory(checkout):
     script = checkout / "src/robo_arch/scenarios/example/run.py"
     command = launch.inspection_invocation(str(script))
     assert command == ["uv", "run", "--locked", "--project", str(checkout), str(script)]
+
+
+def test_real_subprocess_handoff_builds_once(tmp_path):
+    (tmp_path / ".git").touch()
+    (tmp_path / "MODULE.bazel").touch()
+    source = tmp_path / "src/robo_arch/core/worlds/launch.py"
+    source.parent.mkdir(parents=True)
+    source.write_text(Path(launch.__file__).read_text())
+    python = tmp_path / ".venv/bin/python"
+    python.parent.mkdir(parents=True)
+    python.symlink_to(sys.executable)
+    installer = tmp_path / "tools/native/install.py"
+    installer.parent.mkdir(parents=True)
+    installer.write_text(
+        "from pathlib import Path\n"
+        "with (Path(__file__).parents[2] / 'installs').open('a') as stream:\n"
+        "    stream.write('installed\\n')\n"
+    )
+    script = tmp_path / "run.py"
+    script.write_text(
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "root = Path(__file__).parent\n"
+        "sys.path.insert(0, str(root / 'src'))\n"
+        "from robo_arch.core.worlds.launch import prepare\n"
+        "before = root / 'before'\n"
+        "if not before.exists(): before.write_text(str(os.getpid()))\n"
+        "prepare('drake')\n"
+        "print(json.dumps({'pid': os.getpid(), 'argv': sys.argv[1:],\n"
+        "    'safe_path': sys.flags.safe_path,\n"
+        "    'marker': os.environ.get('_ROBO_ARCH_PREPARED_PROCESS')}))\n"
+    )
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.pop(launch._HANDOFF, None)
+    result = subprocess.run(
+        [sys.executable, "-S", str(script), "argument with spaces"],
+        env=env,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    report = json.loads(result.stdout)
+    assert report == {
+        "pid": int((tmp_path / "before").read_text()),
+        "argv": ["argument with spaces"],
+        "safe_path": True,
+        "marker": None,
+    }
+    assert (tmp_path / "installs").read_text() == "installed\n"
 
 
 if __name__ == "__main__":
