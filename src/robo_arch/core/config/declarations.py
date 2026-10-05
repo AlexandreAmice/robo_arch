@@ -161,7 +161,7 @@ class RobotSystem:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectInstance:
-    """A named scene object, currently constructed as a fixed fixture.
+    """A named fixed fixture or free rigid object with initial world-frame state.
 
     :param name: Scene-wide name, distinct from resolved device names.
     :param model: Model package identifier under ``objects``.
@@ -184,7 +184,7 @@ class SceneConfiguration:
     :param robot_system: Root physical composition.
     :param sensors_enabled: Enable observations. False still retains sensor
         bodies, mounts, inertia and collisions in physical assembly.
-    :param objects: World-placed fixed objects, in declaration order.
+    :param objects: World-placed objects, in declaration order.
 
     Records are shared with the originating run, not copied or instantiated here.
     """
@@ -199,8 +199,8 @@ class RunConfiguration:
     """Validated selections and names; device compatibility is checked at assembly.
 
     The robot system retains its hierarchy and local names. World assembly
-    resolves device names, sensor parents and robot pose chains. Objects are fixed
-    scene fixtures in this first runtime. Parameters remain caller-owned; do not
+    resolves device names, attachment topology and robot pose chains. Objects
+    declare fixed or free motion. Parameters remain caller-owned; do not
     mutate after loading.
 
     :param source: Resolved scenario YAML file.
@@ -208,7 +208,7 @@ class RunConfiguration:
     :param duration: Requested simulation duration in seconds.
     :param robot_system: Root composition with a world-relative pose.
     :param sensors_enabled: Whether to construct observation outputs.
-    :param objects: World-placed fixed fixtures.
+    :param objects: World-placed fixed or free bodies.
     :param task: Evaluation selection, validated further by the scenario.
     :param autonomy: Controller selection, validated further by scenario wiring.
     :param world_source: Resolved external world profile, or None for inline settings.
@@ -331,7 +331,7 @@ class SensorDefinition:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectDefinition:
-    """Reusable fixed-object metadata; importing it does not load a world.
+    """Reusable rigid-object metadata; importing it does not load a world.
 
     :param package: Importable owning package used to resolve the asset.
     :param resource: Asset name relative to that package.

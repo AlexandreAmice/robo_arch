@@ -141,10 +141,23 @@ class Viewer:
                                 self._body_transforms.append(
                                     (name, env, body, prim, transform)
                                 )
+                for name in self.scene.native.rigid_objects:
+                    for env in range(self.scene.world.num_envs):
+                        prim = self.stage.GetPrimAtPath(
+                            f"/World/envs/env_{env}/objects/{name}"
+                        )
+                        transform = UsdGeom.Xformable(prim).MakeMatrixXform()
+                        self._body_transforms.append((name, env, 0, prim, transform))
             poses = {
                 name: arm.data.body_link_pose_w.torch.cpu().numpy()
                 for name, arm in self.scene.native.articulations.items()
             }
+            poses.update(
+                {
+                    name: body.data.root_link_pose_w.torch.cpu().numpy()[:, None, :]
+                    for name, body in self.scene.native.rigid_objects.items()
+                }
+            )
             cache = UsdGeom.XformCache()
             for name, env, body, prim, transform in self._body_transforms:
                 pose = poses[name][env, body].astype(float)
