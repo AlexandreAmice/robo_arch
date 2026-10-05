@@ -24,6 +24,11 @@ docs = ["sphinx==8.2.3"]
 required-version = "==0.12.20"
 default-groups = ["dev", "drake", "numerical"]
 
+# JaxSim's pptree is pure Python but source-only. Match rules_python's pinned
+# build backend rather than downloading whichever setuptools is current.
+[tool.uv.extra-build-dependencies]
+pptree = ["setuptools==82.0.0"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/robo_arch"]
 
