@@ -200,17 +200,11 @@ uv run --project third_party/isaac --group cbf-gpu python \
   -m robo_arch.scenarios.camera_protection.benchmark
 ```
 
-The benchmark measures the same complete control loop with compiled
-tensor dynamics; compilation remains part of the separately reported warmup.
-
-On an RTX 3060 Laptop GPU, float64 measurements for batches 1/32/128/512 were
-39.7/58.6/137.6/487.1 ms per control call (25/546/930/1051 environment commands/s)
-in eager mode. With compiled dynamics, batches 1 and 32 measured 27.4 and
-46.6 ms per call (36 and 686 environment commands/s), excluding warmup.
-These are throughput measurements for deterministic perturbed states, not
-1 kHz simulation or hardware guarantees. Startup and warmup are reported
-separately; every measured command passes the residual check. The benchmark
-writes its actual JSON and plot under `recordings/`.
+The benchmark records compilation/setup separately from steady-state calls.
+Previous Torch-tree timings do not describe the shared JaxSim implementation;
+rerun the benchmark for the selected model, batch, device and pinned environment.
+It writes measured JSON and a plot under `recordings/`. GPU residency is not a
+claim of 1 kHz control or hardware suitability.
 
 Native GPU integration tests exercise two environments through both obstacle and
 floor approaches, with and without filtering. Each case starts a separate Isaac
@@ -222,7 +216,7 @@ ROBO_ARCH_NATIVE_ISAAC=1 OMNI_KIT_ACCEPT_EULA=YES \
   src/robo_arch/scenarios/camera_protection/tests/test_gpu_run.py
 ```
 
-These tests enable compiled dynamics and can take several minutes per case,
+These tests can take several minutes per case,
 including first-use compilation. Lower-level native
 reset and failure-cleanup tests are documented with the
 [world implementation](../../core/worlds/README.md).

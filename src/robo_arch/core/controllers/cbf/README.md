@@ -7,11 +7,11 @@ and any nominal effort source.
 `wrap(nominal)` uses the existing `(state, time) -> effort` policy interface.
 `SphereCbfSystem` has `estimated_state` and `nominal_effort` inputs, and `effort`
 and `diagnostics` outputs sharing one native cache entry per context. Each
-filter owns an independent dynamics context and optimization workspace; calls
+filter owns independent evaluated state and optimization workspace; calls
 on an individual filter must be sequential.
 
 `config.ProtectionParameters` owns the reusable YAML fields: `profiles`,
-`protected`, `exclude_frames`, `margin`, `alpha1`, `alpha2`, `backend`,
+`protected`, `exclude_frames`, `margin`, `alpha1`, `alpha2`,
 `velocity_limit_gain` and `residual_tolerance`. It selects no robot model, nominal controller or task.
 `assembly.resolve_geometry(scene, parameters, ground=...)` resolves coverings,
 fixed-object poses, exclusions and optional ground constraints into
