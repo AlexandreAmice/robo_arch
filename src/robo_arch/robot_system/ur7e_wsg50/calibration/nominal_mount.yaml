@@ -1,0 +1,9 @@
+identity: demo-gripper
+parent_identity: demo-arm
+parent_frame: flange
+child_frame: body
+mounting_revision: synthetic-v1
+kind: synthetic
+pose:
+  translation: [0, 0, 0.05]
+  rpy: [1.5707963267948966, 0, 0]

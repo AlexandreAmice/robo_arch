@@ -20,7 +20,7 @@ from robo_arch.core.worlds.isaac.backend import validate_observations
 from robo_arch.core.worlds.isaac.config import IsaacWorld
 from robo_arch.core.worlds.isaac.objects import add_objects
 from robo_arch.core.worlds.isaac.urdf import add_to_stage
-from robo_arch.core.worlds.urdf import compose
+from robo_arch.core.worlds.urdf import compose_mechanism, robot_link
 
 
 @dataclass
@@ -35,6 +35,9 @@ class IsaacScene:
     configuration: SceneConfiguration
     world: IsaacWorld
     observations: dict[str, Callable[[], np.ndarray]]
+    device_joints: dict[str, tuple[str, tuple[int, ...]]]
+    environment_origins: Any
+    environment: Any | None = None
 
     @property
     def stage(self) -> Any:
@@ -80,10 +83,15 @@ def add_ground(stage: Any, *, enabled: bool = True) -> None:
     visual.CreateDisplayColorAttr([Gf.Vec3f(0.55, 0.57, 0.60)])
 
 
-def build_scene(
-    scene: SceneConfiguration, config: IsaacWorld, *, directory: Path
+def populate_scene(
+    scene: SceneConfiguration,
+    config: IsaacWorld,
+    *,
+    directory: Path,
+    simulation: Any,
+    native: Any,
 ) -> IsaacScene:
-    """Create a Lab simulation and clone the complete physical assembly.
+    """Populate the provided native scene and clone the physical assembly.
 
     PhysX parses USD copies; Newton replicates a native model plus display USD.
     Ordinary robots use their declared assets, without model-specific factories.
@@ -101,50 +109,44 @@ def build_scene(
     import torch
     from isaaclab import cloner
     from isaaclab.actuators import ImplicitActuatorCfg
-    from isaaclab.assets import Articulation, ArticulationCfg
-    from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
-    from isaaclab.sim import SimulationCfg, SimulationContext
+    from isaaclab.assets import (
+        Articulation,
+        ArticulationCfg,
+        RigidObject,
+        RigidObjectCfg,
+    )
     from pxr import Gf, UsdGeom, UsdPhysics
 
-    from robo_arch.core.worlds.isaac.backend import cloning_contexts, physics_config
+    from robo_arch.core.worlds.isaac.backend import cloning_contexts
 
-    simulation = SimulationContext(
-        SimulationCfg(
-            dt=config.physics.time_step,
-            device=config.physics.device,
-            physics=physics_config(config.physics),
-            use_fabric=False,
-            create_stage_in_memory=False,
-            use_newton_actuators=False,
-            visualizer_cfgs=[],
-        )
-    )
-    # Native buffers serve control/sensors. Storm publishes USD only at its
-    # display cadence; Lab's no-Fabric default would otherwise write every step.
-    for setting in ("updateToUsd", "updateVelocitiesToUsd", "updateForceSensorsToUsd"):
-        simulation.set_setting(f"/physics/{setting}", False)
-    native = InteractiveScene(
-        InteractiveSceneCfg(
-            num_envs=config.num_envs,
-            env_spacing=config.env_spacing,
-            replicate_physics=False,
-        )
-    )
     stage = simulation.stage
     add_ground(stage, enabled=config.ground)
     prototype = "/World/envs/env_0"
     UsdGeom.Xform.Define(stage, prototype)
     roots = {}
-    for robot in devices.robots:
+    device_joints = {}
+    for mechanism in devices.mechanisms:
+        robot = mechanism.robots[0]
         destination = directory / robot.name
         destination.mkdir(parents=True)
         urdf = destination / "assembly.urdf"
-        compose(robot, devices.sensors, definitions, urdf)
+        joint_names = compose_mechanism(mechanism, devices.sensors, definitions, urdf)
+        all_joints = tuple(
+            joint for member in mechanism.robots for joint in joint_names[member.name]
+        )
+        offset = 0
+        for member in mechanism.robots:
+            count = len(joint_names[member.name])
+            device_joints[member.name] = (
+                mechanism.root,
+                tuple(range(offset, offset + count)),
+            )
+            offset += count
         # Removing imported position drives also removes their max-force field.
         # Preserve physical effort limits explicitly for both effort backends.
         model = ET.parse(urdf).getroot()
         effort_limits = {}
-        for joint_name in definitions.robots[robot.model].joints:
+        for joint_name in all_joints:
             limit = model.find(f"joint[@name='{joint_name}']/limit")
             if limit is None or "effort" not in limit.attrib:
                 raise ValueError(f"Missing URDF effort limit for {joint_name}")
@@ -160,13 +162,12 @@ def build_scene(
             urdf=urdf,
         )
         roots[robot.name] = root.replace(prototype, "/World/envs/env_.*", 1)
-        definition = definitions.robots[robot.model]
         native.articulations[robot.name] = Articulation(
             ArticulationCfg(
                 prim_path=roots[robot.name],
                 spawn=None,
                 cloning_contexts=cloning_contexts(config.physics),
-                joint_ordering=definition.joints,
+                joint_ordering=all_joints,
                 actuators={
                     "effort": ImplicitActuatorCfg(
                         joint_names_expr=[".*"],
@@ -177,7 +178,14 @@ def build_scene(
                 },
             )
         )
-    add_objects(stage, scene, definitions, root=prototype)
+    for name, path in add_objects(stage, scene, definitions, root=prototype).items():
+        native.rigid_objects[name] = RigidObject(
+            RigidObjectCfg(
+                prim_path=path.replace(prototype, "/World/envs/env_.*", 1),
+                spawn=None,
+                cloning_contexts=cloning_contexts(config.physics),
+            )
+        )
     positions = torch.zeros((config.num_envs, 3), device=config.physics.device)
     ids = torch.arange(config.num_envs, device=positions.device)
     columns = math.ceil(math.sqrt(config.num_envs))
@@ -216,35 +224,126 @@ def build_scene(
     for sensor in devices.sensors if scene.sensors_enabled else ():
         parent = sensor.parent.rsplit("/", 1)[0]
         adapter = load_device_module("sensors", sensor.model, "isaac")
-        native.sensors[sensor.name] = adapter.create(roots[parent])
+        native.sensors[sensor.name] = adapter.create(roots[device_joints[parent][0]])
         observations[sensor.name] = adapter.bind(
             native.sensors[sensor.name], name=sensor.name
         )
     return IsaacScene(
-        native, simulation, roots, devices, definitions, scene, config, observations
+        native,
+        simulation,
+        roots,
+        devices,
+        definitions,
+        scene,
+        config,
+        observations,
+        device_joints,
+        positions,
     )
 
 
 def initialize_scene(scene: IsaacScene) -> dict[str, np.ndarray]:
     """Validate Lab articulation identity and declared initial joint positions."""
     initial = {}
-    for robot in scene.devices.robots:
-        arm = scene.native.articulations[robot.name]
-        definition = scene.definitions.robots[robot.model]
+    for mechanism in scene.devices.mechanisms:
+        arm = scene.native.articulations[mechanism.root]
         if arm.num_instances != scene.world.num_envs or not arm.is_fixed_base:
-            raise ValueError(f"Expected fixed-base articulations for {robot.name}")
-        if tuple(arm.joint_names) != definition.joints:
-            raise ValueError(f"Isaac joint order differs for {robot.name}")
-        q = np.asarray(
-            definition.default_positions
-            if robot.initial_positions is None
-            else robot.initial_positions,
-            dtype=np.float32,
-        )
+            raise ValueError(f"Expected fixed-base mechanism {mechanism.root}")
+        values = []
+        expected_joints = []
+        for robot in mechanism.robots:
+            definition = scene.definitions.robots[robot.model]
+            expected_joints.extend(
+                joint if robot.name == mechanism.root else robot_link(robot.name, joint)
+                for joint in definition.joints
+            )
+            q = (
+                definition.default_positions
+                if robot.initial_positions is None
+                else robot.initial_positions
+            )
+            if len(q) != len(definition.joints):
+                raise ValueError(f"Invalid initial positions for {robot.name}")
+            values.extend(q)
+        if tuple(arm.joint_names) != tuple(expected_joints):
+            raise ValueError(f"Native joint ordering changed for {mechanism.root}")
+        q = np.asarray(values, dtype=np.float32)
         limits = arm.data.joint_pos_limits.torch.cpu().numpy()
-        if q.shape != (len(definition.joints),) or not np.isfinite(q).all():
-            raise ValueError(f"Invalid initial positions for {robot.name}")
-        if not np.all((q >= limits[..., 0]) & (q <= limits[..., 1])):
-            raise ValueError(f"Initial positions exceed limits for {robot.name}")
-        initial[robot.name] = q
+        if not np.isfinite(q).all() or not np.all(
+            (q >= limits[..., 0]) & (q <= limits[..., 1])
+        ):
+            raise ValueError(
+                f"Invalid initial positions or limits for {mechanism.root}"
+            )
+        initial[mechanism.root] = q
     return initial
+
+
+def reset_objects(scene: IsaacScene, env_ids=None) -> None:
+    """Restore selected free objects; poses include native environment offsets."""
+    import torch
+
+    from robo_arch.core.worlds.assembly import pose_transform
+
+    device = scene.world.physics.device
+    ids = (
+        torch.arange(scene.world.num_envs, device=device, dtype=torch.int32)
+        if env_ids is None
+        else torch.as_tensor(env_ids, device=device, dtype=torch.int32)
+    )
+    if not len(ids):
+        return
+    for obj in scene.configuration.objects:
+        if obj.motion != "free":
+            continue
+        body = scene.native.rigid_objects[obj.name]
+        pose = pose_transform(obj.pose)
+        initial = torch.tensor(
+            [*pose.translation(), *pose.rotation().ToQuaternion().wxyz()[[1, 2, 3, 0]]],
+            device=device,
+            dtype=torch.float32,
+        ).repeat(len(ids), 1)
+        initial[:, :3] += scene.environment_origins[ids.long()]
+        velocity = torch.tensor(
+            [*obj.linear_velocity, *obj.angular_velocity],
+            device=device,
+            dtype=torch.float32,
+        ).repeat(len(ids), 1)
+        body.write_root_link_pose_to_sim_index(root_pose=initial, env_ids=ids)
+        body.write_root_link_velocity_to_sim_index(root_velocity=velocity, env_ids=ids)
+
+
+def build_scene(
+    scene: SceneConfiguration, config: IsaacWorld, *, directory: Path
+) -> IsaacScene:
+    """Standalone construction; native environments instead call populate_scene."""
+    from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
+    from isaaclab.sim import SimulationCfg, SimulationContext
+
+    from robo_arch.core.worlds.isaac.backend import physics_config
+
+    simulation = SimulationContext(
+        SimulationCfg(
+            dt=config.physics.time_step,
+            device=config.physics.device,
+            physics=physics_config(config.physics),
+            use_fabric=False,
+            create_stage_in_memory=False,
+            use_newton_actuators=False,
+            visualizer_cfgs=[],
+        )
+    )
+    # Native buffers serve control/sensors. Storm publishes USD only at its
+    # display cadence; Lab's no-Fabric default would otherwise write every step.
+    for setting in ("updateToUsd", "updateVelocitiesToUsd", "updateForceSensorsToUsd"):
+        simulation.set_setting(f"/physics/{setting}", False)
+    native = InteractiveScene(
+        InteractiveSceneCfg(
+            num_envs=config.num_envs,
+            env_spacing=config.env_spacing,
+            replicate_physics=False,
+        )
+    )
+    return populate_scene(
+        scene, config, directory=directory, simulation=simulation, native=native
+    )

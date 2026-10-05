@@ -1,0 +1,11 @@
+robots:
+  arm:
+    model: ur7e
+  gripper:
+    model: wsg50
+    parent: arm/flange
+    mount_frame: body
+    # Synthetic rigid mount: no physical adapter is identified yet.
+    pose:
+      translation: [0, 0, 0.05]
+      rpy: [1.5707963267948966, 0, 0]
