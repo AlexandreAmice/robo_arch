@@ -1,0 +1,1630 @@
+{
+  "base": "ros:jazzy-ros-base-noble@sha256:066420e07f60aa18262f2479981def87ebcfcec42eefb0c0c57c4a46098348ca",
+  "platform": "linux/amd64",
+  "packages": [
+    {
+      "name": "libassimp-dev",
+      "version": "5.3.1+ds-2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/a/assimp/libassimp-dev_5.3.1+ds-2build1_amd64.deb",
+      "sha256": "1452eb1c16393c06dde5bc1c9896c2acf792dfbf4a9d2f5c54d5094d9fc57091"
+    },
+    {
+      "name": "libassimp5",
+      "version": "5.3.1+ds-2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/a/assimp/libassimp5_5.3.1+ds-2build1_amd64.deb",
+      "sha256": "50d66b281bc7dd3994f2394ba4b8fc4a2699f6d966b89d8d9c7b6c45b6d608f1"
+    },
+    {
+      "name": "libavahi-client3",
+      "version": "0.8-13ubuntu6.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/a/avahi/libavahi-client3_0.8-13ubuntu6.2_amd64.deb",
+      "sha256": "00609b52ea5a1a9e35fcee4bfba03b6ff743a8015649026cb9109c356762f4d9"
+    },
+    {
+      "name": "libavahi-common-data",
+      "version": "0.8-13ubuntu6.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/a/avahi/libavahi-common-data_0.8-13ubuntu6.2_amd64.deb",
+      "sha256": "9a03de928ae470c8d127a22dcb8fb8b582922a8f9406fc3ea879f5e98a02eab4"
+    },
+    {
+      "name": "libavahi-common3",
+      "version": "0.8-13ubuntu6.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/a/avahi/libavahi-common3_0.8-13ubuntu6.2_amd64.deb",
+      "sha256": "edd1f7a4a21e70504d0872c429600f2e13fdff7775c0952145f1afeacede1c82"
+    },
+    {
+      "name": "libboost-dev",
+      "version": "1.83.0.1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/b/boost-defaults/libboost-dev_1.83.0.1ubuntu2_amd64.deb",
+      "sha256": "6ccd980dde9960f27904d3b8a5ef04b419d7d372f7ca67b2a42083f03950f4be"
+    },
+    {
+      "name": "libboost1.83-dev",
+      "version": "1.83.0-2.1ubuntu3.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/b/boost1.83/libboost1.83-dev_1.83.0-2.1ubuntu3.2_amd64.deb",
+      "sha256": "519ecf2c64308527e15b6582955681d192a832250baa4bc424967aaf7d02d68f"
+    },
+    {
+      "name": "libbrotli-dev",
+      "version": "1.1.0-2build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/b/brotli/libbrotli-dev_1.1.0-2build2_amd64.deb",
+      "sha256": "2d56213247be7aca429c55c6136e371b670e2275c8d455ef3fe6a737f5b7da7b"
+    },
+    {
+      "name": "libbz2-dev",
+      "version": "1.0.8-5.1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/b/bzip2/libbz2-dev_1.0.8-5.1ubuntu0.1_amd64.deb",
+      "sha256": "f055bb5cb47117020a76dc40fcdb8164f4fa529df2b7f485faacc0b0f5083614"
+    },
+    {
+      "name": "libcap-dev",
+      "version": "1:2.66-5ubuntu2.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libc/libcap2/libcap-dev_2.66-5ubuntu2.4_amd64.deb",
+      "sha256": "07f2462867569a2119a2ad0f1593232663f2d1612b791c230d22a8d73a15abee"
+    },
+    {
+      "name": "libclang1-18",
+      "version": "1:18.1.3-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/l/llvm-toolchain-18/libclang1-18_18.1.3-1ubuntu1_amd64.deb",
+      "sha256": "1ed67106d743ab4f12db2726c5fc11c436c5e1fba613e9f1006bf3fa05cc69bd"
+    },
+    {
+      "name": "libcups2t64",
+      "version": "2.4.7-1.2ubuntu7.14",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/c/cups/libcups2t64_2.4.7-1.2ubuntu7.14_amd64.deb",
+      "sha256": "b815a3d936718614e403035bb4a545e1323305ea624709bff2e9d94c214f9cc4"
+    },
+    {
+      "name": "libcurl4-openssl-dev",
+      "version": "8.5.0-2ubuntu10.15",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/c/curl/libcurl4-openssl-dev_8.5.0-2ubuntu10.15_amd64.deb",
+      "sha256": "c63393dd39d8bc49580e3e23be3eda63ce62ae4823d95f692c7547b25ade8a31"
+    },
+    {
+      "name": "libdouble-conversion3",
+      "version": "3.3.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/d/double-conversion/libdouble-conversion3_3.3.0-1build1_amd64.deb",
+      "sha256": "856f534738da20fa9d8c271e17781fba3dc180bbbab116c22a0b569f6f506e25"
+    },
+    {
+      "name": "libdraco8",
+      "version": "1.5.6+dfsg-3build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/d/draco/libdraco8_1.5.6+dfsg-3build1_amd64.deb",
+      "sha256": "7e749104816bdab254747e405d56b960fec8887457512a76f0d70228f500b394"
+    },
+    {
+      "name": "libdrm-amdgpu1",
+      "version": "2.4.125-1ubuntu0.1~24.04.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libd/libdrm/libdrm-amdgpu1_2.4.125-1ubuntu0.1~24.04.2_amd64.deb",
+      "sha256": "aa29b7898bae596bf07e55ba178cf8d5ea698fe83688e1b34520d86010251a7a"
+    },
+    {
+      "name": "libdrm-common",
+      "version": "2.4.125-1ubuntu0.1~24.04.2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libd/libdrm/libdrm-common_2.4.125-1ubuntu0.1~24.04.2_all.deb",
+      "sha256": "0b60996bc18fa1545e60a47bb0fe1a7f360ec06fe62ba35fb8d8ba2a54e62166"
+    },
+    {
+      "name": "libdrm-intel1",
+      "version": "2.4.125-1ubuntu0.1~24.04.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libd/libdrm/libdrm-intel1_2.4.125-1ubuntu0.1~24.04.2_amd64.deb",
+      "sha256": "847195765b9ef7e7886677aeae9987aa54e496758b4e6e5a4ed2cb580b252244"
+    },
+    {
+      "name": "libdrm2",
+      "version": "2.4.125-1ubuntu0.1~24.04.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libd/libdrm/libdrm2_2.4.125-1ubuntu0.1~24.04.2_amd64.deb",
+      "sha256": "4d3e858dd57be617c49d87c5ddcdb35df744a4f0a559981256ae2ba174718584"
+    },
+    {
+      "name": "libdw-dev",
+      "version": "0.190-1.1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/e/elfutils/libdw-dev_0.190-1.1ubuntu0.1_amd64.deb",
+      "sha256": "048a3e8444958a013545b7364c5bb339e665fccfd2f504bf5ea62bcaabf575d8"
+    },
+    {
+      "name": "libdw1t64",
+      "version": "0.190-1.1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/e/elfutils/libdw1t64_0.190-1.1ubuntu0.1_amd64.deb",
+      "sha256": "edaa9ce4221d95f4bd72a9805100902e313092a2f31a7a51e7186be97734714d"
+    },
+    {
+      "name": "libedit2",
+      "version": "3.1-20230828-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libe/libedit/libedit2_3.1-20230828-1build1_amd64.deb",
+      "sha256": "3afbc8ddf835049dd4d88275b9d13680e4c4cdd59e191cbd63424152cc08e00e"
+    },
+    {
+      "name": "libegl-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libegl-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "3a0315216bb0d6fc4bbe7f689cf0168c2ffa3e62ac69bff06bbbe49679259990"
+    },
+    {
+      "name": "libegl-mesa0",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/libegl-mesa0_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "2b8363cb29868603c827cb569a19373a45bebb29bdca5cd34de42dce2f3c9419"
+    },
+    {
+      "name": "libegl1",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libegl1_1.7.0-1build1_amd64.deb",
+      "sha256": "e549f7776216f7bd3b1c216729fb40a97a562e2eb7c563cde632b4931f9a4e57"
+    },
+    {
+      "name": "libelf-dev",
+      "version": "0.190-1.1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/e/elfutils/libelf-dev_0.190-1.1ubuntu0.1_amd64.deb",
+      "sha256": "81affb95c29f7323f2ae24386aaa1f61d311578e3e27c5f78ef7b7d55cd3cf49"
+    },
+    {
+      "name": "libelf1t64",
+      "version": "0.190-1.1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/e/elfutils/libelf1t64_0.190-1.1ubuntu0.1_amd64.deb",
+      "sha256": "b4aee123a37472d213647594b4f7d4a0d13615b0ca2a6fd33926b768d6b232c2"
+    },
+    {
+      "name": "libevdev2",
+      "version": "1.13.1+dfsg-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libe/libevdev/libevdev2_1.13.1+dfsg-1build1_amd64.deb",
+      "sha256": "a14b1ea7b3220a063458590734920879cec8431b4fc5160eb0f044dfb8d76515"
+    },
+    {
+      "name": "libexpected-dev",
+      "version": "1.1.0-2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/t/tl-expected/libexpected-dev_1.1.0-2_all.deb",
+      "sha256": "d288352d53264e381b45c37f6bbc57d395212f554479505db60b9ff7da86eafe"
+    },
+    {
+      "name": "libfreetype-dev",
+      "version": "2.13.2+dfsg-1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/f/freetype/libfreetype-dev_2.13.2+dfsg-1ubuntu0.1_amd64.deb",
+      "sha256": "85e0199f3e9670b77c219e2adcec572138a6840fd71b7bb3bf03f1b32c7057ea"
+    },
+    {
+      "name": "libgbm1",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/libgbm1_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "4bfe348b456db5b445a80e0a3ffb9e9a01b91499bb86e0e568ca3634b134da7e"
+    },
+    {
+      "name": "libgl-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgl-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "b7145fd8f8abe20d5cb436d2eae9b3235bd91be6fbddac581620d16763bd9250"
+    },
+    {
+      "name": "libgl1-mesa-dev",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/libgl1-mesa-dev_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "1f929efa4f52249173fd151a8156d4c55d76863858577233697caa08f0b76412"
+    },
+    {
+      "name": "libgl1-mesa-dri",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/libgl1-mesa-dri_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "2dabbe4292b201ca07b38c0672352f68dbfc55b5850f96f89ef54d3b4b6c8a59"
+    },
+    {
+      "name": "libgl1",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgl1_1.7.0-1build1_amd64.deb",
+      "sha256": "e2b2fadeb883f073b566ad1d7874f6702397514d258473e96152a89d4d502a09"
+    },
+    {
+      "name": "libgles-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgles-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "ee2ea529c20e28031230c5910281e5bbd7f2c2ca06a2e306ca15e985d4875eb2"
+    },
+    {
+      "name": "libgles1",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgles1_1.7.0-1build1_amd64.deb",
+      "sha256": "3128deef59859a47cfca25244f035bdbedd223640209dcffdd11f1873ef71aff"
+    },
+    {
+      "name": "libgles2",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libgles2_1.7.0-1build1_amd64.deb",
+      "sha256": "9dec2d79a2eebb80522f7cce77995f7a8ded22f0e3916f13353d066c62f97fac"
+    },
+    {
+      "name": "libglew-dev",
+      "version": "2.2.0-4build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/g/glew/libglew-dev_2.2.0-4build1_amd64.deb",
+      "sha256": "3a359b7fbb18e853e494bf6a21b6b7ad4f95bb2ce04c79e8f49cb4350d753186"
+    },
+    {
+      "name": "libglew2.2",
+      "version": "2.2.0-4build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/g/glew/libglew2.2_2.2.0-4build1_amd64.deb",
+      "sha256": "ffef730aac883b1cb1641eae6149da4091a890330d786916f29ea10de362ba9e"
+    },
+    {
+      "name": "libglu1-mesa-dev",
+      "version": "9.0.2-1.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglu/libglu1-mesa-dev_9.0.2-1.1build1_amd64.deb",
+      "sha256": "d1dcb06e6e09645e9ba0a3f6cab4f732a5c7bf72728032be0b41fa6c0932a396"
+    },
+    {
+      "name": "libglu1-mesa",
+      "version": "9.0.2-1.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglu/libglu1-mesa_9.0.2-1.1build1_amd64.deb",
+      "sha256": "4288833eebfbf6b00d1ae98159f429e1f7f6398288c9305edeeb185d9ed048d9"
+    },
+    {
+      "name": "libglvnd-core-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglvnd-core-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "75e04dcf89e27e604ccea8caa84c90e0ebf889e85fe25e88e34907e5e2912613"
+    },
+    {
+      "name": "libglvnd-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglvnd-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "1aae88a70bca7a31b0ac70c2cbeaca349a640541ee713546b2a8661aa790e73e"
+    },
+    {
+      "name": "libglvnd0",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglvnd0_1.7.0-1build1_amd64.deb",
+      "sha256": "33f5e07c74f73c2bfb44086ae0f9e6da52acd6c104d30ffe8fd768d8253d5e82"
+    },
+    {
+      "name": "libglx-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglx-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "0e2654950a881c20b640a3af590add2e0b612b8c0fdd945761fc695e1b6eb797"
+    },
+    {
+      "name": "libglx-mesa0",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/libglx-mesa0_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "5aa6164059989d476b15caa8ade892b1dec37593934dc4f617ece7ea0d639bc0"
+    },
+    {
+      "name": "libglx0",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libglx0_1.7.0-1build1_amd64.deb",
+      "sha256": "aa4953182f30abde90cb5b072e83d7286b557b325769b8686196a7bd396d8795"
+    },
+    {
+      "name": "libgudev-1.0-0",
+      "version": "1:238-5ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libgudev/libgudev-1.0-0_238-5ubuntu1_amd64.deb",
+      "sha256": "8bdd42c584a8d18759df2311b126dc679d438e9780038743b792cf5315f248dc"
+    },
+    {
+      "name": "libice-dev",
+      "version": "2:1.0.10-1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libi/libice/libice-dev_1.0.10-1build3_amd64.deb",
+      "sha256": "120ee9cf7a5e635c33a6e82d1e846ab19d9cc3c6472fe4136fc066313239d542"
+    },
+    {
+      "name": "libinput-bin",
+      "version": "1.25.0-1ubuntu3.7",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libi/libinput/libinput-bin_1.25.0-1ubuntu3.7_amd64.deb",
+      "sha256": "c5abfbe403051ab17721cf21369919a18bf83024c9594248ebb30375ca7d0d0b"
+    },
+    {
+      "name": "libinput10",
+      "version": "1.25.0-1ubuntu3.7",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libi/libinput/libinput10_1.25.0-1ubuntu3.7_amd64.deb",
+      "sha256": "dd76b865f149d0b072d21a532539effefdce7983feb232b25e2adf354207237b"
+    },
+    {
+      "name": "libllvm18",
+      "version": "1:18.1.3-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/l/llvm-toolchain-18/libllvm18_18.1.3-1ubuntu1_amd64.deb",
+      "sha256": "af6197096ce3b89aab86de59f01c1b5feb008b2ae1514a03906c0664edb8b0b1"
+    },
+    {
+      "name": "libllvm20",
+      "version": "1:20.1.2-0ubuntu1~24.04.3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/l/llvm-toolchain-20/libllvm20_20.1.2-0ubuntu1~24.04.3_amd64.deb",
+      "sha256": "f018e71c72c7a4742fb1aff9dc98b45586f42e6ea464d4918af7e3772b7f0658"
+    },
+    {
+      "name": "liblzma-dev",
+      "version": "5.6.1+really5.4.5-1ubuntu0.3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/liblzma-dev_5.6.1+really5.4.5-1ubuntu0.3_amd64.deb",
+      "sha256": "a36f21970809e5ec58b6fb1186b1a819276f92c081eb109aeebf00e82e78d068"
+    },
+    {
+      "name": "libmd4c0",
+      "version": "0.4.8-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/m/md4c/libmd4c0_0.4.8-1build1_amd64.deb",
+      "sha256": "34fd2e7a7aa62ada2597cffd4529f086cb5058a6d7ac0048695254bd9fd882d7"
+    },
+    {
+      "name": "libminizip1t64",
+      "version": "1:1.3.dfsg-3.1ubuntu2.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/z/zlib/libminizip1t64_1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+      "sha256": "a47454a5938363dfd8ce9fadccc5fc0f523c1a4f1d66514bcce2266712ad780b"
+    },
+    {
+      "name": "libmtdev1t64",
+      "version": "1.1.6-1.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mtdev/libmtdev1t64_1.1.6-1.1build1_amd64.deb",
+      "sha256": "fa86080d67defabc076ead97d86ccff14c906d21fe4cc1625ba73a8cf8022dfa"
+    },
+    {
+      "name": "libncurses6",
+      "version": "6.4+20240113-1ubuntu2.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/n/ncurses/libncurses6_6.4+20240113-1ubuntu2.2_amd64.deb",
+      "sha256": "59e8527dfd14473393960bfb7c69566f1ad9d576423421dcb8b8dcdbb3e7fca1"
+    },
+    {
+      "name": "libopengl-dev",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libopengl-dev_1.7.0-1build1_amd64.deb",
+      "sha256": "da50e2804e80391e5c3d7f61af70b41ff6d0d20e4862136ceb8828000637c273"
+    },
+    {
+      "name": "libopengl0",
+      "version": "1.7.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libg/libglvnd/libopengl0_1.7.0-1build1_amd64.deb",
+      "sha256": "da36bd4d30c13b40b697fa8b72cc09d309ff36a5bd9750341ef78492bf3f3966"
+    },
+    {
+      "name": "libpciaccess0",
+      "version": "0.17-3ubuntu0.24.04.3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libp/libpciaccess/libpciaccess0_0.17-3ubuntu0.24.04.3_amd64.deb",
+      "sha256": "87a3b1c2a09f54d229e5e1f5424adc806e8f99bbb8aa8c8dea114b727f7a5a96"
+    },
+    {
+      "name": "libpcre2-16-0",
+      "version": "10.42-4ubuntu2.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/p/pcre2/libpcre2-16-0_10.42-4ubuntu2.1_amd64.deb",
+      "sha256": "06bba768fd16e6ea6f744114a0c500d9f5d98ee82630edf0d8a54f2175d3921b"
+    },
+    {
+      "name": "libpng-dev",
+      "version": "1.6.43-5ubuntu0.6",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libp/libpng1.6/libpng-dev_1.6.43-5ubuntu0.6_amd64.deb",
+      "sha256": "5dc18bc99a592bd21f26a4efec92e56dd05a7e95aad9eee588697cf8965faca1"
+    },
+    {
+      "name": "libpthread-stubs0-dev",
+      "version": "0.4-1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libp/libpthread-stubs/libpthread-stubs0-dev_0.4-1build3_amd64.deb",
+      "sha256": "b8f278da7b1907d3014c01f9bc89748208a8cd3b770f0f55f1528afcc98dc6c0"
+    },
+    {
+      "name": "libpugixml-dev",
+      "version": "1.14-0.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pugixml/libpugixml-dev_1.14-0.1build1_amd64.deb",
+      "sha256": "09f5bfd58ff775be332afcc984a39ef5cd8858d5685e367c4f5867654bac3460"
+    },
+    {
+      "name": "libpugixml1v5",
+      "version": "1.14-0.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pugixml/libpugixml1v5_1.14-0.1build1_amd64.deb",
+      "sha256": "b80a2e82b4e4a2eab679e23fe329b5e08e6e0ef1478719bb59f9b9b3ce2c47ee"
+    },
+    {
+      "name": "libpyside2-dev",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/libpyside2-dev_5.15.13-1_amd64.deb",
+      "sha256": "4c94d4878d299e389b9998a3259336ce6661cec48afe9208c928bcbb0f2adab5"
+    },
+    {
+      "name": "libpyside2-py3-5.15t64",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/libpyside2-py3-5.15t64_5.15.13-1_amd64.deb",
+      "sha256": "c479a81f5ebcb2da6549f91d167d099a9aa859bab8ea2898c6951f980fa5ab84"
+    },
+    {
+      "name": "libqt5concurrent5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5concurrent5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "ad738879b1ffc32339a52295b0bf50b8a6edb2f29080aa055a2212182f5b9ad8"
+    },
+    {
+      "name": "libqt5core5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5core5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "8fb5c6a51ae436fefc41e0c9ad7a363ba8ab6b35db727eff5a469de2ee9f52bc"
+    },
+    {
+      "name": "libqt5dbus5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5dbus5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "c40a1469d41339bb8888f35d7dc6327d4bdd634b69974eaaaabe1b03f8924344"
+    },
+    {
+      "name": "libqt5designer5",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qttools-opensource-src/libqt5designer5_5.15.13-1_amd64.deb",
+      "sha256": "b0cab5d14b47ba06111d44da4f17e7f5a330fd01ae1b2dc57db229a1dfcf48e5"
+    },
+    {
+      "name": "libqt5gui5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5gui5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "e2c8a969c3566bdad2b692c611ec0e6bbeaeed88db55e71bbd4f61a414b89252"
+    },
+    {
+      "name": "libqt5help5",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qttools-opensource-src/libqt5help5_5.15.13-1_amd64.deb",
+      "sha256": "8960c0a80c7c641d3cb6013df314ea5db7c0d3981d4f4aeb7abc10ea7d2c1cfd"
+    },
+    {
+      "name": "libqt5network5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5network5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "1b331252a34b1eb66e6deb8012d45db993fe3eb27ac6ded4978c7886471659d6"
+    },
+    {
+      "name": "libqt5opengl5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5opengl5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "0acf8e74e969c217338eabc5fed2a2b3b40cd3001db99029b0ea4b628c810d27"
+    },
+    {
+      "name": "libqt5printsupport5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5printsupport5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "7576b79215515f2a126da74d5542ed7769974d8e96069c7fd68a4f44e56b538e"
+    },
+    {
+      "name": "libqt5qml5",
+      "version": "5.15.13+dfsg-1ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtdeclarative-opensource-src/libqt5qml5_5.15.13+dfsg-1ubuntu0.1_amd64.deb",
+      "sha256": "b27c6430066ba004d23af7f2191bfd73b67918f00d15059acf5a2e721c3ce4e6"
+    },
+    {
+      "name": "libqt5sql5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5sql5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "b03b73eda8d1a7c441c8e23d9e87644aec97cbfc0fcafb2a557269f3981483e1"
+    },
+    {
+      "name": "libqt5svg5",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtsvg-opensource-src/libqt5svg5_5.15.13-1_amd64.deb",
+      "sha256": "b96fb780917887196ee0be72340f71387ee77f4565113c660b8b08c64c0ec316"
+    },
+    {
+      "name": "libqt5test5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5test5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "7f54b1e54ccf730a4118e3b41004d4f7c6f4ef2e705d513583ef543a35d6caff"
+    },
+    {
+      "name": "libqt5widgets5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5widgets5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "bdcb4395194d5062fcbda9ba70ae6d4deef75671d70140543d58ef34728dff53"
+    },
+    {
+      "name": "libqt5xml5t64",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/libqt5xml5t64_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "01defcb7aa581d1a744e9824394c783b38623fc51ecc500b75d52abedf8982af"
+    },
+    {
+      "name": "libruby3.2",
+      "version": "3.2.3-1ubuntu0.24.04.8",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby3.2/libruby3.2_3.2.3-1ubuntu0.24.04.8_amd64.deb",
+      "sha256": "77c2e98ccfba2c4a4e5edb48ca8c0eb041702e1579eabc40cf07064fd4f3033e"
+    },
+    {
+      "name": "libruby",
+      "version": "1:3.2~ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-defaults/libruby_3.2~ubuntu1_amd64.deb",
+      "sha256": "73aa1a6a68c054b0cb7bef6dd8730f0d569849a5f295e9d42dce5e69c1798a18"
+    },
+    {
+      "name": "libsensors-config",
+      "version": "1:3.6.0-9build1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/l/lm-sensors/libsensors-config_3.6.0-9build1_all.deb",
+      "sha256": "148103a436fd273dabfe0fe41dc54873df46227b59b2c7ac7339d7e2ddfd033b"
+    },
+    {
+      "name": "libsensors5",
+      "version": "1:3.6.0-9build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/l/lm-sensors/libsensors5_3.6.0-9build1_amd64.deb",
+      "sha256": "515ed1fbe2bc99926c44fe10b1beb9c3510068c344adda334303098d669ba1e5"
+    },
+    {
+      "name": "libshiboken2-dev",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/libshiboken2-dev_5.15.13-1_amd64.deb",
+      "sha256": "bedfb31d9ac9f68edc4788c9fe8c4617fddaf1458f8df7a96238d6492eb475f7"
+    },
+    {
+      "name": "libshiboken2-py3-5.15t64",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/libshiboken2-py3-5.15t64_5.15.13-1_amd64.deb",
+      "sha256": "4f35515824eed953a79a60778861d9d057b34514f990bffe6260a232d8c465b1"
+    },
+    {
+      "name": "libsm-dev",
+      "version": "2:1.2.3-1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libs/libsm/libsm-dev_1.2.3-1build3_amd64.deb",
+      "sha256": "cf0b806cb768eccdfd00419d35913e24e6bcf62bc60fced16e811384f1637eed"
+    },
+    {
+      "name": "liburdfdom-headers-dev",
+      "version": "1.0.5-3",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/u/urdfdom-headers/liburdfdom-headers-dev_1.0.5-3_all.deb",
+      "sha256": "f6f647646e3380cc53e84e431a99d239da147ed9a30d332d3255ef4deb0d9aaa"
+    },
+    {
+      "name": "libvulkan-dev",
+      "version": "1.3.275.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/v/vulkan-loader/libvulkan-dev_1.3.275.0-1build1_amd64.deb",
+      "sha256": "9577a2c5379372ca8231e700728390fa7d4991a0d8c6484ad83da849c728e76e"
+    },
+    {
+      "name": "libvulkan1",
+      "version": "1.3.275.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/v/vulkan-loader/libvulkan1_1.3.275.0-1build1_amd64.deb",
+      "sha256": "ccf4fe8f4461442f27ea2494c7ae650b60bd396fec2688b0c44a27d66a222f74"
+    },
+    {
+      "name": "libwacom-common",
+      "version": "2.10.0-2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libw/libwacom/libwacom-common_2.10.0-2_all.deb",
+      "sha256": "416099ceae870ec8ce13f875dfdf71f81a884b3641e404a74eafd378c15a78b4"
+    },
+    {
+      "name": "libwacom9",
+      "version": "2.10.0-2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libw/libwacom/libwacom9_2.10.0-2_amd64.deb",
+      "sha256": "87c707e4e7cbef1080b7c6cfb14acb0e5b0a4b07b19ce5545923952fbcf82298"
+    },
+    {
+      "name": "libwayland-client0",
+      "version": "1.22.0-2.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/w/wayland/libwayland-client0_1.22.0-2.1build1_amd64.deb",
+      "sha256": "6af0aed41d75149bea22fa468f01eb058ffe3e35ef07ff2f13fb88a90387881d"
+    },
+    {
+      "name": "libwrap0",
+      "version": "7.6.q-33",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/t/tcp-wrappers/libwrap0_7.6.q-33_amd64.deb",
+      "sha256": "36118b862539868408ee056411d6e470068d14c46e5296b29bfb744770f5d2ce"
+    },
+    {
+      "name": "libx11-dev",
+      "version": "2:1.8.7-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libx11/libx11-dev_1.8.7-1build1_amd64.deb",
+      "sha256": "1969e200607ffe34070b92fe1bd3ba76ac2e2bd2f3a54530800c5872076fad24"
+    },
+    {
+      "name": "libx11-xcb1",
+      "version": "2:1.8.7-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libx11/libx11-xcb1_1.8.7-1build1_amd64.deb",
+      "sha256": "7d0d357e47cd6e1042be34da1d37cea313420b000035e71e855087c8268ab127"
+    },
+    {
+      "name": "libxau-dev",
+      "version": "1:1.0.9-1build6",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxau/libxau-dev_1.0.9-1build6_amd64.deb",
+      "sha256": "46783c6af2d87c06394d55dfaa21dac07396f13cfc5ea6afbd9313ab49fc0e50"
+    },
+    {
+      "name": "libxaw7-dev",
+      "version": "2:1.0.14-1build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxaw/libxaw7-dev_1.0.14-1build2_amd64.deb",
+      "sha256": "7f655e4a206840f3dc027090cbb61c1b3cc178c9fe6100b672dcce5101d2c7ad"
+    },
+    {
+      "name": "libxcb-dri3-0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-dri3-0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "3d3d0e95e56ae16010a84883196b8153cba62d6831f9aaee2a68c46f20c7c004"
+    },
+    {
+      "name": "libxcb-glx0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-glx0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "d07cde26c70fe92df7c327928371e495cc4570fed2d6518758a5db5715cb34c1"
+    },
+    {
+      "name": "libxcb-icccm4",
+      "version": "0.4.1-1.1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xcb-util-wm/libxcb-icccm4_0.4.1-1.1build3_amd64.deb",
+      "sha256": "9e0e349f3904cd5bc07fea45498c4d03527a5d1178edd78555e84fdbd3793708"
+    },
+    {
+      "name": "libxcb-image0",
+      "version": "0.4.0-2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xcb-util-image/libxcb-image0_0.4.0-2build1_amd64.deb",
+      "sha256": "6af300eeef5523aa0d8dbfab3a23c1fe7006ecc19f8abdc5c636d734d7bb5287"
+    },
+    {
+      "name": "libxcb-keysyms1",
+      "version": "0.4.0-1build4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xcb-util-keysyms/libxcb-keysyms1_0.4.0-1build4_amd64.deb",
+      "sha256": "6c261aae923175b88a032018c530873ffb40f2bf96b045fdda42bd8bc74cb1c3"
+    },
+    {
+      "name": "libxcb-present0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-present0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "2e36e6557e87dbfd64df3143cbf81a4f75c3447501a545b4730511d228b0dd17"
+    },
+    {
+      "name": "libxcb-randr0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-randr0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "b5cb519823a05a617b543dc9b6a9289b7648b20048244abe021caa706309835a"
+    },
+    {
+      "name": "libxcb-render-util0",
+      "version": "0.3.9-1build4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xcb-util-renderutil/libxcb-render-util0_0.3.9-1build4_amd64.deb",
+      "sha256": "95d895ceb921e38e4edd85555b407b1a0564d8ad097ec7566e261764ce27787b"
+    },
+    {
+      "name": "libxcb-shape0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-shape0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "ad57fed687ec9c2a4808b8e30ab1753d57daeddc9ad7fb883bfa0701f6da57c8"
+    },
+    {
+      "name": "libxcb-sync1",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-sync1_1.15-1ubuntu2_amd64.deb",
+      "sha256": "14286795a258593259923619073e50c15345673befae2733f7b0577b07359aa8"
+    },
+    {
+      "name": "libxcb-util1",
+      "version": "0.4.0-1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xcb-util/libxcb-util1_0.4.0-1build3_amd64.deb",
+      "sha256": "b6ff05729519514bddcbcd460f8be7e55c986daa5a97ecdc612b2815614194ab"
+    },
+    {
+      "name": "libxcb-xfixes0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-xfixes0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "0b2ab64af92a71e3d1a35e3c819880ee28d04bfac81360df68ae8d8e9663ebd2"
+    },
+    {
+      "name": "libxcb-xinerama0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-xinerama0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "9fea44960e39646a22139f4daca03c3d26190e0dcecf2300b665ed23ea316b54"
+    },
+    {
+      "name": "libxcb-xinput0",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-xinput0_1.15-1ubuntu2_amd64.deb",
+      "sha256": "8ed274ebfa657a079895a0b60b399394db29305f4ad3fc29dc10558bed14bd7a"
+    },
+    {
+      "name": "libxcb-xkb1",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb-xkb1_1.15-1ubuntu2_amd64.deb",
+      "sha256": "53bc0a58834c981fa8ce5c3ab6195387e5c8a417039d82cc7a8b49724fa53228"
+    },
+    {
+      "name": "libxcb1-dev",
+      "version": "1.15-1ubuntu2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxcb/libxcb1-dev_1.15-1ubuntu2_amd64.deb",
+      "sha256": "1bafe3432feafc9e57f858721da524dfb3ee1f6fc4ef6b0c73023e79eadb9c28"
+    },
+    {
+      "name": "libxdmcp-dev",
+      "version": "1:1.1.3-0ubuntu6",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxdmcp/libxdmcp-dev_1.1.3-0ubuntu6_amd64.deb",
+      "sha256": "ba2f2230b391c292f5f399d6e04d48181be6b3100556f7870591ca95c9d00667"
+    },
+    {
+      "name": "libxext-dev",
+      "version": "2:1.3.4-1build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxext/libxext-dev_1.3.4-1build2_amd64.deb",
+      "sha256": "b5bdb6724f228cb8eee8cf39cbbe1289dd3f8f06dd022748312df7844c94dcf2"
+    },
+    {
+      "name": "libxkbcommon-x11-0",
+      "version": "1.6.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxkbcommon/libxkbcommon-x11-0_1.6.0-1build1_amd64.deb",
+      "sha256": "3befe840ce612ddfc0998d8610c6eed295726722a78e75cd08520bbd75065a23"
+    },
+    {
+      "name": "libxkbcommon0",
+      "version": "1.6.0-1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxkbcommon/libxkbcommon0_1.6.0-1build1_amd64.deb",
+      "sha256": "2b9caeb423efb540296a1cb20b872cc630c23908407ecb5c1c787a617622d664"
+    },
+    {
+      "name": "libxmu-dev",
+      "version": "2:1.1.3-3build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxmu/libxmu-dev_1.1.3-3build2_amd64.deb",
+      "sha256": "a7b2d7632ba44ba2a9056b5665db0dad20d91fe8c336502db1f434b0b6922acc"
+    },
+    {
+      "name": "libxmu-headers",
+      "version": "2:1.1.3-3build2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxmu/libxmu-headers_1.1.3-3build2_all.deb",
+      "sha256": "6abd2218697cefb602d8273a3df711b297f504f414abff11d366578ddc9fd3d6"
+    },
+    {
+      "name": "libxpm-dev",
+      "version": "1:3.5.17-1ubuntu0.24.04.2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxpm/libxpm-dev_3.5.17-1ubuntu0.24.04.2_amd64.deb",
+      "sha256": "312f64c35b8af52318f18ce581a15a8c1fca46df0cb77b491994830023eea676"
+    },
+    {
+      "name": "libxrandr-dev",
+      "version": "2:1.5.2-2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxrandr/libxrandr-dev_1.5.2-2build1_amd64.deb",
+      "sha256": "8c0ee697a9052f36103529ebe4ace096da845e2b517f39d206302f3c7709ec6f"
+    },
+    {
+      "name": "libxrandr2",
+      "version": "2:1.5.2-2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxrandr/libxrandr2_1.5.2-2build1_amd64.deb",
+      "sha256": "f2955a5e594f5724b58ad241d9231ea191cb36574a0d5e5ca6b661cd41d6256d"
+    },
+    {
+      "name": "libxrender-dev",
+      "version": "1:0.9.10-1.1build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxrender/libxrender-dev_0.9.10-1.1build1_amd64.deb",
+      "sha256": "839558c9de049636e13e22e409c04f3226614abf176c4a3b7088058576d74848"
+    },
+    {
+      "name": "libxshmfence1",
+      "version": "1.3-1build5",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxshmfence/libxshmfence1_1.3-1build5_amd64.deb",
+      "sha256": "bc6de4bfaf9050a8ba83d4bcfb114131b081084a7972c03417f8523d52b5c742"
+    },
+    {
+      "name": "libxt-dev",
+      "version": "1:1.2.1-1.2build1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxt/libxt-dev_1.2.1-1.2build1_amd64.deb",
+      "sha256": "77858926454d10dd7896fc4d1ee158b67bb25e830dd41e60e4a59e79f71b8a8f"
+    },
+    {
+      "name": "libxxf86vm1",
+      "version": "1:1.1.4-1build4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxxf86vm/libxxf86vm1_1.1.4-1build4_amd64.deb",
+      "sha256": "48b2799f52b86505d2bc91dcb1bfa6536545635b9849cb693d274d934116a8da"
+    },
+    {
+      "name": "mesa-libgallium",
+      "version": "25.2.8-0ubuntu0.24.04.4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/mesa-libgallium_25.2.8-0ubuntu0.24.04.4_amd64.deb",
+      "sha256": "0c50c3c18c1b3f3ac4243bbf1533c9202f9d7b4f646807e9ef0df4c801414256"
+    },
+    {
+      "name": "pyqt5-dev",
+      "version": "5.15.10+dfsg-1build6",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyqt5/pyqt5-dev_5.15.10+dfsg-1build6_all.deb",
+      "sha256": "e647d3783fc9e5ba880c859f1ee25c1d0744f24ea069c0f9b2996aa3c6098b32"
+    },
+    {
+      "name": "python3-filelock",
+      "version": "3.13.1-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python-filelock/python3-filelock_3.13.1-1_all.deb",
+      "sha256": "e03bc870c69e6c439824cfa8f0266fde4db5b848b6ced1d4c040623530ce8ffa"
+    },
+    {
+      "name": "python3-jinja2",
+      "version": "3.1.2-1ubuntu1.3",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/j/jinja2/python3-jinja2_3.1.2-1ubuntu1.3_all.deb",
+      "sha256": "3929521159dd53451b0005ac6b8a1a8dbc42bf74ce83309b50389520f08a937c"
+    },
+    {
+      "name": "python3-markupsafe",
+      "version": "2.1.5-1build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/m/markupsafe/python3-markupsafe_2.1.5-1build2_amd64.deb",
+      "sha256": "5fd479735e81694be2881d4bd77b0b72e83adb1cb9fbfb1895274ac70ab230f4"
+    },
+    {
+      "name": "python3-pip-whl",
+      "version": "24.0+dfsg-1ubuntu1.3",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python-pip/python3-pip-whl_24.0+dfsg-1ubuntu1.3_all.deb",
+      "sha256": "4b7c50db8f261b208c1d9cde8db148c1f682cc516957b986ada5088cfcee1359"
+    },
+    {
+      "name": "python3-pip",
+      "version": "24.0+dfsg-1ubuntu1.3",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python-pip/python3-pip_24.0+dfsg-1ubuntu1.3_all.deb",
+      "sha256": "4e1af0b6f0b52c847ffa7b192b9f650845b99ff300138af05ab9a6252eb75682"
+    },
+    {
+      "name": "python3-pyqt5.qtsvg",
+      "version": "5.15.10+dfsg-1build6",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyqt5/python3-pyqt5.qtsvg_5.15.10+dfsg-1build6_amd64.deb",
+      "sha256": "c8bcd93c398efea5ea640193154b60b352bab79d2718bd84fe61fc1f5c4074c7"
+    },
+    {
+      "name": "python3-pyqt5.sip",
+      "version": "12.13.0-1build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyqt5-sip/python3-pyqt5.sip_12.13.0-1build3_amd64.deb",
+      "sha256": "97eb459e721fdbfabd19de1606831950ec5b5890240024904fea465a3517e7de"
+    },
+    {
+      "name": "python3-pyqt5",
+      "version": "5.15.10+dfsg-1build6",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyqt5/python3-pyqt5_5.15.10+dfsg-1build6_amd64.deb",
+      "sha256": "a0e96685aa5ece22a9ac3919da107c449982421674ef97223876533c22de6940"
+    },
+    {
+      "name": "python3-pyside2.qtcore",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/python3-pyside2.qtcore_5.15.13-1_amd64.deb",
+      "sha256": "ac6bd0d6e2ce7d8eaac287db3c4f9298f7587c45514560c3afe641f228096fd7"
+    },
+    {
+      "name": "python3-pyside2.qtgui",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/python3-pyside2.qtgui_5.15.13-1_amd64.deb",
+      "sha256": "2a31e036badcb3e285c5569d4a8b457a73a9bee6e1cb64e875d8127a5e15d67e"
+    },
+    {
+      "name": "python3-pyside2.qtsvg",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/python3-pyside2.qtsvg_5.15.13-1_amd64.deb",
+      "sha256": "1139901bd7876b08060b0dca43cc8070744cfdeb4f658c4abdd6aea88d1837c3"
+    },
+    {
+      "name": "python3-pyside2.qtwidgets",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/python3-pyside2.qtwidgets_5.15.13-1_amd64.deb",
+      "sha256": "220c74a5551765aefca886872b9d9a483ef00ef94aa48af8b5eb394db610aec7"
+    },
+    {
+      "name": "python3-setuptools-whl",
+      "version": "68.1.2-2ubuntu1.2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/s/setuptools/python3-setuptools-whl_68.1.2-2ubuntu1.2_all.deb",
+      "sha256": "edfa94cc1f6a33af99cfaf6ebfe35dbcd9c4bdd8555b90c0d8e78479faf5c8f0"
+    },
+    {
+      "name": "python3-sip-dev",
+      "version": "4.19.25+dfsg-5build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/s/sip4/python3-sip-dev_4.19.25+dfsg-5build3_amd64.deb",
+      "sha256": "1952489c34a03a2e07bd2e33c8bbb43d548efbd1b2bbddf8c43632850c0282c6"
+    },
+    {
+      "name": "python3-sip",
+      "version": "4.19.25+dfsg-5build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/s/sip4/python3-sip_4.19.25+dfsg-5build3_amd64.deb",
+      "sha256": "b69b11ec90fd5d676156b48e4a14689c3f5f7eb4e6d70a26a85e0814e6343aae"
+    },
+    {
+      "name": "python3-typeguard",
+      "version": "4.1.5-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python-typeguard/python3-typeguard_4.1.5-1_all.deb",
+      "sha256": "3bdb5c4e82398447594c63a7456b4c3b3ef0bfc7ffe0ee94a6bac05d516de868"
+    },
+    {
+      "name": "python3-venv",
+      "version": "3.12.3-0ubuntu2.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python3-defaults/python3-venv_3.12.3-0ubuntu2.1_amd64.deb",
+      "sha256": "16d50387b7656796b79e2c059d06774dfe9fe3f42808d8d50b332ceb780f508a"
+    },
+    {
+      "name": "python3-wheel",
+      "version": "0.42.0-2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/w/wheel/python3-wheel_0.42.0-2_all.deb",
+      "sha256": "e1a4076425d3d1f1772b11bff6a025055723b2d0a4972f9519849ddaa8cd3953"
+    },
+    {
+      "name": "python3.12-venv",
+      "version": "3.12.3-1ubuntu0.17",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/python3.12/python3.12-venv_3.12.3-1ubuntu0.17_amd64.deb",
+      "sha256": "b8d4bfea3df63945b6a202bd0773caf7727dde86d2df91df6e88a8ccf7c18b7e"
+    },
+    {
+      "name": "qt5-qmake-bin",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/qt5-qmake-bin_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "77b13ed4b9c1ebdae616fbde6ca23c0cfbd443ae2e963e0eb7c02da118d25716"
+    },
+    {
+      "name": "qt5-qmake",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/qt5-qmake_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "5541ec2b013d36bf9c77c9469d95adb2c4002a5903fb8e309bab2fc0b0bec807"
+    },
+    {
+      "name": "qtbase5-dev-tools",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/qtbase5-dev-tools_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "c87d87a0756668306f89c89296b7f18fab350ca42d414e495ed14431bb4c30f4"
+    },
+    {
+      "name": "qtbase5-dev",
+      "version": "5.15.13+dfsg-1ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtbase-opensource-src/qtbase5-dev_5.15.13+dfsg-1ubuntu1_amd64.deb",
+      "sha256": "c026cc27425a82a5bf5f4c4581a51bb29f5b0248bbf724adb65a818be34a18bf"
+    },
+    {
+      "name": "qtchooser",
+      "version": "66-2build2",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qtchooser/qtchooser_66-2build2_amd64.deb",
+      "sha256": "26ab1fef1c1ef32a5d6bb0ef4f8c6deb115bec84c1b73198f0f301207c50bd71"
+    },
+    {
+      "name": "rake",
+      "version": "13.0.6-3",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/rake/rake_13.0.6-3_all.deb",
+      "sha256": "2ebe2591a30542c28d6bc6c8be638ab61cc1295875f364385ade895b23f8492d"
+    },
+    {
+      "name": "ros-jazzy-angles",
+      "version": "1.16.1-1noble.20260225.231445",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-angles/ros-jazzy-angles_1.16.1-1noble.20260225.231445_amd64.deb",
+      "sha256": "7138cc42520d0c746cd32f76fc9ac6ecf3f3be8ca14c218f792b070cfa282b83"
+    },
+    {
+      "name": "ros-jazzy-backward-ros",
+      "version": "1.0.8-1noble.20260225.051215",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-backward-ros/ros-jazzy-backward-ros_1.0.8-1noble.20260225.051215_amd64.deb",
+      "sha256": "4e74623daca4885bb5768435365cd9157b42feee776a127de667743d8fadf131"
+    },
+    {
+      "name": "ros-jazzy-control-msgs",
+      "version": "5.9.0-1noble.20260902.042746",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-control-msgs/ros-jazzy-control-msgs_5.9.0-1noble.20260902.042746_amd64.deb",
+      "sha256": "2c2ec971085107709e54e3d67af24d090189eb6f5f4101902a0c4fd4c6b4704b"
+    },
+    {
+      "name": "ros-jazzy-control-toolbox",
+      "version": "4.11.1-1noble.20260905.031621",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-control-toolbox/ros-jazzy-control-toolbox_4.11.1-1noble.20260905.031621_amd64.deb",
+      "sha256": "1c9f276b10905fc38f0b27259c1dd105268c47b61841ea2dd0e7a24652577f27"
+    },
+    {
+      "name": "ros-jazzy-controller-interface",
+      "version": "4.48.0-1noble.20260905.072534",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-controller-interface/ros-jazzy-controller-interface_4.48.0-1noble.20260905.072534_amd64.deb",
+      "sha256": "d92f9b474d7e20850d75a50c5f8b4cf8fa7d0dbf6a5c1f8d87569b048b01bd69"
+    },
+    {
+      "name": "ros-jazzy-controller-manager-msgs",
+      "version": "4.48.0-1noble.20260902.194724",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-controller-manager-msgs/ros-jazzy-controller-manager-msgs_4.48.0-1noble.20260902.194724_amd64.deb",
+      "sha256": "c436ffddfb16748f2a876f4e57acb1c97de613bfc67bb9e24ff212a41ebb9168"
+    },
+    {
+      "name": "ros-jazzy-controller-manager",
+      "version": "4.48.0-1noble.20260905.073118",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-controller-manager/ros-jazzy-controller-manager_4.48.0-1noble.20260905.073118_amd64.deb",
+      "sha256": "454488aac773215dc8492550e2cb67980e63c9022a886d335a64a8e56e6ad067"
+    },
+    {
+      "name": "ros-jazzy-diagnostic-updater",
+      "version": "4.2.7-1noble.20260902.061455",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-diagnostic-updater/ros-jazzy-diagnostic-updater_4.2.7-1noble.20260902.061455_amd64.deb",
+      "sha256": "cd1831b714a777e36ccea787c906d492f20ed120b4150651c85bf87ffd55f12e"
+    },
+    {
+      "name": "ros-jazzy-effort-controllers",
+      "version": "4.42.1-1noble.20260905.074447",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-effort-controllers/ros-jazzy-effort-controllers_4.42.1-1noble.20260905.074447_amd64.deb",
+      "sha256": "dadc38da2ad52d0cbb86e00b035683228ee357ca7c2f4031565e775550442892"
+    },
+    {
+      "name": "ros-jazzy-filters",
+      "version": "2.2.2-1noble.20260902.082527",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-filters/ros-jazzy-filters_2.2.2-1noble.20260902.082527_amd64.deb",
+      "sha256": "fd6a07106fa3b39def35677ccdfee9f86081ffb354a863f48bce85a659e46b2f"
+    },
+    {
+      "name": "ros-jazzy-force-torque-sensor-broadcaster",
+      "version": "4.42.1-1noble.20260905.073518",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-force-torque-sensor-broadcaster/ros-jazzy-force-torque-sensor-broadcaster_4.42.1-1noble.20260905.073518_amd64.deb",
+      "sha256": "715410bc98be2b4bee8bd1c44b23231ef2babb4b4345692536c63ae3f1504630"
+    },
+    {
+      "name": "ros-jazzy-forward-command-controller",
+      "version": "4.42.1-1noble.20260905.073543",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-forward-command-controller/ros-jazzy-forward-command-controller_4.42.1-1noble.20260905.073543_amd64.deb",
+      "sha256": "5dd396eb0b51c222ee8454ff8b971785e747002f2bb5e2ba48cd8db8daa3bc63"
+    },
+    {
+      "name": "ros-jazzy-generate-parameter-library-py",
+      "version": "0.7.6-1noble.20260810.122749",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-generate-parameter-library-py/ros-jazzy-generate-parameter-library-py_0.7.6-1noble.20260810.122749_amd64.deb",
+      "sha256": "2a71e0aa79cec6cd0dcba027815510ba01173ea1c14e5d6ead9018a9582902b0"
+    },
+    {
+      "name": "ros-jazzy-generate-parameter-library",
+      "version": "0.7.6-1noble.20260903.015253",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-generate-parameter-library/ros-jazzy-generate-parameter-library_0.7.6-1noble.20260903.015253_amd64.deb",
+      "sha256": "6dafde51da5e3d1c1cc9e5e3a24244db66895a479b29677b3ffb792bba7bbf09"
+    },
+    {
+      "name": "ros-jazzy-gz-cmake-vendor",
+      "version": "0.0.12-1noble.20260618.173318",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-gz-cmake-vendor/ros-jazzy-gz-cmake-vendor_0.0.12-1noble.20260618.173318_amd64.deb",
+      "sha256": "7b5f2a8de8d4fe9f6062cd04bd040aa3741654d1c6569169a0e99cc87aaa91c6"
+    },
+    {
+      "name": "ros-jazzy-gz-math-vendor",
+      "version": "0.0.11-1noble.20260905.031649",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-gz-math-vendor/ros-jazzy-gz-math-vendor_0.0.11-1noble.20260905.031649_amd64.deb",
+      "sha256": "c86e7f8b65e59b25c8b93d513b6c4de7b7d03d4248b85e243c258b77f7d96376"
+    },
+    {
+      "name": "ros-jazzy-gz-tools-vendor",
+      "version": "0.0.8-1noble.20260820.143431",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-gz-tools-vendor/ros-jazzy-gz-tools-vendor_0.0.8-1noble.20260820.143431_amd64.deb",
+      "sha256": "c86c1d56c1bba87132472b35c2fd4820bbec1a71db521e2493d76dd1b2a2dc82"
+    },
+    {
+      "name": "ros-jazzy-gz-utils-vendor",
+      "version": "0.0.5-1noble.20260618.173807",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-gz-utils-vendor/ros-jazzy-gz-utils-vendor_0.0.5-1noble.20260618.173807_amd64.deb",
+      "sha256": "fe029b8f86b605bc71057500c4f2a812034fde9c248603e9ce8989c0ea7c4761"
+    },
+    {
+      "name": "ros-jazzy-hardware-interface",
+      "version": "4.48.0-1noble.20260905.070541",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-hardware-interface/ros-jazzy-hardware-interface_4.48.0-1noble.20260905.070541_amd64.deb",
+      "sha256": "caaa4a36500c434ed6891c588dcbff1224fde303fe19cc8ba79a65c4be9b3227"
+    },
+    {
+      "name": "ros-jazzy-image-transport",
+      "version": "5.1.8-1noble.20260903.065618",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-image-transport/ros-jazzy-image-transport_5.1.8-1noble.20260903.065618_amd64.deb",
+      "sha256": "1586f73b8d6faee6fdf08a1ab2184a1073fa4c967c7f7f122556429da28bb46a"
+    },
+    {
+      "name": "ros-jazzy-interactive-markers",
+      "version": "2.5.5-1noble.20260903.023910",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-interactive-markers/ros-jazzy-interactive-markers_2.5.5-1noble.20260903.023910_amd64.deb",
+      "sha256": "4863fb4c46eafa1493ff9c02a9df5d3401f391424c17ca684b254e7e9f7b0e6d"
+    },
+    {
+      "name": "ros-jazzy-joint-limits",
+      "version": "4.48.0-1noble.20260905.031740",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-joint-limits/ros-jazzy-joint-limits_4.48.0-1noble.20260905.031740_amd64.deb",
+      "sha256": "151faf27a79bea107692626ba11c2ebefaa320bc310c5483190ef8bea3964dac"
+    },
+    {
+      "name": "ros-jazzy-joint-state-broadcaster",
+      "version": "4.42.1-1noble.20260905.074155",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-joint-state-broadcaster/ros-jazzy-joint-state-broadcaster_4.42.1-1noble.20260905.074155_amd64.deb",
+      "sha256": "bba0bfe456f34a72f144f86d8e33e4b834a4116313b7855ca191a70313b1bd16"
+    },
+    {
+      "name": "ros-jazzy-joint-state-publisher-gui",
+      "version": "2.4.3-1noble.20260902.060308",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-joint-state-publisher-gui/ros-jazzy-joint-state-publisher-gui_2.4.3-1noble.20260902.060308_amd64.deb",
+      "sha256": "14f9a3fe689bf11f0407bd73f71ece4588e4345a358b9468ba0cf6f64fd2d6f5"
+    },
+    {
+      "name": "ros-jazzy-joint-state-publisher",
+      "version": "2.4.3-1noble.20260902.054703",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-joint-state-publisher/ros-jazzy-joint-state-publisher_2.4.3-1noble.20260902.054703_amd64.deb",
+      "sha256": "b5b1bd514ee3f5c6e0dddbcf67ab2c5e8a87476f8eaf92c51d33ab306e6d7a46"
+    },
+    {
+      "name": "ros-jazzy-joint-trajectory-controller",
+      "version": "4.42.1-1noble.20260905.073033",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-joint-trajectory-controller/ros-jazzy-joint-trajectory-controller_4.42.1-1noble.20260905.073033_amd64.deb",
+      "sha256": "d74a081e7a5797d38f58ba587af8dee642dd2a701c015141021c556a26f9c69f"
+    },
+    {
+      "name": "ros-jazzy-laser-geometry",
+      "version": "2.7.2-1noble.20260902.075605",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-laser-geometry/ros-jazzy-laser-geometry_2.7.2-1noble.20260902.075605_amd64.deb",
+      "sha256": "ee4a7ffb7bf837e25e2df4bc0ed5b667f315b2f3aadceeb55e9394c732c04db4"
+    },
+    {
+      "name": "ros-jazzy-libcurl-vendor",
+      "version": "3.4.4-1noble.20260225.235243",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-libcurl-vendor/ros-jazzy-libcurl-vendor_3.4.4-1noble.20260225.235243_amd64.deb",
+      "sha256": "50984bd3bd602cbca2b4bb186d5b713e4d1d21bf625ef28a427ffc478491fbbc"
+    },
+    {
+      "name": "ros-jazzy-map-msgs",
+      "version": "2.4.1-2noble.20260902.043113",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-map-msgs/ros-jazzy-map-msgs_2.4.1-2noble.20260902.043113_amd64.deb",
+      "sha256": "916dad163621816c76a066c35dae7253e06fa17a342e8a4898f6cf4bc2d710a4"
+    },
+    {
+      "name": "ros-jazzy-pal-statistics-msgs",
+      "version": "2.8.2-1noble.20260902.030951",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-pal-statistics-msgs/ros-jazzy-pal-statistics-msgs_2.8.2-1noble.20260902.030951_amd64.deb",
+      "sha256": "762c3a1eebb0e4716f7e30d5f31cd5be1dcdd9a036a6c84726892e6c36b4f16e"
+    },
+    {
+      "name": "ros-jazzy-pal-statistics",
+      "version": "2.8.2-1noble.20260903.011933",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-pal-statistics/ros-jazzy-pal-statistics_2.8.2-1noble.20260903.011933_amd64.deb",
+      "sha256": "351388e039425339cd61c0fdc0e784d698c7ef78726090cb8e6c414586f56ca1"
+    },
+    {
+      "name": "ros-jazzy-parameter-traits",
+      "version": "0.7.6-1noble.20260903.014924",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-parameter-traits/ros-jazzy-parameter-traits_0.7.6-1noble.20260903.014924_amd64.deb",
+      "sha256": "233cd501130dfa6f4a6cf70a88310ca55e4ecf966ce1d79f4073eac1887419b5"
+    },
+    {
+      "name": "ros-jazzy-point-cloud-transport",
+      "version": "4.0.9-1noble.20260903.070003",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-point-cloud-transport/ros-jazzy-point-cloud-transport_4.0.9-1noble.20260903.070003_amd64.deb",
+      "sha256": "ee5243f890059523902f471caa8d9962e19394f50748fcbf65cd3062a3a57cc6"
+    },
+    {
+      "name": "ros-jazzy-pose-broadcaster",
+      "version": "4.42.1-1noble.20260905.074212",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-pose-broadcaster/ros-jazzy-pose-broadcaster_4.42.1-1noble.20260905.074212_amd64.deb",
+      "sha256": "0e87b9b32868e173282f050eec5dc2764577bcc37bf9afe555f59bf6bff7db2e"
+    },
+    {
+      "name": "ros-jazzy-position-controllers",
+      "version": "4.42.1-1noble.20260905.074448",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-position-controllers/ros-jazzy-position-controllers_4.42.1-1noble.20260905.074448_amd64.deb",
+      "sha256": "a7c74fe53a513bfce075461480dfe35552621abd0fe95e093de09e6d1521346c"
+    },
+    {
+      "name": "ros-jazzy-python-qt-binding",
+      "version": "2.2.2-1noble.20260226.000339",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-python-qt-binding/ros-jazzy-python-qt-binding_2.2.2-1noble.20260226.000339_amd64.deb",
+      "sha256": "bd8dffb7a9d5471601e2f13f3c5266c9794dd4215f5fffb8e4b301d24bc0282f"
+    },
+    {
+      "name": "ros-jazzy-realtime-tools",
+      "version": "3.12.0-1noble.20260903.202759",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-realtime-tools/ros-jazzy-realtime-tools_3.12.0-1noble.20260903.202759_amd64.deb",
+      "sha256": "2d58afb3fec537d29e942f50a7a06127ee4f84b659fdfa9e5ebf714312e14db6"
+    },
+    {
+      "name": "ros-jazzy-resource-retriever",
+      "version": "3.4.4-1noble.20260603.152233",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-resource-retriever/ros-jazzy-resource-retriever_3.4.4-1noble.20260603.152233_amd64.deb",
+      "sha256": "243bee1388969d4dec7bca422e46fef89a162cd0a5ff7981fa8ac357f2ba8abe"
+    },
+    {
+      "name": "ros-jazzy-ros2-controllers-test-nodes",
+      "version": "4.42.1-1noble.20260902.054752",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ros2-controllers-test-nodes/ros-jazzy-ros2-controllers-test-nodes_4.42.1-1noble.20260902.054752_amd64.deb",
+      "sha256": "61497efd7a62a9941abfb2d57d10cc172616f2cbad1a36ba48b05f8cf21766f4"
+    },
+    {
+      "name": "ros-jazzy-rsl",
+      "version": "1.3.0-1noble.20260902.084118",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rsl/ros-jazzy-rsl_1.3.0-1noble.20260902.084118_amd64.deb",
+      "sha256": "d66dc1f9a77b8359784cc896fd73a6e2f9e62b6c0eada1078c563861f5add009"
+    },
+    {
+      "name": "ros-jazzy-rviz-assimp-vendor",
+      "version": "14.1.23-1noble.20260715.010624",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz-assimp-vendor/ros-jazzy-rviz-assimp-vendor_14.1.23-1noble.20260715.010624_amd64.deb",
+      "sha256": "2460ad6324225e05aa195213256d1ce6428bd12f364604af5ed340586353dbb3"
+    },
+    {
+      "name": "ros-jazzy-rviz-common",
+      "version": "14.1.23-1noble.20260903.022201",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz-common/ros-jazzy-rviz-common_14.1.23-1noble.20260903.022201_amd64.deb",
+      "sha256": "d33387cecc7c8f3f312361eab6c97e81953766d5344586274e1876947e48e989"
+    },
+    {
+      "name": "ros-jazzy-rviz-default-plugins",
+      "version": "14.1.23-1noble.20260905.033533",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz-default-plugins/ros-jazzy-rviz-default-plugins_14.1.23-1noble.20260905.033533_amd64.deb",
+      "sha256": "a86ddb9db1e631ce45329bfbf81ad7dfa3baff195ce7311ceac4bdee43743a00"
+    },
+    {
+      "name": "ros-jazzy-rviz-ogre-vendor",
+      "version": "14.1.23-1noble.20260715.010827",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz-ogre-vendor/ros-jazzy-rviz-ogre-vendor_14.1.23-1noble.20260715.010827_amd64.deb",
+      "sha256": "5ee9c91bc1a991c384a5ac2614bc2d9097c213943f44e40272c0f3a093894c04"
+    },
+    {
+      "name": "ros-jazzy-rviz-rendering",
+      "version": "14.1.23-1noble.20260715.013933",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz-rendering/ros-jazzy-rviz-rendering_14.1.23-1noble.20260715.013933_amd64.deb",
+      "sha256": "52fe2d40bc890ffdac9c33429ef93e3fcbe3394f14ecc31bcf855d7423e9ed01"
+    },
+    {
+      "name": "ros-jazzy-rviz2",
+      "version": "14.1.23-1noble.20260905.070259",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-rviz2/ros-jazzy-rviz2_14.1.23-1noble.20260905.070259_amd64.deb",
+      "sha256": "791dd026216e91f09e0b71d0209b862a4399994cec39502014c22a4d8b0a9511"
+    },
+    {
+      "name": "ros-jazzy-sdformat-urdf",
+      "version": "1.0.2-1noble.20260905.070219",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-sdformat-urdf/ros-jazzy-sdformat-urdf_1.0.2-1noble.20260905.070219_amd64.deb",
+      "sha256": "d211c0a723069b096e48022901f82e6e5df39a576c20db95134dcb3d549b48e9"
+    },
+    {
+      "name": "ros-jazzy-sdformat-vendor",
+      "version": "0.0.14-1noble.20260905.033543",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-sdformat-vendor/ros-jazzy-sdformat-vendor_0.0.14-1noble.20260905.033543_amd64.deb",
+      "sha256": "4ddd40dcf6dd0134ab7543ee276dfb732f3f279c30f2f3de5247546642c6f15a"
+    },
+    {
+      "name": "ros-jazzy-tcb-span",
+      "version": "1.3.2-1noble.20260618.160922",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-tcb-span/ros-jazzy-tcb-span_1.3.2-1noble.20260618.160922_amd64.deb",
+      "sha256": "9f06bc23788bd1ecf690bf72aa872f9c66148b2c362796aea6e2bc18902b08b1"
+    },
+    {
+      "name": "ros-jazzy-tl-expected",
+      "version": "1.3.2-1noble.20260618.160931",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-tl-expected/ros-jazzy-tl-expected_1.3.2-1noble.20260618.160931_amd64.deb",
+      "sha256": "96ea10ca4d39cef6e3744a58e2ce7afc3ee3712a3cbbb8d24e264f682698d3ee"
+    },
+    {
+      "name": "ros-jazzy-ur-client-library",
+      "version": "2.15.0-1noble.20260905.031724",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-client-library/ros-jazzy-ur-client-library_2.15.0-1noble.20260905.031724_amd64.deb",
+      "sha256": "8e3e9a8113cb5237c1b4aeba64454afcf0dbbad8379758d18a3dded52d35b65e"
+    },
+    {
+      "name": "ros-jazzy-ur-controllers",
+      "version": "3.8.0-1noble.20260905.073606",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-controllers/ros-jazzy-ur-controllers_3.8.0-1noble.20260905.073606_amd64.deb",
+      "sha256": "c83fff2a80fbcec486375914d2fc7c3b76851812de81fffc80cabcf17999f5bb"
+    },
+    {
+      "name": "ros-jazzy-ur-dashboard-msgs",
+      "version": "3.8.0-1noble.20260902.023507",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-dashboard-msgs/ros-jazzy-ur-dashboard-msgs_3.8.0-1noble.20260902.023507_amd64.deb",
+      "sha256": "8ea72e8df833eb0d9f4c6aaf53e180a3cc2b1b366e6b753551590471f8c99606"
+    },
+    {
+      "name": "ros-jazzy-ur-description",
+      "version": "3.5.1-1noble.20260905.072414",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-description/ros-jazzy-ur-description_3.5.1-1noble.20260905.072414_amd64.deb",
+      "sha256": "8be10d6b21c72e687abcec7965d8d29ad2859f9072c1264b4fb89bb45850f5b7"
+    },
+    {
+      "name": "ros-jazzy-ur-msgs",
+      "version": "2.6.0-1noble.20260902.044510",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-msgs/ros-jazzy-ur-msgs_2.6.0-1noble.20260902.044510_amd64.deb",
+      "sha256": "a0e50b7fed552af4b943a6ae4fde3b70c16fa703ed16081aef44a21ae8fafe43"
+    },
+    {
+      "name": "ros-jazzy-ur-robot-driver",
+      "version": "3.8.0-1noble.20260905.075123",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-ur-robot-driver/ros-jazzy-ur-robot-driver_3.8.0-1noble.20260905.075123_amd64.deb",
+      "sha256": "9d1effa9fe0dc6cf63c342b03289a4d2e9120c844680efcaae3ae049e962d0df"
+    },
+    {
+      "name": "ros-jazzy-velocity-controllers",
+      "version": "4.42.1-1noble.20260905.074523",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-velocity-controllers/ros-jazzy-velocity-controllers_4.42.1-1noble.20260905.074523_amd64.deb",
+      "sha256": "19dc7eb1b332829b44807ba6841f6640ca93d4b48e8094f137706a11964b0bb1"
+    },
+    {
+      "name": "ros-jazzy-xacro",
+      "version": "2.1.1-1noble.20260519.011123",
+      "architecture": "amd64",
+      "url": "http://packages.ros.org/ros2/ubuntu/pool/main/r/ros-jazzy-xacro/ros-jazzy-xacro_2.1.1-1noble.20260519.011123_amd64.deb",
+      "sha256": "dea28a1fd7c8fd48dac5030f3d6e89d720867f483ebe7c6129105613048db971"
+    },
+    {
+      "name": "ruby-net-telnet",
+      "version": "0.2.0-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-net-telnet/ruby-net-telnet_0.2.0-1_all.deb",
+      "sha256": "ece1fdca00a6a9565a4e425e13cfb320b247280a71d44e11bfee28fd6a7df2b5"
+    },
+    {
+      "name": "ruby-rubygems",
+      "version": "3.4.20-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/rubygems/ruby-rubygems_3.4.20-1_all.deb",
+      "sha256": "9cb6041d902b74fd6e9373b24922e788bc2d1ed4360705ca6b53945d67b32087"
+    },
+    {
+      "name": "ruby-sdbm",
+      "version": "1.0.0-5build4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-sdbm/ruby-sdbm_1.0.0-5build4_amd64.deb",
+      "sha256": "102edbeafb3cc21d00e97c55c0c1b2651ef57913e6966b45d286361f2ddd2f5c"
+    },
+    {
+      "name": "ruby-webrick",
+      "version": "1.8.1-1ubuntu0.2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-webrick/ruby-webrick_1.8.1-1ubuntu0.2_all.deb",
+      "sha256": "7275a9563e0cd328f6043fc0360886c522b253f280e309a1864549bea8f25d88"
+    },
+    {
+      "name": "ruby-xmlrpc",
+      "version": "0.3.2-2",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-xmlrpc/ruby-xmlrpc_0.3.2-2_all.deb",
+      "sha256": "9690c5b65b147d22f2b90dbb694c5d2af81ffa68f1a58f094e2afb91f3b20c3c"
+    },
+    {
+      "name": "ruby3.2",
+      "version": "3.2.3-1ubuntu0.24.04.8",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby3.2/ruby3.2_3.2.3-1ubuntu0.24.04.8_amd64.deb",
+      "sha256": "6f11e297b3508e8db95a5a047126a16ccf1358292049a27e3dc72b88180e779a"
+    },
+    {
+      "name": "ruby",
+      "version": "1:3.2~ubuntu1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/ruby-defaults/ruby_3.2~ubuntu1_amd64.deb",
+      "sha256": "b4e5390889e4502ce1e88ea016c5fe1ddf2cc4886df5b0652c0dd1eb06fbbf3a"
+    },
+    {
+      "name": "rubygems-integration",
+      "version": "1.18",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/r/rubygems-integration/rubygems-integration_1.18_all.deb",
+      "sha256": "67b466d6297adeae37786a123ad029153961c4cbdcdd6cf50a6e6964e2d37342"
+    },
+    {
+      "name": "shared-mime-info",
+      "version": "2.4-4",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/s/shared-mime-info/shared-mime-info_2.4-4_amd64.deb",
+      "sha256": "7a774ea291ab99bfa987866c6b68e825531eeea7c8a732dd47d14cf480453fda"
+    },
+    {
+      "name": "shiboken2",
+      "version": "5.15.13-1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/p/pyside2/shiboken2_5.15.13-1_amd64.deb",
+      "sha256": "7272fc8d08b8cfe0ab2b69a4d1a003c4fc061e325edf2c78b437713ee7118c72"
+    },
+    {
+      "name": "sip-dev",
+      "version": "4.19.25+dfsg-5build3",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/universe/s/sip4/sip-dev_4.19.25+dfsg-5build3_amd64.deb",
+      "sha256": "90bfc68f3be8f201eb7d27da9250771378665014cb5da2c9b777abe37fd86e51"
+    },
+    {
+      "name": "socat",
+      "version": "1.8.0.0-4ubuntu0.1",
+      "architecture": "amd64",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/s/socat/socat_1.8.0.0-4ubuntu0.1_amd64.deb",
+      "sha256": "46e854289b6b1c97e28be5d9293bea61e8633d00d6a65d9513f019c7232696fe"
+    },
+    {
+      "name": "x11proto-dev",
+      "version": "2023.2-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xorgproto/x11proto-dev_2023.2-1_all.deb",
+      "sha256": "3bf13a2ffb79ecd4014d438936014e5863f79eb59ebf76e8f43356271c90e7ce"
+    },
+    {
+      "name": "xkb-data",
+      "version": "2.41-2ubuntu1.1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xkeyboard-config/xkb-data_2.41-2ubuntu1.1_all.deb",
+      "sha256": "e99f2a0b4c56cdf35dec489e56b6a8418826cab8ce6306ec6d0bd98e2cd0014a"
+    },
+    {
+      "name": "xorg-sgml-doctools",
+      "version": "1:1.11-1.1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xorg-sgml-doctools/xorg-sgml-doctools_1.11-1.1_all.deb",
+      "sha256": "277f662c6d94606c22078f2af82ac1b6e01386d5a4dec6ca7487bca4c5b23c07"
+    },
+    {
+      "name": "xtrans-dev",
+      "version": "1.4.0-1",
+      "architecture": "all",
+      "url": "https://archive.ubuntu.com/ubuntu/pool/main/x/xtrans/xtrans-dev_1.4.0-1_all.deb",
+      "sha256": "45277c51d5d83db351b61859314b59595c9626ac372fbb2fc0d5542e169d9086"
+    }
+  ]
+}

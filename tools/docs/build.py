@@ -43,7 +43,22 @@ def main() -> None:
         )
         requirements.write_bytes(exported.stdout)
         environment = work / "venv"
-        run(["uv", "venv", "--python", "3.12.13", str(environment)])
+        import platform
+
+        pin = (
+            ".python-version-macos"
+            if platform.system() == "Darwin"
+            else ".python-version"
+        )
+        run(
+            [
+                "uv",
+                "venv",
+                "--python",
+                (ROOT / pin).read_text().strip(),
+                str(environment),
+            ]
+        )
         python = environment / "bin/python"
         run(
             [
@@ -59,9 +74,11 @@ def main() -> None:
         )
         native_wheel = (
             ROOT
-            / "bazel-bin"
-            / NATIVE_PACKAGE
-            / ("robo_arch_native-0.1.0-cp312-cp312-linux_x86_64.whl")
+            / run(
+                ["bazel", "cquery", f"//{NATIVE_PACKAGE}:wheel", "--output=files"],
+                stdout=subprocess.PIPE,
+                text=True,
+            ).stdout.strip()
         )
         [project_wheel] = wheels.glob("*.whl")
         run(

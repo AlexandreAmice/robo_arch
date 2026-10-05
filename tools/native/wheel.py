@@ -1,4 +1,4 @@
-"""Package explicitly supplied CPython 3.12 Linux extensions and runtime files."""
+"""Package explicit Bazel extensions/resources for a declared CPython platform."""
 
 import argparse
 import base64
@@ -14,8 +14,15 @@ def build_wheel(
     output: Path,
     extensions: list[tuple[str, Path]],
     resources: list[tuple[str, Path]],
+    *,
+    python: str = "3.12",
+    platform: str = "linux_x86_64",
 ) -> None:
     """Assemble a deterministic private wheel without compiling or resolving inputs."""
+    supported = {("3.12", "linux_x86_64"), ("3.13", "macosx_15_0_arm64")}
+    if (python, platform) not in supported:
+        raise ValueError(f"Unsupported native wheel profile: {python}, {platform}")
+    tag = "cp" + python.replace(".", "")
     package = "robo_arch_native"
     entries = {f"{package}/__init__.py": b'"""Bazel-built native algorithms."""\n'}
     modules = []
@@ -43,17 +50,17 @@ def build_wheel(
             raise ValueError(f"Duplicate wheel destination: {destination}")
         entries[destination] = source.read_bytes()
     entries[f"{package}/build.json"] = json.dumps(
-        {"extensions": sorted(modules), "python": "3.12"}, sort_keys=True
+        {"extensions": sorted(modules), "python": python}, sort_keys=True
     ).encode()
     info = "robo_arch_native-0.1.0.dist-info"
     entries[f"{info}/METADATA"] = (
-        b"Metadata-Version: 2.1\nName: robo-arch-native\nVersion: 0.1.0\n"
-        b"Requires-Python: ==3.12.*\n"
-    )
+        "Metadata-Version: 2.1\nName: robo-arch-native\nVersion: 0.1.0\n"
+        f"Requires-Python: =={python}.*\n"
+    ).encode()
     entries[f"{info}/WHEEL"] = (
-        b"Wheel-Version: 1.0\nGenerator: robo-arch Bazel\n"
-        b"Root-Is-Purelib: false\nTag: cp312-cp312-linux_x86_64\n"
-    )
+        "Wheel-Version: 1.0\nGenerator: robo-arch Bazel\n"
+        f"Root-Is-Purelib: false\nTag: {tag}-{tag}-{platform}\n"
+    ).encode()
     record = io.StringIO()
     writer = csv.writer(record, lineterminator="\n")
     for name, content in sorted(entries.items()):
@@ -71,6 +78,8 @@ def build_wheel(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--python", default="3.12")
+    parser.add_argument("--platform", default="linux_x86_64")
     parser.add_argument(
         "--extension", nargs=2, action="append", default=[], metavar=("MODULE", "FILE")
     )
@@ -86,6 +95,8 @@ def main() -> None:
         args.output,
         [(module, Path(source)) for module, source in args.extension],
         [(destination, Path(source)) for destination, source in args.resource],
+        python=args.python,
+        platform=args.platform,
     )
 
 

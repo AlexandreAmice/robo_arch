@@ -74,5 +74,19 @@ def test_duplicate_extension_destination(tmp_path):
         build_wheel(tmp_path / "native.whl", [extension, extension], [])
 
 
+def test_macos_metadata_matches_interpreter_and_platform(tmp_path):
+    wheel = tmp_path / "mac.whl"
+    build_wheel(wheel, [], [], python="3.13", platform="macosx_15_0_arm64")
+    with zipfile.ZipFile(wheel) as archive:
+        assert b"Tag: cp313-cp313-macosx_15_0_arm64" in archive.read(
+            "robo_arch_native-0.1.0.dist-info/WHEEL"
+        )
+        assert b"Requires-Python: ==3.13.*" in archive.read(
+            "robo_arch_native-0.1.0.dist-info/METADATA"
+        )
+    with pytest.raises(ValueError, match="Unsupported"):
+        build_wheel(wheel, [], [], python="3.12", platform="macosx_15_0_arm64")
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))

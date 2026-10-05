@@ -1,5 +1,6 @@
 load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":defs.bzl", "native_wheels")
 
 exports_files(
     ["install.py"],
@@ -13,13 +14,19 @@ py_binary(
 )
 
 # Add component-owned extensions/resources here; launch/install code stays generic.
-genrule(
+config_setting(
+    name = "macos_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+native_wheels(
     name = "wheel",
-    srcs = ["//src/robo_arch/core/controllers/joint_pd:bindings_import/robo_arch_native/_joint_pd.so"],
-    outs = ["robo_arch_native-0.1.0-cp312-cp312-linux_x86_64.whl"],
-    cmd = "$(execpath :wheel_builder) $@ --extension robo_arch_native._joint_pd $(execpath //src/robo_arch/core/controllers/joint_pd:bindings_import/robo_arch_native/_joint_pd.so)",
-    tools = [":wheel_builder"],
-    visibility = ["//visibility:public"],
+    extensions = {
+        "robo_arch_native._joint_pd": "//src/robo_arch/core/controllers/joint_pd:bindings_import/robo_arch_native/_joint_pd.so",
+    },
 )
 
 py_test(

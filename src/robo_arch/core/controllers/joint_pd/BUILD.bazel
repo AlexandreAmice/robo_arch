@@ -43,7 +43,13 @@ cc_binary(
     name = "bindings_import/robo_arch_native/_joint_pd.so",
     srcs = ["bindings.cc"],
     copts = ["-fvisibility=hidden"],
-    linkopts = ["-Wl,--exclude-libs,ALL"],
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-undefined",
+            "dynamic_lookup",
+        ],
+        "//conditions:default": ["-Wl,--exclude-libs,ALL"],
+    }),
     linkshared = True,
     linkstatic = True,
     visibility = ["//tools/native:__pkg__"],

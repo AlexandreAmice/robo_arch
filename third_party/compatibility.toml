@@ -1,0 +1,93 @@
+# Runtime policy, not another dependency resolver. Versions come from these files.
+schema = 1
+bazel = ".bazelversion"
+module = "MODULE.bazel"
+
+[profiles.ubuntu]
+system = "Linux"
+architecture = "x86_64"
+os = "Ubuntu 24.04"
+python = ".python-version"
+project = "."
+lock = "uv.lock"
+groups = ["dev", "drake", "numerical"]
+environment = ".venv"
+wheel_platform = "linux_x86_64"
+evidence = "local; second-machine source and artifact transfer outstanding"
+
+[profiles.macos]
+system = "Darwin"
+architecture = "arm64"
+os = "macOS 15 or newer"
+python = ".python-version-macos"
+project = "."
+lock = "uv.lock"
+groups = ["dev", "drake", "numerical"]
+environment = ".venv"
+wheel_platform = "macosx_15_0_arm64"
+evidence = "configured artifact/interpreter pair; execution outstanding"
+
+[profiles.isaac]
+system = "Linux"
+architecture = "x86_64"
+os = "Ubuntu 24.04 with vendor-compatible NVIDIA driver/GPU"
+python = ".python-version"
+project = "third_party/isaac"
+lock = "third_party/isaac/uv.lock"
+groups = ["test", "cbf-gpu"]
+environment = "third_party/isaac/.venv"
+wheel_platform = "linux_x86_64"
+evidence = "local workload evidence; resolved Kit extension/second-machine evidence outstanding"
+
+[suites.core]
+bazel = ["//tests/build:core", "//src/robo_arch/core/config:loading_test", "//src/robo_arch/core/config:worlds_test", "//src/robo_arch/robots/ur7e/real:selection_test", "//tools/validation:profiles_test"]
+profiles = ["ubuntu", "macos", "isaac"]
+providers = ["numpy", "pydantic", "yaml", "pytest"]
+tests = ["tests/build/test_environment.py", "src/robo_arch/core/config/tests", "src/robo_arch/core/worlds/tests/test_devices.py", "tools/validation/tests", "src/robo_arch/robots/ur7e/real/tests"]
+
+[suites.native]
+native = true
+profiles = ["ubuntu", "macos", "isaac"]
+providers = ["numpy", "pytest", "robo_arch_native"]
+tests = ["src/robo_arch/core/controllers/joint_pd/tests/test_native.py", "tools/native/tests"]
+bazel = ["//tools/native:wheel_test", "//tools/native:install_test", "//src/robo_arch/core/controllers/joint_pd:native_test", "//src/robo_arch/core/controllers/joint_pd:joint_pd_test"]
+
+[suites.drake]
+native = true
+bazel = ["//tests/build:drake", "//src/robo_arch/core/worlds/drake:scenario_test", "//src/robo_arch/scenarios/arm_tracking:run_test"]
+profiles = ["ubuntu", "macos"]
+providers = ["pydrake", "pytest", "robo_arch_native"]
+tests = ["src/robo_arch/core/worlds/tests/test_poses.py", "src/robo_arch/core/worlds/tests/test_robot_assets.py", "tests/build/smoke_drake.py", "src/robo_arch/core/worlds/drake/tests", "src/robo_arch/scenarios/arm_tracking/tests/test_run.py"]
+
+[suites.tensor]
+native = true
+profiles = ["isaac"]
+providers = ["torch", "pytest", "robo_arch_native"]
+tests = ["src/robo_arch/core/controllers/joint_pd/tests/test_tensor.py", "src/robo_arch/core/controllers/dynamics/tests/test_torch.py", "src/robo_arch/core/controllers/cbf/tests/test_tensor_barrier.py"]
+
+[suites.isaac]
+profiles = ["isaac"]
+providers = ["torch", "isaaclab", "isaacsim", "pytest"]
+gpu = true
+tests = ["src/robo_arch/core/worlds/isaac/tests/test_gpu_execution.py", "src/robo_arch/scenarios/arm_tracking/tests/test_isaac_lab.py"]
+
+[suites.cbf_gpu]
+profiles = ["isaac"]
+providers = ["torch", "moreau", "pytest"]
+gpu = true
+tests = ["src/robo_arch/scenarios/camera_protection/tests/test_gpu.py"]
+
+[profiles.ros]
+system = "Linux"
+architecture = "x86_64"
+os = "Ubuntu 24.04; isolated Jazzy container"
+python = "third_party/ros/.python-version"
+project = "third_party/ros"
+lock = "third_party/ros/packages.lock.json"
+evidence = "installed-wheel UR mock process tests; URSim/physical hardware outstanding"
+
+[suites.ros]
+profiles = ["ros"]
+
+[suites.installed]
+profiles = ["ubuntu", "macos"]

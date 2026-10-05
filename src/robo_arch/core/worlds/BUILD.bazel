@@ -11,6 +11,7 @@ py_library(
 py_library(
     name = "assembly",
     srcs = ["assembly.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
         ":package",
         "//src/robo_arch/core/config",

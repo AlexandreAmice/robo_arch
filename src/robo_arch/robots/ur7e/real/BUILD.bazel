@@ -1,0 +1,26 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "real",
+    srcs = ["__init__.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/contracts:commands",
+        "//src/robo_arch/core/worlds:assembly",
+        "//src/robo_arch/core/worlds/real:config",
+        "//src/robo_arch/core/worlds/real:trajectory",
+        "//src/robo_arch/robots/ur7e",
+    ],
+)
+
+py_test(
+    name = "selection_test",
+    srcs = ["tests/test_selection.py"],
+    main = "tests/test_selection.py",
+    deps = [
+        ":real",
+        requirement("pytest"),
+    ],
+)

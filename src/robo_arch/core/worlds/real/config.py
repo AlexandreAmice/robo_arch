@@ -64,3 +64,8 @@ class RealWorld(Schema):
     type: Literal["real"] = "real"
     transport: Ros2Transport = Field(default_factory=Ros2Transport)
     visualization: Rviz2Visualization = Field(default_factory=Rviz2Visualization)
+    trajectory_controller: str = Field(
+        default="joint_trajectory_controller", min_length=1
+    )
+    observation_max_age: float = Field(default=0.5, gt=0, allow_inf_nan=False)
+    operation_timeout: float = Field(default=5.0, gt=0, allow_inf_nan=False)
