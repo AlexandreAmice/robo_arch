@@ -10,12 +10,12 @@ The vendor environment does not enter the root dependency resolution.
 
 ```sh
 uv sync --project third_party/isaac --locked
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
 
-The helper selects the vendor interpreter, refreshes native code and sets
+The scenario script selects the vendor interpreter, refreshes native code and sets
 `OMNI_KIT_ACCEPT_EULA=YES` (accepting NVIDIA's runtime EULA) unless already set.
 It removes display variables only for headless Isaac runs. The same command accepts
 `iiwa7.yaml` and `iiwa7_contact.yaml`. The original D435 example requires
@@ -52,7 +52,7 @@ Newton/MuJoCo Warp were already included by the Lab wheel.
 Run from a desktop terminal, keeping `DISPLAY` set:
 
 ```sh
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml \
   --metadata recordings/bimanual_isaac_live.json
@@ -161,7 +161,7 @@ Install the Moreau CUDA solver into this same locked Lab environment:
 
 ```sh
 uv sync --project third_party/isaac --locked --group cbf-gpu --group test
-uv run tools/dev.py run camera_protection \
+uv run src/robo_arch/scenarios/camera_protection/run.py \
   --world-config package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml \
   --backend torch_moreau --batch-size 2 --compile-model --no-browser
 ```

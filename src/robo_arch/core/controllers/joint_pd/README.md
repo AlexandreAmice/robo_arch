@@ -23,23 +23,24 @@ tested in float32 and float64. Torch remains in the vendor runtime profile.
 Batched reaching supplies Isaac Lab gravity forces explicitly; the feedback
 function itself has no simulator dependency or privileged state access.
 
-The local wheel targets CPython 3.12 on Linux x86-64 with host glibc. Nanobind and
+The binding is included in the project aggregate `//tools/native:wheel`; this
+package owns the C++ library and extension target. The local wheel targets
+CPython 3.12 on Linux x86-64 with host glibc. Nanobind and
 the C++ runtime are linked statically with hidden archive symbols; only the Python
 entry point is exported. This prevents symbol interposition with Kit's C++
 libraries. No Drake C++ objects cross the binding boundary. The wheel is not a
 portable manylinux release artifact.
 
 ```sh
-uv run tools/dev.py native --profile drake
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 bazel test //src/robo_arch/core/controllers/joint_pd:joint_pd_test \
   //src/robo_arch/core/controllers/joint_pd:native_test
 ```
 
-Use `--profile isaac` for the separately synchronized vendor environment. The
-helper builds through Bazel, checks the interpreter, compares actual installed
-extension bytes, installs without resolving dependencies and launches a fresh
-process. Failed builds/installations stop launch. Ordinary Python edits need no
-native rebuild. An exact `uv sync` may remove the development wheel; rerun the
-helper afterward. Restart notebook kernels after changing native code.
+Direct scripts select the environment from the effective world configuration,
+build through Bazel, and refresh changed or missing native-wheel payloads before
+starting a fresh process. Failed builds/installations stop launch. Exact
+`uv sync` may remove the development wheel; the next direct launch restores it.
+For IDEs and notebooks, use `uv run tools/native/install.py --profile drake`
+(or `--profile isaac`) and restart the Python process after native changes.

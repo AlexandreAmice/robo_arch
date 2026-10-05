@@ -1,73 +1,19 @@
-"""Build/install native algorithms and optionally launch a fresh local process."""
+"""Compatibility adapter; use direct scenario Python files for new commands."""
 
 import argparse
-import hashlib
 import json
 import os
-import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = "//src/robo_arch/core/controllers/joint_pd:wheel"
 
 
 def install(profile: str) -> Path:
-    """Install into an existing uv environment, comparing actual extension bytes."""
-    environment = ROOT / ("third_party/isaac/.venv" if profile == "isaac" else ".venv")
-    python = environment / "bin/python"
-    if not python.exists():
-        raise FileNotFoundError(f"Run uv sync for the {profile} environment first")
-    check = subprocess.check_output(
-        [
-            str(python),
-            "-c",
-            "import sys,platform; print(sys.version_info[:2]); "
-            "print(platform.system(), platform.machine()); print(sys.implementation.name)",
-        ],
-        text=True,
-    )
-    if check.splitlines() != ["(3, 12)", "Linux x86_64", "cpython"]:
-        raise RuntimeError("Native profile requires CPython 3.12 on Linux x86_64")
-    subprocess.run(["bazel", "build", TARGET], cwd=ROOT, check=True)
-    output = subprocess.check_output(
-        ["bazel", "cquery", TARGET, "--output=files"],
-        cwd=ROOT,
-        text=True,
-    ).strip()
-    wheel = ROOT / output
-    with zipfile.ZipFile(wheel) as archive:
-        expected = hashlib.sha256(
-            archive.read("robo_arch_native/_joint_pd.so")
-        ).hexdigest()
-    probe = (
-        "import importlib.util,hashlib,json; from pathlib import Path; "
-        "s=importlib.util.find_spec('robo_arch_native'); "
-        "p=Path(s.origin).parent/'_joint_pd.so' if s else None; "
-        "print(json.dumps(hashlib.sha256(p.read_bytes()).hexdigest() "
-        "if p and p.is_file() else None))"
-    )
-    installed = json.loads(
-        subprocess.check_output([str(python), "-c", probe], text=True)
-    )
-    if installed != expected:
-        subprocess.run(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--python",
-                str(python),
-                "--no-deps",
-                "--reinstall",
-                str(wheel),
-            ],
-            cwd=ROOT,
-            check=True,
-        )
-    subprocess.run([str(python), "-c", "import robo_arch_native._joint_pd"], check=True)
-    return python
+    # tools/ is checkout tooling rather than part of the installed application.
+    import runpy
+
+    return runpy.run_path(str(ROOT / "tools/native/install.py"))["install"](profile)
 
 
 def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
@@ -80,7 +26,7 @@ def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
 
     parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     parser.add_argument("--inspect", type=Path)
-    parser.add_argument("--config" if scenario == "batched_reaching" else "--run")
+    parser.add_argument("--run", "--config", dest="run")
     parser.add_argument("--world")
     parser.add_argument("--world-config")
     parser.add_argument("--visualization")
@@ -91,7 +37,7 @@ def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
         report = json.loads(args.inspect.read_text(encoding="utf-8"))
         run = TypeAdapter(RunConfiguration).validate_python(report["configuration"])
     else:
-        resource = args.config if scenario == "batched_reaching" else args.run
+        resource = args.run
         run = load_run(
             resource or f"package://robo_arch/scenarios/{scenario}/scenario.yaml"
         )
@@ -105,17 +51,6 @@ def scenario_environment(scenario: str, command: list[str]) -> tuple[str, bool]:
     mode = args.visualization or world.visualization.mode
     live = (args.live or mode in {"live", "live_and_record"}) and not args.headless
     return world.type, live
-
-
-def launch_environment(profile: str, *, live: bool) -> dict[str, str]:
-    """Keep vendor startup settings local to the child process."""
-    environment = os.environ.copy()
-    if profile == "isaac":
-        environment.setdefault("OMNI_KIT_ACCEPT_EULA", "YES")
-        if not live:
-            environment.pop("DISPLAY", None)
-            environment.pop("WAYLAND_DISPLAY", None)
-    return environment
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -146,7 +81,7 @@ def main(argv: list[str] | None = None) -> None:
         command = command[1:]
     if args.operation == "native" and command:
         parser.error("native accepts no child command")
-    profile, environment = args.profile, None
+    profile = args.profile
     if args.operation != "native" and not command:
         parser.error("choose arm_tracking, batched_reaching or camera_protection")
     if command and command[0] in {
@@ -168,13 +103,21 @@ def main(argv: list[str] | None = None) -> None:
                 f"scenario selects {selected}, conflicting with --profile {profile}"
             )
         profile = selected
-        environment = launch_environment(profile, live=live)
-        command = [
-            "python",
-            "-m",
-            f"robo_arch.scenarios.{scenario}.{args.operation}",
-            *options,
-        ]
+        print(
+            "tools/dev.py is deprecated; run the scenario Python file directly",
+            file=sys.stderr,
+        )
+        os.execv(
+            sys.executable,
+            [
+                sys.executable,
+                "-m",
+                f"robo_arch.scenarios.{scenario}.{args.operation}",
+                *options,
+            ],
+        )
+        return
+
     elif command and (command[0] != "python" or args.operation != "run"):
         parser.error(
             "choose arm_tracking, batched_reaching or camera_protection, "
@@ -185,10 +128,7 @@ def main(argv: list[str] | None = None) -> None:
     python = install(profile)
     if command:
         # The simulator owns Ctrl-C, cleanup, and its process exit status.
-        os.chdir(ROOT)
-        os.execve(
-            str(python), [str(python), *command[1:]], environment or os.environ.copy()
-        )
+        os.execve(str(python), [str(python), *command[1:]], os.environ.copy())
 
 
 if __name__ == "__main__":

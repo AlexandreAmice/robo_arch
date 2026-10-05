@@ -8,6 +8,7 @@ import pytest
 
 from robo_arch.core.config import loading
 from robo_arch.core.config.worlds import parse_world
+from robo_arch.core.worlds import launch
 from tools import dev
 
 
@@ -82,35 +83,28 @@ def test_child_display_and_eula_settings(monkeypatch):
     monkeypatch.setenv("DISPLAY", ":1")
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     monkeypatch.delenv("OMNI_KIT_ACCEPT_EULA", raising=False)
-    assert "OMNI_KIT_ACCEPT_EULA" not in dev.launch_environment("drake", live=False)
-    assert dev.launch_environment("drake", live=False)["DISPLAY"] == ":1"
-    assert dev.launch_environment("isaac", live=True)["DISPLAY"] == ":1"
-    headless = dev.launch_environment("isaac", live=False)
+    assert "OMNI_KIT_ACCEPT_EULA" not in launch.launch_environment("drake", live=False)
+    assert launch.launch_environment("drake", live=False)["DISPLAY"] == ":1"
+    assert launch.launch_environment("isaac", live=True)["DISPLAY"] == ":1"
+    headless = launch.launch_environment("isaac", live=False)
     assert headless["OMNI_KIT_ACCEPT_EULA"] == "YES"
     assert "DISPLAY" not in headless and "WAYLAND_DISPLAY" not in headless
     monkeypatch.setenv("OMNI_KIT_ACCEPT_EULA", "NO")
-    assert dev.launch_environment("isaac", live=True)["OMNI_KIT_ACCEPT_EULA"] == "NO"
+    assert launch.launch_environment("isaac", live=True)["OMNI_KIT_ACCEPT_EULA"] == "NO"
 
 
 @pytest.mark.parametrize("operation", ["run", "benchmark"])
 def test_launch_routes_options_and_help(declarations, monkeypatch, operation):
-    installed, launched = [], []
-
-    def install(profile):
-        installed.append(profile)
-        return Path("/vendor/bin/python")
-
-    monkeypatch.setattr(dev, "install", install)
-    monkeypatch.setattr(dev.os, "execve", lambda *a: launched.append(a))
+    launched = []
+    monkeypatch.setattr(dev.os, "execv", lambda *a: launched.append(a))
+    monkeypatch.setattr(dev, "install", lambda _: pytest.fail("adapter must not build"))
     dev.main([operation, "batched_reaching", "--help"])
-    assert installed == ["isaac"]
     assert launched[0][1] == [
-        "/vendor/bin/python",
+        dev.sys.executable,
         "-m",
         f"robo_arch.scenarios.batched_reaching.{operation}",
         "--help",
     ]
-    assert launched[0][2]["OMNI_KIT_ACCEPT_EULA"] == "YES"
 
 
 def test_conflicting_profile_never_launches(declarations, monkeypatch):

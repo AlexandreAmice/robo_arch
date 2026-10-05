@@ -13,9 +13,9 @@ desired velocity; the unsafe target is held until 3 s. Clearance evaluation
 allows 10 micrometres of numerical tolerance around zero.
 
 ```sh
-uv run python -m robo_arch.scenarios.camera_protection.run --no-browser
-uv run python -m robo_arch.scenarios.camera_protection.run --baseline --no-browser
-uv run python -m robo_arch.scenarios.camera_protection.run \
+uv run src/robo_arch/scenarios/camera_protection/run.py --no-browser
+uv run src/robo_arch/scenarios/camera_protection/run.py --baseline --no-browser
+uv run src/robo_arch/scenarios/camera_protection/run.py \
   --inspect recordings/camera_protection_filtered.json --visualization live_and_record
 ```
 
@@ -86,7 +86,7 @@ acceleration-feedback gains. `nominal_controller: joint_pd` instead selects the
 existing native PD controller, with torque-feedback gains in that mapping.
 The tested PD gains are `kp: [40, 80, 50, 8, 3, 1]` and
 `kd: [13, 20, 13, 1, 0.5, 0.08]` in N m/rad and N m s/rad.
-For native PD, first run `uv run tools/dev.py native --profile drake` as described
+Direct scenario execution refreshes native PD automatically, as described
 in the [native development workflow](../../../../docs/build_and_layout.md#build-and-python-workflow).
 Physical assembly is unchanged. The reusable [CBF package](../../core/controllers/cbf/README.md)
 also accepts any compatible nominal effort output through native ports or its
@@ -146,7 +146,7 @@ scenario. Install the optional solver once with
 From the repository root:
 
 ```sh
-uv run tools/dev.py run camera_protection \
+uv run src/robo_arch/scenarios/camera_protection/run.py \
   --world-config package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml \
   --backend torch_moreau --batch-size 32 --no-browser
 ```

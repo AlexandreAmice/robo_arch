@@ -7,10 +7,14 @@ py_test(
         "dev.py",
         "tests/test_dev.py",
     ],
-    data = ["//src/robo_arch/scenarios/camera_protection:isaac_gpu.yaml"],
+    data = [
+        "//src/robo_arch/scenarios/camera_protection:isaac_gpu.yaml",
+        "//tools/native:install.py",
+    ],
     main = "tests/test_dev.py",
     deps = [
         "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds:launch",
         requirement("pydantic"),
         requirement("pytest"),
     ],

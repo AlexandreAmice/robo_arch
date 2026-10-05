@@ -24,6 +24,7 @@ py_library(
 py_library(
     name = "config",
     srcs = [
+        "cli.py",
         "declarations.py",
         "loading.py",
         "parameters.py",
@@ -66,6 +67,17 @@ py_test(
         "//src/robo_arch/core/worlds/drake:config",
         "//src/robo_arch/core/worlds/isaac:config",
         "//src/robo_arch/core/worlds/real:config",
+        requirement("pydantic"),
+        requirement("pytest"),
+    ],
+)
+
+py_test(
+    name = "cli_test",
+    srcs = ["tests/test_cli.py"],
+    main = "tests/test_cli.py",
+    deps = [
+        ":config",
         requirement("pydantic"),
         requirement("pytest"),
     ],

@@ -23,6 +23,17 @@ from robo_arch.scenarios.arm_tracking.run import (
 )
 
 
+@pytest.fixture(autouse=True)
+def prepared_runtime(monkeypatch):
+    # These tests exercise main in-process; launch/re-exec has separate tests.
+    calls = []
+    monkeypatch.setattr(
+        "robo_arch.scenarios.arm_tracking.run.prepare",
+        lambda profile, **kwargs: calls.append((profile, kwargs)),
+    )
+    return calls
+
+
 @pytest.fixture
 def tracking_result(monkeypatch, capsys):
     pytest.importorskip("pydrake")
@@ -147,14 +158,11 @@ def test_isaac_inspection_uses_vendor_dependency_profile(tmp_path, monkeypatch):
     metadata = tmp_path / "result.json"
     run_scenario(run, metadata=metadata)
     command = shlex.split(json.loads(metadata.read_text())["inspection_command"])
-    assert command[:6] == [
-        "uv",
-        "run",
-        "--locked",
-        "tools/dev.py",
-        "run",
-        "arm_tracking",
-    ]
+    script = next(
+        item for item in command if item.endswith("/scenarios/arm_tracking/run.py")
+    )
+    assert Path(script).is_absolute()
+    assert "tools/dev.py" not in command
     assert command[command.index("--inspect") + 1] == str(metadata.resolve())
     assert command[-2:] == ["--visualization", "live"]
 
@@ -204,7 +212,7 @@ def test_cli_records_failed_evaluation_before_exiting(tmp_path, monkeypatch, cap
 
 
 def test_cli_world_switch_replaces_configuration_without_dropping_sensors(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, prepared_runtime
 ):
     import robo_arch.scenarios.arm_tracking.run as runner
 
@@ -228,6 +236,7 @@ def test_cli_world_switch_replaces_configuration_without_dropping_sensors(
         ],
     )
     main()
+    assert prepared_runtime == [("isaac", {"live": False})]
     assert isinstance(captured[0].world_config, IsaacWorld)
     assert captured[0].world_config.visualization.mode == "off"
     assert captured[0].world_config.physics.solver == "tgs"

@@ -15,8 +15,10 @@ from typing import Any
 import numpy as np
 from pydantic import TypeAdapter
 
+from robo_arch.core.config.cli import add_overrides, apply_overrides
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.config.loading import load_run, load_world, resolve_resource
+from robo_arch.core.config.loading import load_run, resolve_resource
+from robo_arch.core.worlds.launch import inspection_invocation, prepare
 from robo_arch.scenarios.camera_protection.configuration import parameters_for
 
 
@@ -174,26 +176,11 @@ def run_scenario(
     }
     if metadata is not None:
         metadata.parent.mkdir(parents=True, exist_ok=True)
-        invocation = ["uv", "run", "python"]
-        mode = "live_and_record"
-        if run.world == "isaac":
-            invocation = [
-                "env",
-                "OMNI_KIT_ACCEPT_EULA=YES",
-                "uv",
-                "run",
-                "--project",
-                "third_party/isaac",
-                "--group",
-                "cbf-gpu",
-                "python",
-            ]
-            mode = "live"
+        invocation = inspection_invocation(__file__)
+        mode = "live_and_record" if run.world == "drake" else "live"
         report["inspection_command"] = shlex.join(
             [
                 *invocation,
-                "-m",
-                "robo_arch.scenarios.camera_protection.run",
                 "--inspect",
                 str(metadata.resolve()),
                 "--visualization",
@@ -316,15 +303,10 @@ def main() -> None:
     parser.add_argument(
         "--baseline", action="store_true", help="Run the unfiltered comparison"
     )
-    parser.add_argument(
-        "--visualization", choices=("off", "live", "record", "live_and_record")
-    )
+    add_overrides(parser)
     parser.add_argument("--record", type=Path)
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument(
-        "--world-config", help="package:// world profile overriding the scenario world"
-    )
     parser.add_argument("--backend", choices=("drake", "torch_moreau"))
     parser.add_argument("--batch-size", type=int, help="Isaac tensor environments")
     parser.add_argument(
@@ -334,12 +316,13 @@ def main() -> None:
     )
     args = parser.parse_args()
     if args.inspect:
-        run, filtered = load_inspection(args.inspect)
+        report = json.loads(args.inspect.read_text())
+        run = TypeAdapter(RunConfiguration).validate_python(report["configuration"])
+        filtered = report["filtered"]
     else:
         run = load_run(args.run)
         filtered = not args.baseline
-    if args.world_config:
-        run = replace(run, world_config=load_world(args.world_config))
+    run = apply_overrides(run, args)
     if args.backend:
         run = replace(
             run,
@@ -366,13 +349,17 @@ def main() -> None:
         )
         run = replace(run, world_config=world)
     visual = run.world_config.visualization
-    updates = {"mode": args.visualization or visual.mode}
+    updates = {"mode": visual.mode}
     if run.world == "drake":
         updates["open_browser"] = not args.no_browser
     visual = type(visual).model_validate({**visual.model_dump(), **updates})
     run = replace(
         run, world_config=run.world_config.model_copy(update={"visualization": visual})
     )
+    parameters_for(run)
+    prepare(run.world, live=visual.mode in {"live", "live_and_record"})
+    if args.inspect:
+        load_inspection(args.inspect)
     suffix = ("filtered" if filtered else "baseline") + (
         "_gpu" if run.world == "isaac" else ""
     )

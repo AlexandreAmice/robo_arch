@@ -46,6 +46,7 @@ cc_binary(
     linkopts = ["-Wl,--exclude-libs,ALL"],
     linkshared = True,
     linkstatic = True,
+    visibility = ["//tools/native:__pkg__"],
     deps = [
         ":docstrings",
         ":joint_pd_cc",
@@ -110,15 +111,6 @@ py_library(
         requirement("drake"),
         requirement("numpy"),
     ],
-)
-
-genrule(
-    name = "wheel",
-    srcs = [":bindings_import/robo_arch_native/_joint_pd.so"],
-    outs = ["robo_arch_native-0.1.0-cp312-cp312-linux_x86_64.whl"],
-    cmd = "$(execpath //tools/native:wheel) $(execpath :bindings_import/robo_arch_native/_joint_pd.so) $@",
-    tools = ["//tools/native:wheel"],
-    visibility = ["//visibility:public"],
 )
 
 py_test(

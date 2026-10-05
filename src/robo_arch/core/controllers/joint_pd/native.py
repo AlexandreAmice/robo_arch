@@ -25,9 +25,10 @@ def compute(
     """
     if find_spec("robo_arch_native") is None:
         raise ModuleNotFoundError(
-            "Native controller is not installed. Run: "
-            "uv run tools/dev.py native --profile drake "
-            "(or --profile isaac for the vendor environment)."
+            "Native controller is not installed. Direct scenario scripts refresh it "
+            "automatically. For IDEs/notebooks, run: "
+            "uv run tools/native/install.py --profile drake "
+            "(or --profile isaac), then restart the Python process."
         )
     from robo_arch_native._joint_pd import compute as native_compute
 
