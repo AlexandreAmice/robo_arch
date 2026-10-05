@@ -7,7 +7,7 @@ declarations does not load YAML or simulator SDKs.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     Field,
@@ -63,6 +63,30 @@ class AutonomySelection(Schema):
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class DeviceBinding(Schema):
+    """Installation identity, separate from a serial number or transport endpoint."""
+
+    identity: str = Field(min_length=1)
+    physical_id: str | None = None
+    endpoint: str | None = None
+
+
+class CalibrationProfile(Schema):
+    """One explicitly selected effective mount, in metres and fixed-axis radians.
+
+    Synthetic profiles exercise identity checks without claiming measurements.
+    The selected transform replaces the nominal mount; it is not a hidden offset.
+    """
+
+    identity: str
+    parent_identity: str | None = None
+    parent_frame: str
+    child_frame: str
+    mounting_revision: str
+    kind: Literal["nominal", "synthetic", "measured"]
+    pose: Pose
+
+
 @dataclass(frozen=True, kw_only=True)
 class RobotInstance:
     """One robot or actuated tool in a containing system.
@@ -80,6 +104,11 @@ class RobotInstance:
     model: str
     pose: Pose
     initial_positions: tuple[float, ...] | None
+    parent: str | None = None
+    mount_frame: str | None = None
+    binding: DeviceBinding | None = None
+    calibration: CalibrationProfile | None = None
+    mounting_revision: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -99,6 +128,9 @@ class SensorInstance:
     parent: str
     pose: Pose
     parameters: dict[str, JsonValue]
+    binding: DeviceBinding | None = None
+    calibration: CalibrationProfile | None = None
+    mounting_revision: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -137,6 +169,10 @@ class ObjectInstance:
     name: str
     model: str
     pose: Pose
+    motion: Literal["fixed", "free"] = "fixed"
+    # Velocity at the object's declared base origin, expressed in world.
+    angular_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    linear_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, kw_only=True)
