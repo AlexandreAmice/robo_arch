@@ -238,13 +238,39 @@ simulated torque access does not establish torque access on hardware.
 
 Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state; scenarios must explicitly select and name any privileged simulator-model inputs.
 
-Before physical hardware validation, exercise the intended ROS deployment
-adapter for the UR arm against a realistic mock or vendor simulation with its
-actual command capabilities. Keep this initial hardware seam limited to the arm. Do not give the mock convenient torque access that the
-deployment interface lacks. Validate observation identity and freshness,
-disconnection handling, command lifecycle and controller reset through that
-same adapter. Fake RViz process tests do not establish this boundary; passing
-mock tests still does not establish measured hardware behavior.
+The proposed first deployment boundary is the UR arm alone, using ROS 2 Jazzy
+on Ubuntu 24.04 and the official UR driver. Use its `FollowJointTrajectory`
+action with named joint-position waypoints and times, plus named `JointState`
+position/velocity observations. The documented mock configuration uses
+`joint_trajectory_controller`; the URSim profile can select the driver's scaled
+trajectory controller through the same action adapter. Controller selection and
+speed-scaling behavior must be explicit. Exact driver/controller versions,
+middleware and URSim/External Control versions remain to be selected.
+[ROS platform baseline](https://www.ros.org/reps/rep-2000.html#jazzy-jalisco-may-2024-may-2029),
+[UR trajectory interface](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/move.html).
+
+This trajectory boundary cannot accept the existing effort controllers without
+changing their semantics; compatibility resolution must reject that pairing.
+UR's documentation states that effort commands do not move URSim, even when its
+controller manager accepts the interfaces. Mock hardware establishes controller
+connections and descriptions; URSim adds the real driver connection path.
+Neither establishes torque response, physical timing or contact behavior.
+Do not interpret the Jazzy driver's default `JointState.effort` motor-current
+values as torque; the initial boundary needs position and velocity only.
+[UR simulation limits](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/simulation.html),
+[UR observation semantics](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/controllers.html).
+
+Keep ROS transport/lifecycle in `core/worlds/real/`, UR joint and driver mapping
+in `robots/ur7e/real/`, and launch material in `deployment/`. Bind each declared
+arm identity to an explicit ROS namespace/controller endpoint and calibration
+selection; an endpoint is not a physical serial number. Synthetic installation
+identities and labeled calibration profiles suffice for mock/URSim checks.
+Validate names, units, timestamps, action rejection/cancellation and connection
+loss through the same adapter. Track sample clock and receipt freshness;
+reconnection requires fresh observations and a new goal, without replaying stale
+commands. Controller reset never repositions the arm. These requirements remain
+unimplemented; gripper/sensor drivers and physical hardware validation are
+outside this initial boundary.
 
 Current scalar arm tracking reuses the Drake inverse-dynamics controller or the
 C++ PD-plus-feedforward controller in both simulators, including the mixed
