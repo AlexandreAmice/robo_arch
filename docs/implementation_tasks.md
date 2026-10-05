@@ -19,11 +19,13 @@ command interface and replacement numerical dependency remain open decisions.
 **K1 — Shared numerical implementation and world selection**
 
 Own `core/controllers/` and its controller-construction consumers. Establish one
-maintained implementation of each control law and its nominal dynamics across
-Drake, batched Isaac and deployment. Investigate a shared maintained dependency, including JAX-based kinematics,
-or generated execution from authoritative code before choosing a replacement.
+maintained implementation of each control law across Drake, batched Isaac and
+deployment; target shared nominal dynamics with documented exceptions below. Evaluate the numerical candidates in the
+[architecture](architecture.md#world-implementations) against the full moving
+arm/gripper model on CPU and CUDA before choosing a replacement.
 Assess a narrow native dynamics query if needed; document any inability to share
 nominal dynamics and preserve explicit simulation/deployment model semantics.
+A common query interface alone cannot close the shared-computation gate.
 The handwritten Torch dynamics tree is not the accepted long-term backend;
 model extraction and parity tests do not remove its duplicated semantics.
 Preserve a working shared CPU path with explicit costs during migration. Do not
@@ -55,12 +57,11 @@ retain per-device state/command mappings and anchor only true physical roots.
 Controller models must include the mounted device's configuration
 and dynamics, not treat an actuated gripper as a permanently welded payload.
 
-Prefer the manipulation project's WSG assets if their physics and licensing fit;
-Robotiq is optional. Keep a model-neutral actuated test fixture available while
-selection is unresolved, but do not count it as actual gripper support. The mounted-gripper
-gate is mandatory before further backend/demo expansion. Exact model, command
-mapping and any mimic/coupled-joint behavior must be established from the selected
-device, not guessed or silently simplified.
+Audit the proposed WSG 50 stock-tip asset, particularly finger inertia/contact
+properties, source revision and license. Establish one maintained asset for both
+loaders, a UR mounting adapter and explicit finger-coupling/command semantics.
+Robotiq is optional. A neutral fixture can exercise composition but cannot close
+the mandatory mounted-gripper gate before further backend/demo expansion.
 
 Implement explicit per-instance hardware bindings and calibration profile
 selection at device, assembly and scenario scope. Validate device identities,
@@ -86,7 +87,8 @@ Own `core/worlds/isaac/` execution and scenario rollout migration. Split scene
 population from runtime creation so the selected native Lab environment owns its
 simulation context and scene lifecycle. Establish the pinned environment's
 stepping, decimation, observation, terminal-state and selective-reset contracts
-before replacing the existing loops. Native explicit stepping is legitimate;
+before replacing the existing loops. Preserve feedback cadence, observations
+before autoreset, and termination versus timeout. Native explicit stepping is legitimate;
 duplicating lifecycle responsibilities across scenarios is the problem. Keep
 task/reference/evaluation logic with scenarios and numerical algorithms with K1.
 
@@ -105,9 +107,10 @@ their devices, and launch material under `deployment/`. First establish the
 intended driver/controller versions and actual command/state interfaces for the
 UR arm only; gripper and sensor drivers are outside this initial gate. Exercise
 the same deployment adapter against supported ros2_control mock hardware and,
-where applicable, URSim, following the [UR driver simulation support](https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/doc/ur_robot_driver/ur_robot_driver/doc/usage/simulation.html).
-Do not invent a convenient torque driver to match the simulation examples. Keep
-ROS outside ordinary autonomy and batched computation.
+where applicable, URSim. The [proposed UR boundary](architecture.md#constructing-and-running)
+uses trajectory actions and named position/velocity observations; URSim effort
+commands do not establish torque control. Reject incompatible effort autonomy.
+Keep ROS outside ordinary autonomy and batched computation.
 Add controllable transport failures and timestamps at the real process boundary.
 Mock evidence covers software behavior, not physical timing, contact fidelity or
 hardware safety. Calibration selections may use explicitly synthetic test values
@@ -123,9 +126,10 @@ deployment packaging. Preserve uv resolution and Bazel native compilation.
 Limit the initial OS scope to Ubuntu and macOS, with supported runtimes and
 architectures explicit per OS; this does not imply Isaac support on macOS. Prefer
 hermetic dependencies and supply a setup script for required host prerequisites.
-Consider generating the support matrix from maintained dependency metadata.
-Establish lock freshness checks,
-resolved Kit extension inventory and host requirements. Provide one local
+Resolve the macOS Drake/interpreter artifact mismatch before claiming support.
+Use the proposed compatibility record to drive the support table and suite
+selection, referencing existing locks. Establish lock freshness checks, resolved
+Kit extension inventory and host requirements. Provide one local
 validation entry point with explicit core, Drake, vendor-numerical and native
 integration suites; a requested suite must fail if providers are absent.
 Exercise installed resource loading without editable imports. Source reproduction
@@ -144,7 +148,8 @@ construction must be serialized with I2/O0. O0 declaration work can proceed besi
 I2; grasping acceptance waits for the mounted gripper. Assign each shared file to
 one implementation owner at a time, and send required edits to that owner.
 The coordinator owns this plan and integrates the gates after relevant local
-checks. Neither existing throughput results nor passing schema tests substitute
+checks. Deliver changes through an open, reviewed PR ready to merge; coordinated
+work may share a PR. Neither existing throughput results nor passing schema tests substitute
 for the missing physical and deployment evidence.
 
 **Comments:**
@@ -153,11 +158,11 @@ for the missing physical and deployment evidence.
 
 | Gate                                  | Required evidence                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared computation and selection (K1) | One maintained numerical implementation serves the claimed worlds/batch modes; changing only world/execution settings selects compatible adapters centrally. Matched-input/state and reset tests cover the same computation; no independent handwritten dynamics tree or scenario backend ladder remains in the accepted path. Unsupported combinations fail explicitly.          |
-| Mounted gripper (I2)                  | A separately declared actuated gripper follows the arm flange in Drake and Isaac, with combined inertia/collision geometry and independently mapped commands. Two copies retain distinct identities, state and calibration selections. A visual housing or permanently welded payload does not qualify.                                                                           |
+| Shared computation and selection (K1) | Shared control laws and centrally selected compatible adapters serve the claimed modes. Nominal dynamics share authoritative code, or a documented native-query exception states the sharing limitation and supplies a deployment model provider. Matched-state/reset checks cover the full arm/tool model; no handwritten dynamics tree or scenario backend ladder remains. Unsupported combinations fail explicitly.          |
+| Mounted gripper (I2)                  | A separately declared actuated gripper follows the arm flange in Drake and Isaac, with audited inertia/collision geometry, explicit finger coupling and independently mapped commands. Two copies retain distinct identities, state and calibration selections. A visual housing or permanently welded payload does not qualify.                                                                           |
 | Movable objects (O0)                  | Native drop/settle, contact-driven push, grasp/lift/release in both worlds; object pose/velocity and selective batch reset are exercised without teleporting or attaching the object to fake grasp success. Actual-run visualization accompanies physical acceptance evidence.                                                                                                    |
-| Native execution (X2)                 | One Isaac lifecycle handles observations, command conversion, decimation and selective reset of physics, task and controller state. Resetting one environment preserves others. Startup/failure/shutdown and native viewing are exercised; scenarios do not own duplicate physics loops.                                                                                          |
-| Hardware boundary (H0)                | The deployment adapter communicates through the intended ROS interfaces with realistic mock/vendor simulation processes. Tests cover names/units/frames, command rejection, stale observations, disconnect/reconnect, lifecycle and calibration identity without requiring a physical robot.                                                                                      |
+| Native execution (X2)                 | One Isaac lifecycle handles observations, command conversion, decimation and selective reset of physics, task and controller state. Terminal observations survive autoreset; feedback cadence and termination/timeout semantics are preserved. Resetting one environment preserves others. Startup/failure/shutdown and native viewing are exercised; scenarios do not own duplicate physics loops.                                                                                          |
+| Hardware boundary (H0)                | The deployment adapter communicates through the selected UR trajectory/observation interfaces with realistic mock/vendor simulation processes; incompatible effort controllers fail selection. Tests cover names/units/frames, command rejection, stale observations, disconnect/reconnect, lifecycle and calibration identity without requiring a physical robot.                                                                                      |
 | Portability and validation (P0)       | A clean second machine reproduces source builds/runs within the supported matrix without developer caches or local paths. Separately, transferred artifacts load and run without rebuilding where portability is claimed. Record OS, native ABI, GPU/driver and resolved vendor extensions; missing environments or unavailable machines leave the relevant evidence outstanding. |
 
 Bazel CPU/Drake checks remain independent of `.venv`; vendor checks run in their

@@ -6,6 +6,7 @@
 - These documents are proposals. Preserve user decisions and edits; distinguish requirements from suggestions. Shared chats and neighboring repositories are background, not approved designs.
 - Use established terminology. Do not invent names such as `RobotProgram` for the autonomy stack or add abstractions without a concrete responsibility.
 - Keep documentation short. Update the existing authoritative section rather than adding overlapping proposals. Remove stale statements when decisions change. Keep exact APIs and dependency pins provisional until chosen.
+- Delegated repository changes are complete only when included in an open, non-draft PR ready to merge, with review findings resolved and applicable checks recorded. Coordinated changes may share a PR.
 - Make routine authorized changes without repeated permission requests. Report outcomes, material limitations and what was actually checked concisely.
 
 ## Design constraints

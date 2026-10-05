@@ -20,13 +20,17 @@ The runnable `scenarios/arm_tracking/scenario.yaml` and its iiwa/bimanual/contac
 
 The scenario selects a **robot system**: a composition of robots, actuated tools and sensors, or other robot systems. The loaded configuration preserves this hierarchy, local names and relative placements; shared world assembly resolves namespaced devices and robot pose chains. Disabling sensor observations preserves their physical bodies, masses and collision geometry. For example, a bimanual system can instantiate the same arm-with-wrist-camera definition twice with distinct names and runtime state. Hardware bindings and calibration must also identify the individual instance when introduced. Internal mounts belong to the system; the scenario layout places whole systems and external objects. Simulation uses those placements as initial/setup conditions; hardware uses calibrated relationships or nominal conditions to verify, not commands to reposition reality.
 
-Robot/tool composition must support attachment to a named parent frame, including a moving arm flange, while preserving each device's joint and command identity. The current loaders fix every robot base to world and cannot mount an actuated tool this way. A mounted, actuated gripper working with the UR7e in both simulators is a mandatory gate before further expansion; a neutral test fixture can exercise the loader but cannot close that gate. The gripper model and hardware interface remain open. Detailed acceptance belongs in the [implementation plan](implementation_tasks.md).
+Robot/tool attachments name an instance-qualified parent frame and child mounting frame with their relative transform; reject missing frames, cycles and conflicting placements. Attachment topology is distinct from system nesting. Anchor only physical roots: Drake can retain device model instances in one plant, while Isaac should assemble each connected arm/tool mechanism into one native articulation with explicit per-device position, velocity and actuator maps. Independent nominal dynamics must retain the full mechanism's configuration and coupling. The current loaders instead fix each robot to world. A mounted, actuated gripper in both simulators remains a required gate; a neutral fixture cannot close it. Detailed evidence belongs in the [implementation plan](implementation_tasks.md).
+
+The proposed first gripper is the articulated [WSG 50 with stock tips](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/sdf/schunk_wsg_50_with_tip.sdf) used by [manipulation's AddWsg](https://github.com/RussTedrake/manipulation/blob/master/manipulation/scenarios.py). Its [provenance](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/README.md) identifies WSG 050-110-P drawings and a [BSD-3-Clause license](https://github.com/RobotLocomotion/models/blob/master/wsg_50_description/LICENSE). Propose one audited URDF derivative for both current loaders, preserving upstream revision/license and recording changes; avoid separately maintained world models. Audit inertia and contact assumptions before accepting its physics: the source assigns each 0.05 kg finger a diagonal inertia of 0.16 kg m², which needs justification. Mount its `body` frame to the UR7e `flange` through a declared adapter transform; the actual adapter geometry, inertia and transform remain open. The example's iiwa mount is not a UR mount calibration.
+
+The proposed gripper command uses aperture/rate in metres and metres per second with an explicit force limit in newtons, mapped to the two prismatic joints. [Drake's WSG controller](https://github.com/RobotLocomotion/drake/blob/master/manipulation/schunk_wsg/schunk_wsg_position_controller.h) models mechanical centering with feedback on the two independently modeled fingers. Preserve that named approximation through shared computation or choose an explicit coupling model; do not silently replace it with welded fingers or independent unconstrained commands. Hardware driver selection remains separate.
 
 Swapping robot systems, or selecting another device within a system definition, can retain the same scenario objects and task. It may require different calibration, layout or configured autonomy. Robot-system composition and autonomy composition remain separate: physical assembly does not force a particular control stack.
 
 Robot and sensor packages own their assets, device-specific controllers/IK/drivers, calibration profiles and tests. Actuated tools belong under `robots/`. System packages own assembly-specific logic and relationships; scenario packages own task descriptions/evaluation and task-specific autonomy. Reusable numerical algorithms, configuration loading and world assembly live under `core/`. A UR7e inverse-dynamics controller should configure or specialize shared code rather than duplicate it.
 
-Measured calibration lives with the relationship it describes: within a robot/sensor, between members of a robot system, or between that system and scenario fixtures. Record the relevant instance identities, units, mounting arrangement and revision, and select the effective profile explicitly. Nominal assets/layout and measured corrections remain distinct. Nested instances must not silently share incompatible calibration or conflicting definitions of the same transform. Calibration selection and hardware bindings are target requirements; the current loader supports nominal placements only.
+Measured calibration lives with the relationship it describes: within a robot/sensor, between members of a robot system, or between that system and scenario fixtures. Profiles identify the participating instances, frames, units and mounting revision and are selected explicitly. Logical instance identity, physical unit identity and transport endpoint are distinct; synthetic installation identities/profiles support tests without claiming measured calibration. Nominal assets/layout and measured corrections remain distinct. Repeated assemblies retain independent state, command maps and profile selections; reject identity mismatches and competing effective transforms. Calibration selection and hardware bindings remain unimplemented; the current loader supports nominal placements only.
 
 ```mermaid
 flowchart LR
@@ -45,7 +49,7 @@ Keep reusable algorithms separate from configured instances. Inverse dynamics ca
 
 The task specifies the outcome and evidence for success, referring only to participating object instances: a nut and pin can be task participants while the table and background objects remain part of the scene. A task description is not an autonomy component or a mandatory planning strategy. Object geometry and nominal placement do not provide its measured current pose: that needs a measurement, estimator or explicit known-pose assumption. Simulation ground truth remains distinct from deployable observations. Preserve the nut's hole in collision geometry.
 
-Movable objects require explicit free-body physics, initial pose and velocity, runtime state and reset support in both simulators. Object instances must distinguish these bodies from fixed fixtures. Dropping, pushing, grasping, lifting and releasing objects through physical contact are required manipulation gates; changing a declared pose or attaching an object by script does not establish them. Current object loading creates fixed fixtures only.
+Object instances distinguish fixed fixtures from free bodies with explicit initial pose and spatial velocity, including expression frame and reference point. Start with a dynamic box whose mass, inertia and contact properties are consumed by both loaders; this does not establish nut geometry support. Drake retains a free body, while Isaac registers a native rigid object per environment. World initialization/reset owns object pose/twist together with arm/tool state and command buffers; selective reset preserves other environments and coordinates task/controller reset. Current loading creates only fixed fixtures. Required contact evidence progresses from drop/settle and push to grasp/lift/release, with actual-run visualization; scripted attachment or teleportation cannot establish grasp success.
 
 ## Composing autonomy
 
@@ -53,12 +57,20 @@ Compose autonomy in Python using the selected runtime's native facilities. In Dr
 
 Keep scene/device assembly reusable under `core/worlds/`; put task-specific connections in the scenario and reusable stacks with their robot, system or shared algorithm owner. Controller `connect` functions wire robot observations and commands, then return native task-reference ports. The scenario supplies desired-state wiring; the world constructs and initializes the native simulator. Drake exposes its `Simulator` and scene directly, without another simulation wrapper. Construction code checks robot identity, joint order, units, command mode and frames where they matter; equal vector lengths alone do not establish compatibility.
 
-The scenario selects algorithms, composition and parameters. The selected world
-resolves compatible execution adapters centrally, preserving those algorithm
-semantics. Scenarios must not contain world/backend compatibility ladders or
-substitute a different control law or nominal model to obtain a supported
-runtime. Keep this selection ordinary construction code; it requires no universal
-graph, component registry or factory framework.
+The scenario selects algorithms, composition and parameters; world construction
+resolves compatible execution adapters centrally. Scenarios must not contain
+backend compatibility ladders or substitute another control law or nominal model.
+Use ordinary construction code, without a universal graph, registry or factory
+framework. World construction calls the selected algorithm owner's construction
+function with the resolved mechanism, device command/observation capabilities
+and execution settings. That owner selects its native port or array adapter;
+the scenario supplies references and connects the returned native interfaces.
+Resolve nominal control and filters together, including solver precision and
+acceptance tolerances. A scalar implementation on CUDA physics must be reported
+as scalar with transfers; a requested tensor implementation must fail if absent.
+An effort controller cannot become a position-trajectory controller through an
+adapter. The initial UR deployment boundary may therefore reject existing effort
+stacks while supporting explicitly selected trajectory autonomy.
 
 The [camera-protection scenario](../src/robo_arch/scenarios/camera_protection/README.md)
 composes a nominal effort controller with a reusable
@@ -77,16 +89,49 @@ YAML selects physical assets, instances, layout, task, autonomy settings and wor
 
 ## World implementations
 
-Use explicit world adapters around one authoritative numerical implementation
-of each algorithm, including nominal dynamics. A world switch reuses algorithm
-code and parameters; it need not reuse a parsed execution graph. A separately
+Use explicit world adapters around one authoritative implementation of each
+control law. Target shared nominal dynamics as well; any native dynamics
+exception must satisfy the query requirements below. A world switch reuses
+algorithm code and parameters; it need not reuse a parsed execution graph. A separately
 maintained CPU/GPU dynamics tree is not an acceptable reuse boundary, even with
-parity tests. The numerical library and batched execution mechanism remain open;
-evaluate maintained libraries, including JAX-based kinematics, before choosing. If shared nominal dynamics cannot serve a required execution mode, document why and assess a narrow native dynamics query with explicit model semantics; do not silently substitute simulator state for deployment inputs. Neither a new library nor removal of GPU support is implied. Existing Drake
-computation provides a shared scalar baseline, with explicit transfer and
+parity tests. The numerical library and batched execution mechanism remain open.
+Existing Drake computation provides a shared scalar baseline, with explicit transfer and
 throughput costs in batched worlds; it does not demonstrate GPU control execution.
 Drake owns its Systems, Diagrams, scheduling and state. Batched execution uses
 appropriate native operations without requiring a Diagram per environment.
+
+Evaluate a maintained computation dependency before extending project-owned
+dynamics. These candidates remain proposals, not selected dependencies:
+
+| Candidate | Relevant evidence and unresolved fit |
+|---|---|
+| [PyRoki](https://github.com/chungmin99/pyroki) | JAX URDF kinematics and optimization; these capabilities alone do not replace mass, bias-force and acceleration calculations. |
+| [JaxSim](https://github.com/gbionics/jaxsim) | Standalone mass, bias-force and Jacobian queries with CPU/GPU execution; experimental API and URDF conversion through sdformat require compatibility/build evaluation. Its contact engine is not proposed as another world. |
+| [frax](https://github.com/StanfordASL/frax) | JAX kinematics and dynamics; beta API, excluded closed chains and guidance to fix gripper joints outside the controlled tree require scrutiny against the complete moving assembly. |
+
+Any candidate must preserve the compound arm/gripper model, joint/actuator maps,
+frames, gravity, damping and rotor-inertia assumptions. Verify the same numerical
+source at batch size one on deployment CPU and batched on CUDA, including command
+conversion and solver tolerances. Include startup/compilation, array exchange and
+steady-state costs; library throughput claims are not repository measurements.
+Generated execution is acceptable only from that authoritative computation and
+model, without hand-edited numerical outputs. [JAX AOT compilation](https://docs.jax.dev/en/latest/aot.html)
+specializes shapes/dtypes; its process-local compiled objects do not establish
+portable deployment artifacts. Preserve existing supported behavior while
+replacement selection and validation remain open.
+
+If a shared dynamics implementation cannot cover a required mode, document the
+specific limitation before accepting a narrow native query. For the current
+effort controllers it must evaluate caller-supplied mechanism state and identify
+the terms in `M(q) vdot + h(q,v) = B(q) u`. Rigid gripper coupling requires
+reduced coordinates or explicit constraint-force treatment; the unconstrained
+equation alone is insufficient. CBF control also needs point positions, velocity
+Jacobians and their bias accelerations. Specify joint/frame order,
+actuation mapping, units, model/calibration identity, batch/device ownership and
+which gravity, passive, contact or external forces are included. Deployment needs
+a nominal-model provider for the same contract; reading simulator buffers is
+privileged input, not a substitute. A simulator-specific provider preserves only
+the documented controller/query contract, not a claim of shared dynamics code.
 
 Robot descriptions are data: `robots/<model>/robot.yaml` references physical assets through `package://robo_arch/...` and records joint/frame conventions and nominal defaults. Shared world loaders parse those assets by supported format; adding an ordinary robot requires no Python factory, forwarding wrapper or per-world robot directory. Simulation and independent controller models consume the same declared asset. Specialized controllers, IK, hardware drivers and genuinely device-specific simulation behavior remain beside their robot when needed.
 
@@ -96,12 +141,24 @@ Read declarations without importing simulator SDKs or robot code. Sensor and obj
 
 For Isaac, the selected native Lab environment must own context/scene lifecycle,
 observation collection, control decimation, terminal observations and selective
-reset. Separate reusable scene population from runtime creation so construction
-does not create a competing context. Scenarios supply task, control and
-evaluation behavior; their current independent rollout loops are transitional.
-The exact native environment choice remains provisional. Reset must coordinate
-physical and controller state for selected environments without changing the
-others.
+reset. The pinned Lab `DirectRLEnv` source creates its own context and
+`InteractiveScene`, rejecting an existing context; reusable scene population
+must therefore populate those owned objects. Its explicit physics-step loop is
+legitimate native execution. Exact environment choice remains provisional;
+scenarios supply task, reference and evaluation behavior through native hooks
+instead of maintaining independent rollout lifecycle code.
+
+Preserve the pinned lifecycle semantics during migration: action preprocessing
+runs once per environment step, while action application runs at physics
+substeps unless the backend handles decimation. Specify where feedback is
+recomputed versus held. `DirectRLEnv` normally returns observations after
+automatic reset; its optional `compute_final_obs` captures terminal observations
+first. Episode evaluation must retain those terminal samples and termination
+versus timeout status. Reset the selected mechanism, free objects, controller
+memory and task state together, preserving other environments and global time.
+Do not trade away terminal observations or sensor freshness for mask-only reset
+performance. Validate exact-duration behavior, failure cleanup and viewing with
+the pinned source before replacing the current runners.
 
 The [world construction guide](../src/robo_arch/core/worlds/README.md) maps the current configuration-to-physics paths, records asset translation limits and explains how to add a world. All objects remain fixed fixtures. Isaac supports a validated single-box SDF subset and rejects unsupported content before launch; it does not provide general SDF physics import.
 
@@ -181,13 +238,39 @@ simulated torque access does not establish torque access on hardware.
 
 Use ROS 2 at hardware/process boundaries. Keep it outside ordinary component connections and batched rollout data. World integration owns scene/device access; wrappers own algorithm-specific adaptation. Controller models remain separate from simulation state; scenarios must explicitly select and name any privileged simulator-model inputs.
 
-Before physical hardware validation, exercise the intended ROS deployment
-adapter for the UR arm against a realistic mock or vendor simulation with its
-actual command capabilities. Keep this initial hardware seam limited to the arm. Do not give the mock convenient torque access that the
-deployment interface lacks. Validate observation identity and freshness,
-disconnection handling, command lifecycle and controller reset through that
-same adapter. Fake RViz process tests do not establish this boundary; passing
-mock tests still does not establish measured hardware behavior.
+The proposed first deployment boundary is the UR arm alone, using ROS 2 Jazzy
+on Ubuntu 24.04 and the official UR driver. Use its `FollowJointTrajectory`
+action with named joint-position waypoints and times, plus named `JointState`
+position/velocity observations. The documented mock configuration uses
+`joint_trajectory_controller`; the URSim profile can select the driver's scaled
+trajectory controller through the same action adapter. Controller selection and
+speed-scaling behavior must be explicit. Exact driver/controller versions,
+middleware and URSim/External Control versions remain to be selected.
+[ROS platform baseline](https://www.ros.org/reps/rep-2000.html#jazzy-jalisco-may-2024-may-2029),
+[UR trajectory interface](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/move.html).
+
+This trajectory boundary cannot accept the existing effort controllers without
+changing their semantics; compatibility resolution must reject that pairing.
+UR's documentation states that effort commands do not move URSim, even when its
+controller manager accepts the interfaces. Mock hardware establishes controller
+connections and descriptions; URSim adds the real driver connection path.
+Neither establishes torque response, physical timing or contact behavior.
+Do not interpret the Jazzy driver's default `JointState.effort` motor-current
+values as torque; the initial boundary needs position and velocity only.
+[UR simulation limits](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/simulation.html),
+[UR observation semantics](https://docs.universal-robots.com/Universal_Robots_ROS_Documentation/jazzy/doc/ur_robot_driver/ur_robot_driver/doc/usage/controllers.html).
+
+Keep ROS transport/lifecycle in `core/worlds/real/`, UR joint and driver mapping
+in `robots/ur7e/real/`, and launch material in `deployment/`. Bind each declared
+arm identity to an explicit ROS namespace/controller endpoint and calibration
+selection; an endpoint is not a physical serial number. Synthetic installation
+identities and labeled calibration profiles suffice for mock/URSim checks.
+Validate names, units, timestamps, action rejection/cancellation and connection
+loss through the same adapter. Track sample clock and receipt freshness;
+reconnection requires fresh observations and a new goal, without replaying stale
+commands. Controller reset never repositions the arm. These requirements remain
+unimplemented; gripper/sensor drivers and physical hardware validation are
+outside this initial boundary.
 
 Current scalar arm tracking reuses the Drake inverse-dynamics controller or the
 C++ PD-plus-feedforward controller in both simulators, including the mixed

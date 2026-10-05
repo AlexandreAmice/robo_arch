@@ -242,20 +242,50 @@ its dependencies or runtime are unavailable. Unrequested optional suites may be
 omitted, with the executed coverage reported. This validation interface remains
 to be implemented. Do not add hosted workflows or required remote checks.
 
-Pin compiler/runtime inputs and execution environments. Core and Drake tests target hermetic execution; GPU/Isaac and hardware integrations need explicit worker/container/driver requirements and suitable test caching policies. Invoking those through Bazel does not make external devices hermetic. ROS dependencies may retain their supported ament/colcon build, supplied as an identified underlay.
+Prefer hermetic compiler, interpreter and package inputs through the existing
+Bazel/uv mechanisms. Where host setup is necessary, provide a small script under
+`tools/` for the selected profile's prerequisites, including a check-only mode.
+Keep GPU drivers, display services and Apple's SDK explicit host
+requirements; do not silently change drivers or compile missing SDK dependencies
+through an alternative build path. Identify ROS's distribution packages or
+ament/colcon underlay separately from uv packages; record its package versions
+and interpreter/ABI, and keep it out of root/Isaac resolution.
 
-Portability requires two distinct checks within an explicit OS, architecture and
-runtime support matrix. Initial OS scope is Ubuntu and macOS; runtime support
-may differ by OS, and Isaac support on macOS is not implied. Prefer hermetic
-inputs; provide a setup script for unavoidable host prerequisites. A generated
-matrix is useful if it can reuse maintained compatibility metadata. **Source reproduction** starts from a fresh checkout on
-a clean second machine, resolves the identified profiles and builds/runs without
-developer caches or machine-specific paths. **Artifact transfer** installs the
-produced wheels or runtime image on another supported machine and runs without
-rebuilding. Test packaged declarations/assets from an installed wheel outside the
-checkout with editable imports excluded; changing only the working directory is
-insufficient. The [acceptance gates](implementation_tasks.md#acceptance-gates)
-own the required evidence and outstanding-machine limitations.
+Initial OS scope is Ubuntu and macOS. The proposed first matrix is deliberately
+narrow; the targets below do not claim clean-machine validation:
+
+| Host | Runtime scope | Current limit / required decision |
+|---|---|---|
+| Ubuntu 24.04 x86-64 | Core Python/native and Drake | Existing local baseline; clean second-machine and transferred-artifact checks remain. |
+| Ubuntu 24.04 x86-64 with suitable NVIDIA GPU | Isaac and vendor numerical suites | Existing workload-specific evidence; record driver, resolved Kit extensions and viewing requirements separately. |
+| Ubuntu 24.04 x86-64 | UR driver/mock/URSim | Proposed ROS 2 Jazzy underlay; exact driver, middleware and URSim image remain unselected. |
+| macOS arm64, release to select | Core Python/native and Drake | Target only; choose compatible interpreter/Drake artifacts and native toolchain/SDK settings first. Isaac and ROS execution are outside this initial macOS target. |
+
+The committed Drake 1.57.0 lock contains macOS arm64 wheels for CPython 3.13/3.14,
+but the native wheel and Isaac profile currently require 3.12. Prefer a supported
+stable Drake artifact compatible with the shared interpreter before introducing
+a separately pinned macOS interpreter profile. That choice remains open; do not
+infer macOS support from Python source compatibility or silently build Drake
+from source. Current [Drake platform guidance](https://drake.mit.edu/installation.html)
+is background for selecting a future compatible pin, not evidence for this lock.
+
+Recommend one small compatibility record under `third_party/` for the selected
+OS/architecture/runtime combinations, host requirements and evidence references.
+It should reference existing locks/toolchain declarations rather than copy their
+versions. Render the maintained support table and select local validation suites
+from that same record. Available wheels establish eligibility, not successful
+execution; distinguish proposed, locally exercised and clean-machine-validated
+combinations. The record format and generator remain implementation work.
+
+**Source reproduction** starts from a fresh checkout on a clean second machine,
+resolves identified profiles and builds/runs without developer caches or local
+paths. **Artifact transfer** installs produced wheels or a runtime image on
+another supported machine and runs without rebuilding. Compare within each
+declared OS/architecture/ABI combination; a Linux wheel is not a macOS artifact.
+Test packaged declarations/assets outside the checkout with editable imports
+excluded. The [acceptance gates](implementation_tasks.md#acceptance-gates) own
+the evidence requirements; same-machine containers do not replace a second
+machine. Device-dependent integration suites need explicit caching policies.
 
 The current local CPython 3.12 Linux x86-64 wheel uses host glibc and statically
 linked, hidden C++ runtime/nanobind symbols; it is not a portable manylinux release
