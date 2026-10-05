@@ -8,8 +8,8 @@ completed environments reset at the next 20 ms reset boundary.
 
 The shared Torch PD implementation takes `[environment, joint]` tensors and
 clips effort to URDF limits. Both engines use the same gains. Feedforward is
-explicitly `simulator_gravity`: privileged model information supplied by Isaac
-Lab, not the independent Drake model used by scalar arm tracking. The default
+`nominal_gravity`, computed by the same independent JaxSim model used by scalar
+arm tracking. The default
 wrist gains accommodate explicit effort integration on both engines. This is
 joint-space reaching, not Cartesian planning, learning or hardware validation.
 
@@ -58,9 +58,9 @@ uv run src/robo_arch/scenarios/batched_reaching/benchmark.py
 
 `--backends physx` or `--backends newton` restricts the comparison. By default,
 this runs both backends at 1, 16 and 64 environments in fresh, sequential
-processes, then compares scalar native PD at 16 environments. Scalar comparison
-uses exactly the same targets and simulator gravity feedforward. Its CPU copies
-and per-environment loop are intentional. Initialization and 200 warmup steps
+processes, then compares scalar CPU PD at 16 environments. Scalar comparison
+uses exactly the same targets and independent nominal gravity feedforward. Its CPU copies
+are included in the comparison. Initialization and 200 warmup steps
 are excluded from steady-state throughput. GPU synchronization brackets timing
 chunks; reported latency percentiles are **100-step chunk means**, not individual
 step latency percentiles. Rendering is off. Results and a throughput plot live

@@ -14,7 +14,11 @@ from pydrake.systems.primitives import LogVectorOutput, VectorLogSink
 
 from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.worlds.drake.config import DrakeWorld
-from robo_arch.core.worlds.drake.scene import DrakeScene, build_scene
+from robo_arch.core.worlds.drake.scene import (
+    DrakeScene,
+    build_scene,
+    initialize_objects,
+)
 from robo_arch.core.worlds.drake.visualization import (
     add_visualization,
     create_meshcat,
@@ -49,6 +53,7 @@ def build_simulation(
     context = scene.plant.GetMyMutableContextFromRoot(simulator.get_mutable_context())
     for name, positions in scene.initial_positions.items():
         scene.plant.SetPositions(context, scene.robots[name], positions)
+    initialize_objects(scene, context)
     if initialize:
         simulator.Initialize()
     return simulator, scene

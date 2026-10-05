@@ -8,6 +8,7 @@ from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.config.parameters import Parameters
 from robo_arch.core.controllers.cbf.config import ProtectionParameters
 from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
+from robo_arch.core.controllers.selection import select_controller
 
 
 class CameraProtectionParameters(ProtectionParameters):
@@ -23,39 +24,24 @@ class TaskParameters(Parameters):
     retreat_target: tuple[float, ...]
     retreat_time: float = Field(gt=0)
     transition_seconds: float = Field(default=0.8, gt=0)
+    log_every_n_steps: int = Field(default=1, ge=1)
     tolerance: float = Field(default=0.03, gt=0)
 
 
 def parameters_for(
     run: RunConfiguration,
 ) -> tuple[CameraProtectionParameters, TaskParameters]:
-    if run.world not in {"drake", "isaac"}:
-        raise ValueError("camera_protection supports only Drake and Isaac")
     if run.autonomy.controller != "cbf" or run.task.type != "camera_protection":
         raise ValueError(
             "camera_protection requires cbf autonomy and its task evaluator"
         )
     control = CameraProtectionParameters.model_validate(run.autonomy.parameters)
-    if run.world == "isaac":
-        if control.backend != "torch_moreau":
-            raise ValueError("Isaac camera protection requires torch_moreau CBF")
-        if run.sensors_enabled:
-            raise ValueError("GPU camera protection requires sensors_enabled: false")
-        if run.world_config.physics.device != "cuda:0":
-            raise ValueError("GPU camera protection requires CUDA physics")
-        if run.world_config.physics.backend != "physx":
-            raise ValueError("GPU camera protection currently supports only PhysX")
-        if run.world_config.physics.solver != "pgs":
-            raise ValueError(
-                "GPU camera protection requires PGS: imported TGS substeps lose "
-                "small joint-position increments while reporting nonzero velocity"
-            )
-        if control.nominal_controller != "joint_tracking":
-            raise ValueError(
-                "GPU camera protection currently requires joint_tracking nominal control"
-            )
-    elif control.backend != "drake":
-        raise ValueError("Drake camera protection requires backend: drake")
+    select_controller(
+        run.world_config,
+        "cbf",
+        batched=run.world == "isaac",
+        sensors_enabled=run.sensors_enabled,
+    )
     task = TaskParameters.model_validate(run.task.parameters)
     if task.retreat_time >= run.duration:
         raise ValueError("Retreat must begin before the end of the run")

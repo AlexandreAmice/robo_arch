@@ -1,12 +1,9 @@
 """Wire arm-tracking references and autonomy into an existing Drake scene."""
 
-import numpy as np
 from pydrake.systems.framework import DiagramBuilder
-from pydrake.systems.primitives import ConstantVectorSource
 
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.controllers.joint_tracking.drake import connect
-from robo_arch.core.worlds.assembly import resolve_devices
+from robo_arch.core.controllers.selection import select_controller
 from robo_arch.core.worlds.drake.scene import DrakeScene
 
 
@@ -18,46 +15,26 @@ def configure(
     *,
     desired_positions: dict[str, tuple[float, ...]],
 ) -> None:
-    definitions = scene.definitions
-    for robot in resolve_devices(run.scene).robots:
-        joints = definitions.robots[robot.model].joints
-        model = scene.controller_models[robot.name]
-        target = np.asarray(desired_positions[robot.name])
-        if target.shape != (len(joints),) or not np.isfinite(target).all():
-            raise ValueError(f"Desired positions must match {robot.name}'s joints")
-        if not (
-            np.all(target >= model.GetPositionLowerLimits())
-            and np.all(target <= model.GetPositionUpperLimits())
-        ):
-            raise ValueError(f"Desired positions exceed {robot.name}'s joint limits")
-        goal = builder.AddSystem(
-            ConstantVectorSource(np.r_[target, np.zeros(len(joints))])
-        )
-        if run.autonomy.controller == "joint_pd":
-            from robo_arch.core.controllers.joint_pd.drake import JointPdSystem
+    from robo_arch.core.controllers.mechanism import system
 
-            controller = builder.AddSystem(
-                JointPdSystem(
-                    model=model, parameters=parameters[robot.name], joints=joints
-                )
+    select_controller(run.world_config, run.autonomy.controller)
+    for root, mechanism in scene.mechanism_models.items():
+        names = mechanism.indices
+        controller = builder.AddSystem(
+            system(
+                run.autonomy.controller,
+                mechanism,
+                parameters={name: parameters[name] for name in names},
+                targets={name: desired_positions[name] for name in names},
             )
-            controller.set_name(robot.name + "/joint_pd")
+        )
+        controller.set_name(root + "/" + run.autonomy.controller)
+        for name in names:
             builder.Connect(
-                scene.plant.get_state_output_port(scene.robots[robot.name]),
-                controller.GetInputPort("estimated_state"),
+                scene.plant.get_state_output_port(scene.robots[name]),
+                controller.GetInputPort(name + "/state"),
             )
             builder.Connect(
-                controller.get_output_port(),
-                scene.plant.get_actuation_input_port(scene.robots[robot.name]),
+                controller.GetOutputPort(name + "/effort"),
+                scene.plant.get_actuation_input_port(scene.robots[name]),
             )
-            reference = controller.GetInputPort("desired_state")
-        else:
-            ports = connect(
-                builder,
-                scene,
-                robot=robot.name,
-                parameters=parameters[robot.name],
-                joints=joints,
-            )
-            reference = ports["desired_state"]
-        builder.Connect(goal.get_output_port(), reference)

@@ -26,6 +26,8 @@ py_library(
     ],
     deps = [
         "//src/robo_arch/core/config",
+        "//src/robo_arch/core/controllers:mechanism",
+        "//src/robo_arch/core/controllers:selection",
         "//src/robo_arch/core/controllers/cbf:config",
         "//src/robo_arch/core/controllers/joint_tracking",
         "//src/robo_arch/scenarios",

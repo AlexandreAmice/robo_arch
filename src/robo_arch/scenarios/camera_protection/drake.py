@@ -19,7 +19,7 @@ from robo_arch.core.controllers.cbf.drake import (
     add_sphere_illustrations,
     build_filter,
 )
-from robo_arch.core.controllers.joint_tracking.drake import build
+from robo_arch.core.controllers.selection import scalar_system, select_controller
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.drake.scene import DrakeScene
 from robo_arch.scenarios.camera_protection.configuration import (
@@ -90,23 +90,17 @@ def configure(
     cbf.validate_initial_state(
         np.r_[scene.initial_positions[robot], np.zeros(len(joints))]
     )
-    if control.nominal_controller == "joint_pd":
-        from robo_arch.core.controllers.joint_pd.definition import JointPdParameters
-        from robo_arch.core.controllers.joint_pd.drake import JointPdSystem
-
-        nominal = builder.AddSystem(
-            JointPdSystem(
-                model=model,
-                parameters=JointPdParameters.model_validate(
-                    control.nominal.model_dump()
-                ),
-                joints=joints,
-            )
+    selection = select_controller(run.world_config, "cbf")
+    if description is not None:
+        description["controller_selection"] = selection.describe()
+    nominal = builder.AddSystem(
+        scalar_system(
+            control.nominal_controller,
+            model=model,
+            parameters=control.nominal,
+            joints=joints,
         )
-    else:
-        nominal = builder.AddSystem(
-            build(model=model, parameters=control.nominal, joints=joints)
-        )
+    )
     nominal.set_name("nominal_" + control.nominal_controller)
     reference = builder.AddSystem(Reference(task, scene.initial_positions[robot]))
     state = scene.plant.get_state_output_port(scene.robots[robot])

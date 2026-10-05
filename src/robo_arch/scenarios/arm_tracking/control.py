@@ -27,12 +27,13 @@ def parameters_for(run, names):
 
 
 def make_policy(run, *, model, parameters, joints, desired_state):
-    if run.autonomy.controller == "joint_pd":
-        from robo_arch.core.controllers.joint_pd.drake import make_policy as factory
-    else:
-        from robo_arch.core.controllers.joint_tracking.drake import (
-            make_policy as factory,
-        )
-    return factory(
-        model=model, parameters=parameters, joints=joints, desired_state=desired_state
+    from robo_arch.core.controllers.selection import scalar_policy, select_controller
+
+    select_controller(run.world_config, run.autonomy.controller)
+    return scalar_policy(
+        run.autonomy.controller,
+        model=model,
+        parameters=parameters,
+        joints=joints,
+        desired_state=desired_state,
     )

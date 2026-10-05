@@ -28,8 +28,12 @@ def physics_config(config: IsaacPhysics | NewtonPhysics) -> Any:
 
         return PhysxCfg(
             solver_type=1 if config.solver == "tgs" else 0,
-            gpu_found_lost_aggregate_pairs_capacity=(
-                config.gpu_found_lost_aggregate_pairs_capacity
+            **(
+                {
+                    "gpu_found_lost_aggregate_pairs_capacity": config.gpu_found_lost_aggregate_pairs_capacity
+                }
+                if config.gpu_found_lost_aggregate_pairs_capacity is not None
+                else {}
             ),
         )
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
