@@ -25,7 +25,6 @@ def benchmark(
     iterations: int,
     warmup: int,
     device: str,
-    compile_model: bool = False,
 ) -> dict:
     """Use deterministic perturbed safe states, mixing holding and active commands."""
     import torch
@@ -46,9 +45,7 @@ def benchmark(
         devices = resolve_devices(run.scene)
         definitions = load_definitions(run.scene, "drake")
         setup = prepare(run, devices, definitions)
-        control = setup.control.model_copy(
-            update={"backend": "torch_moreau", "compile_model": compile_model}
-        )
+        control = setup.control
         task, robot, definition = setup.task, setup.robot, setup.definition
         model = build_controller_model(
             robot, definition, sensors=devices.sensors, definitions=definitions
@@ -68,10 +65,17 @@ def benchmark(
         report = {
             "device": torch.cuda.get_device_name(device),
             "dtype": "float64",
-            "compile_model": compile_model,
+            "numerical_model": "jaxsim",
             "versions": {
                 name: version(name)
-                for name in ("torch", "moreau", "moreau-cuda13", "drake")
+                for name in (
+                    "torch",
+                    "jax",
+                    "jaxsim",
+                    "moreau",
+                    "moreau-cuda13",
+                    "drake",
+                )
             },
             "iterations": iterations,
             "warmup": warmup,
@@ -104,7 +108,7 @@ def benchmark(
                 geometry=geometry,
                 # Delay lazy compilation until after benchmark input preparation so
                 # its actual first use is included in the measured warmup.
-                parameters=control.model_copy(update={"compile_model": False}),
+                parameters=control,
                 batch_size=batch,
                 device=device,
                 command_dtype=None,
@@ -136,8 +140,6 @@ def benchmark(
             desired_velocity = torch.zeros_like(q)
 
             started = perf_counter()
-            if control.compile_model:
-                safety.model.enable_compilation()
             for _ in range(warmup):
                 result = _step(safety, nominal, state, target, desired_velocity)
             torch.cuda.synchronize(device)
@@ -193,7 +195,7 @@ def plot_report(report: dict, path: Path) -> None:
     axes[1].set(
         ylabel="Environment commands per second", xlabel="Environments per batch"
     )
-    mode = "compiled" if report.get("compile_model", False) else "eager"
+    mode = "JAX"
     figure.suptitle(
         f"Camera CBF: {mode} CUDA model + Moreau\n{report['device']}; float64; {report['constraint_count']} constraints"
     )
@@ -208,11 +210,6 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument(
-        "--compile-model",
-        action="store_true",
-        help="Compile the shared tensor dynamics; first use incurs compilation",
-    )
-    parser.add_argument(
         "--output", type=Path, default=Path("recordings/camera_cbf_gpu_benchmark.json")
     )
     args = parser.parse_args()
@@ -222,7 +219,6 @@ def main() -> None:
         iterations=args.iterations,
         warmup=args.warmup,
         device=args.device,
-        compile_model=args.compile_model,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")

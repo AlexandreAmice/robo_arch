@@ -23,7 +23,7 @@ CASES = (
 )
 
 
-def configured_run(case: str, *, compile_model: bool = False):
+def configured_run(case: str):
     from robo_arch.core.config.loading import load_run, load_world
     from robo_arch.scenarios.camera_protection.run import default_run
     from robo_arch.scenarios.camera_protection.tests.test_ground import (
@@ -41,8 +41,6 @@ def configured_run(case: str, *, compile_model: bool = False):
             update={
                 "parameters": dict(
                     run.autonomy.parameters,
-                    backend="torch_moreau",
-                    compile_model=compile_model,
                 )
             }
         ),
@@ -70,7 +68,6 @@ def test_native_gpu_camera_protection(tmp_path: Path, case: str):
                     case,
                     "--metadata",
                     str(metadata),
-                    "--compile-model",
                 ],
                 env=environment,
                 stdout=output,
@@ -119,16 +116,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--case", choices=CASES, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
-    parser.add_argument(
-        "--compile-model",
-        action="store_true",
-        help="Compile the shared tensor dynamics; the first call includes compilation",
-    )
     args = parser.parse_args()
     from robo_arch.scenarios.camera_protection.run import run_scenario
 
     run_scenario(
-        configured_run(args.case, compile_model=args.compile_model),
+        configured_run(args.case),
         filtered=args.case.endswith("_filtered"),
         metadata=args.metadata,
     )

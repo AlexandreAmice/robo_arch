@@ -14,7 +14,7 @@ class Reaching(Schema):
     velocity_tolerance: float = Field(default=0.05, gt=0)
     settle_seconds: float = Field(default=0.1, gt=0)
     episode_seconds: float = Field(default=2.0, gt=0)
-    feedforward: Literal["simulator_gravity"] = "simulator_gravity"
+    feedforward: Literal["nominal_gravity"] = "nominal_gravity"
 
     @model_validator(mode="after")
     def episode_can_settle(self) -> "Reaching":

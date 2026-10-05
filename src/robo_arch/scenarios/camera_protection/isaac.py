@@ -10,7 +10,7 @@ import torch
 
 from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.controllers.cbf.isaac import build_filter
-from robo_arch.core.controllers.joint_tracking.torch import TensorJointTracking
+from robo_arch.core.controllers.selection import select_controller, tensor_policy
 from robo_arch.core.worlds.drake.scene import build_controller_model
 from robo_arch.core.worlds.isaac.scene import IsaacScene
 from robo_arch.scenarios.camera_protection.reference import desired_state
@@ -58,7 +58,12 @@ def configure(
         .expand(run.world_config.num_envs, -1)
         .contiguous()
     )
-    nominal = TensorJointTracking(cbf.model, control.nominal)
+    selection = select_controller(
+        run.world_config, "cbf", batched=True, sensors_enabled=run.sensors_enabled
+    )
+    if description is not None:
+        description["controller_selection"] = selection.describe()
+    nominal = tensor_policy(control.nominal_controller, cbf.model, control.nominal)
     unsafe = torch.tensor(task.unsafe_target, device=cbf.device, dtype=cbf.dtype)
     retreat = torch.tensor(task.retreat_target, device=cbf.device, dtype=cbf.dtype)
 
@@ -145,7 +150,9 @@ def rollout(
     actuator buffers. Partial traces survive failures in control or stepping.
     """
     from robo_arch.core.worlds.isaac.batched import BatchedExecution
+    from robo_arch.scenarios.camera_protection.configuration import TaskParameters
 
+    task_parameters = TaskParameters.model_validate(run.task.parameters)
     execution = BatchedExecution(scene)
     commands = configure(scene, run=run, filtered=filtered, description=description)
     if set(commands) != set(execution.initial):
@@ -192,7 +199,7 @@ def rollout(
     try:
         for step in range(steps):
             evaluate_commands()
-            if step % scene.world.log_every_n_steps == 0:
+            if step % task_parameters.log_every_n_steps == 0:
                 sample()
             execution.advance(min(run.time_step, run.duration - execution.time))
             if viewer is not None:
