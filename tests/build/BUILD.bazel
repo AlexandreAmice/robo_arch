@@ -68,3 +68,16 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+py_test(
+    name = "direct_scripts",
+    srcs = ["test_direct_scripts.py"],
+    main = "test_direct_scripts.py",
+    deps = [
+        "//src/robo_arch/scenarios/arm_tracking",
+        "//src/robo_arch/scenarios/batched_reaching",
+        "//src/robo_arch/scenarios/camera_protection",
+        "//src/robo_arch/scenarios/camera_protection:isaac",
+        requirement("pytest"),
+    ],
+)

@@ -15,7 +15,7 @@ Use the pinned uv version in `pyproject.toml` and Bazelisk (`.bazelversion`):
 
 ```sh
 uv sync --locked
-uv run tools/dev.py native --profile drake
+uv run tools/native/install.py --profile drake
 uv run --group docs pytest
 bazel test //src/robo_arch/... //tests/build:core //tests/build:cxx23 //tests/build:drake
 uv run ruff check .
@@ -30,11 +30,13 @@ Tests use importlib collection so owner-local tests can share filenames.
 Select `.venv/bin/python` in your IDE. Core declarations can be inspected in an
 SDK-independent environment using `uv sync --locked --no-group drake`.
 
-The native helper builds and installs a private wheel into the selected existing
-environment. It skips unchanged installed bytes, stops on failure and launches a
-fresh process for `run`. Exact `uv sync` can remove the development wheel; rerun
-the helper afterward. See the [controller](src/robo_arch/core/controllers/joint_pd/README.md)
-for ownership, units and ABI details.
+Direct scenario scripts incrementally build and refresh the native wheel in the
+selected environment before running. Unchanged payloads are not reinstalled;
+build/install failures stop the launch. Exact `uv sync` can remove the wheel;
+the next scenario launch restores it automatically. The explicit installer in
+the test setup above is also available for IDEs and notebooks. See the
+[controller](src/robo_arch/core/controllers/joint_pd/README.md) for ownership,
+units and ABI details.
 
 For C++ autocomplete and navigation in VS Code, install the recommended
 **clangd** extension (`llvm-vs-code-extensions.vscode-clangd`). Open the
@@ -57,25 +59,29 @@ worktree. Pass extra build flags after `--`, for example
 
 ## Run the examples
 
-Use `uv run tools/dev.py run <scenario>` for either simulator. The helper selects
+Use `uv run src/robo_arch/scenarios/<scenario>/run.py` for either simulator. The script selects
 the environment from the run configuration (including `--world`, `--world-config`
 or saved `--inspect` inputs) and refreshes native code before launching. Append
-`--help` for scenario options. Environments must be synced once as shown here.
+`--help` for scenario options; help does not build or import simulators.
+`--run` selects a YAML file or package URI; named flags such as `--duration 5`
+override its settings. `--world isaac` replaces the world with Isaac defaults,
+while `--world-config` selects a complete world YAML. Environments must be synced
+once as shown here. Switching worlds does not add unsupported scenario behavior.
 
 ```sh
 # UR7e, detailed meshes, physical D435 and ideal RGB-D rendering in Drake.
-uv run tools/dev.py run arm_tracking
+uv run src/robo_arch/scenarios/arm_tracking/run.py
 
 # Seven-axis native PD + gravity feedforward, with wrist force/torque sensing.
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7.yaml
 
 # Different arm models and independent controllers/sensors in one nested system.
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 
 # Deliberate sensor-face contact with a fixed block; evaluates measured force.
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/iiwa7_contact.yaml
 ```
 
@@ -95,10 +101,10 @@ Isaac uses a separate pinned environment:
 uv sync --project third_party/isaac --locked
 
 # Sixteen independent UR7e reaching environments, with native viewing.
-uv run tools/dev.py run batched_reaching --backend newton --live --hold
+uv run src/robo_arch/scenarios/batched_reaching/run.py --backend newton --live --hold
 
 # The same scalar tracking command, selecting Isaac instead of Drake.
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world isaac --headless --metadata recordings/bimanual_isaac.json
 ```
@@ -106,14 +112,14 @@ uv run tools/dev.py run arm_tracking \
 For a native desktop view, keep `DISPLAY` set and use:
 
 ```sh
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --world-config package://robo_arch/core/worlds/isaac/desktop.yaml
 ```
 
 This selects CPU PhysX and Kit's Storm renderer, retains the final scene for
 inspection, and saves a viewport PNG. Close the window or press Ctrl-C to exit.
-The helper sets `OMNI_KIT_ACCEPT_EULA=YES` (accepting NVIDIA's runtime EULA)
+The script sets `OMNI_KIT_ACCEPT_EULA=YES` (accepting NVIDIA's runtime EULA)
 unless already set, and removes display variables for headless Isaac runs.
 Both new systems and the contact example support Isaac force/torque sensing. D435 image generation remains
 Drake-only: the original camera-equipped example needs `--no-sensors` in Isaac,

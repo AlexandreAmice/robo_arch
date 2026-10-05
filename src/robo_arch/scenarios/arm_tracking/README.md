@@ -7,8 +7,8 @@
 | `bimanual.yaml` | UR7e + nested iiwa system | Independent native PD per arm | Two named wrenches |
 | `iiwa7_contact.yaml` | iiwa 7 + Mini45-R, fixed block | Native PD into an obstructed target | Wrench peak check |
 
-All use `uv run tools/dev.py run arm_tracking --run
-package://robo_arch/scenarios/arm_tracking/<resource>`. The helper selects the
+All use `uv run src/robo_arch/scenarios/arm_tracking/run.py --run
+package://robo_arch/scenarios/arm_tracking/<resource>`. The script selects the
 environment and refreshes the native controller. Add `--world isaac` to select
 Isaac's environment. Both new systems run in Drake and
 Isaac Lab using Sim/PhysX; the mixed system uses `left_arm`, `left_ft`, `right/arm` and
@@ -71,10 +71,10 @@ episode. The failure case checks retained partial traces and exception propagati
 ## Inspection
 
 ```sh
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml \
   --record recordings/bimanual_drake.html --no-browser
-uv run tools/dev.py run arm_tracking \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --inspect recordings/bimanual_drake.json --visualization live_and_record
 ```
 

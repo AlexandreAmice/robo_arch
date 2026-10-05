@@ -340,7 +340,7 @@ original camera system is migrated to `ur7e_d435`. Both arms and both sensors
 have physical models; disabling observations preserves their masses/collisions.
 
 C++ PD-plus-feedforward control is built by Bazel, bound through nanobind and
-installed as `robo-arch-native` by `tools/dev.py`. It runs in both simulators;
+installed as `robo-arch-native` automatically by direct scenario scripts. It runs in both simulators;
 gravity feedforward remains Python/pydrake with independent mounted-device
 models. No Drake C++ objects cross the extension boundary. Local C++ and Python
 tests cover numerical behavior, ownership, physical composition and known loads.

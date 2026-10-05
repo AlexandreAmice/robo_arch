@@ -30,16 +30,15 @@ libraries. No Drake C++ objects cross the binding boundary. The wheel is not a
 portable manylinux release artifact.
 
 ```sh
-uv run tools/dev.py native --profile drake
-uv run tools/dev.py run --profile drake -- python -m robo_arch.scenarios.arm_tracking.run \
+uv run src/robo_arch/scenarios/arm_tracking/run.py \
   --run package://robo_arch/scenarios/arm_tracking/bimanual.yaml
 bazel test //src/robo_arch/core/controllers/joint_pd:joint_pd_test \
   //src/robo_arch/core/controllers/joint_pd:native_test
 ```
 
-Use `--profile isaac` for the separately synchronized vendor environment. The
-helper builds through Bazel, checks the interpreter, compares actual installed
-extension bytes, installs without resolving dependencies and launches a fresh
-process. Failed builds/installations stop launch. Ordinary Python edits need no
-native rebuild. An exact `uv sync` may remove the development wheel; rerun the
-helper afterward. Restart notebook kernels after changing native code.
+Direct scripts select the environment from the effective world configuration,
+build through Bazel, and refresh changed or missing native-wheel payloads before
+starting a fresh process. Failed builds/installations stop launch. Exact
+`uv sync` may remove the development wheel; the next direct launch restores it.
+For IDEs and notebooks, use `uv run tools/native/install.py --profile drake`
+(or `--profile isaac`) and restart the Python process after native changes.

@@ -97,3 +97,23 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+py_library(
+    name = "launch",
+    srcs = ["launch.py"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tools:__pkg__",
+    ],
+    deps = [":package"],
+)
+
+py_test(
+    name = "launch_test",
+    srcs = ["tests/test_launch.py"],
+    main = "tests/test_launch.py",
+    deps = [
+        ":launch",
+        requirement("pytest"),
+    ],
+)

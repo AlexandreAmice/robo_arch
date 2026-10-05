@@ -164,33 +164,43 @@ native wheel installed. Ordinary Python docstring edits need no native rebuild.
 
 ### The C++ edit–run loop
 
-Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Use a small development helper to automate the bridge; it is not another compiler/build system. Implemented commands:
+Keep the editable `robo-arch` package separate from a Bazel-built `robo-arch-native` wheel containing private `robo_arch_native` extensions. Sources stay beside their components. Direct scenario entry points automate the bridge before runtime imports; they do not introduce another build system. Implemented commands:
 
 ```text
 uv sync --locked
-uv run tools/dev.py run arm_tracking
+uv run src/robo_arch/scenarios/arm_tracking/run.py
 uv run pytest path/to/test.py
-uv run tools/dev.py native --profile drake            # refresh native code for IDE/notebook use
-uv run tools/dev.py run batched_reaching --backend newton --live --hold
+uv run tools/native/install.py --profile drake            # refresh native code for IDE/notebook use
+uv run src/robo_arch/scenarios/batched_reaching/run.py --backend newton --live --hold
 bazel test //tests/build:core //src/robo_arch/scenarios/arm_tracking:run_test
 ```
 
-The combined development command performs these steps:
+Each direct development launch performs these steps:
 
 1. Resolve the runtime profile from the scenario's world selection and check interpreter/ABI compatibility. `--world`, `--world-config` and saved inspection inputs are honored. Both environments must already exist from `uv sync`.
 2. Ask Bazel to incrementally build that profile's native wheel and dependencies. Bazel decides what changed; the helper maintains no separate C++ dependency graph.
 3. Install the exact resulting wheel into the active uv environment, without resolving dependencies again. Reinstall only when the artifact changed or is missing. Include required shared libraries/runtime resources with valid loader paths; copying just an extension is insufficient.
 4. Start the requested Python command in a fresh process using that environment. A build/install failure stops the launch rather than running an old controller.
 
-Scenario flags follow the scenario name. `benchmark batched_reaching` runs the
-scaling comparison in the Isaac environment. Advanced commands still use
-`run --profile <drake|isaac> -- python <arguments>`; those retain the caller's
-environment. Named scenario launches configure Isaac's EULA and display settings
-as described in the [vendor profile](../third_party/isaac/README.md).
+Scenario flags follow the Python filename. `--run` selects the scenario YAML;
+`--world` or `--world-config` replaces its world selection, then named overrides
+are validated before environment selection. Batched reaching accepts `--config`
+as an alias for `--run`. Its `benchmark.py` runs the scaling comparison in Isaac.
+Direct scripts configure Isaac's EULA/display settings as described in the
+[vendor profile](../third_party/isaac/README.md).
+
+Launch preparation lives in `core/worlds/launch.py`; native build/install tooling
+stays in `tools/native/`. Preparation preserves the caller's working directory
+and arguments, uses Python's safe-path option to avoid sibling modules shadowing
+SDK packages, and consumes a PID-scoped handoff after re-execution. Each worktree
+uses its own existing uv environments. Installed-package and Bazel execution use
+their supplied native artifacts without building a checkout. Imports and callable
+simulation APIs never trigger compilation. `tools/dev.py` remains a deprecated
+compatibility adapter; new commands should use direct files.
 
 The Python simulation remains editable, and both paths use the same native Bazel targets. Local wheels need no manylinux release repair on every edit. Wheel assembly/install has overhead; measure it before introducing a more complex editable native-artifact scheme. No compilation happens implicitly on import.
 
-Ordinary `uv run` retains additional installed packages by default; exact `uv sync` can remove a development wheel. The native helper restores it after synchronization. Keep a released native-wheel dependency out of the source-development profile so it cannot compete with the local build. The helper launches its child directly rather than syncing again. Restart notebook kernels after native changes; rebuilding cannot replace an extension already loaded into a process. [uv synchronization behavior](https://docs.astral.sh/uv/concepts/projects/sync/)
+Ordinary `uv run` retains additional installed packages by default; exact `uv sync` can remove a development wheel. The next direct scenario launch restores it after synchronization. Keep a released native-wheel dependency out of the source-development profile so it cannot compete with the local build. The helper launches its child directly rather than syncing again. Restart notebook kernels after native changes; rebuilding cannot replace an extension already loaded into a process. [uv synchronization behavior](https://docs.astral.sh/uv/concepts/projects/sync/)
 
 ### Local validation and future release packaging
 

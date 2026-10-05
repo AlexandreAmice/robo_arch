@@ -19,13 +19,13 @@ Use the existing [Isaac vendor environment](../../../../third_party/isaac/README
 Run from the repository worktree:
 
 ```sh
-uv run tools/dev.py run batched_reaching \
+uv run src/robo_arch/scenarios/batched_reaching/run.py \
   --backend newton --num-envs 16 --live --hold \
   --output recordings/batched_reaching/newton_live
 ```
 
 Choose `--backend physx` for PhysX/TGS. Omit `--live --hold` for headless
-measurement; the helper handles display variables and selects the Isaac
+measurement; the script handles display variables and selects the Isaac
 environment from the scenario configuration. `--config` accepts a packaged run
 resource; its physics settings also select PhysX/PGS or Newton solver tuning.
 Newton uses MuJoCo Warp on CUDA; a CPU Newton configuration is rejected.
@@ -38,7 +38,7 @@ effort/episode-age/completion-count arrays, tracking plots and a live viewport
 PNG. Run the exact resolved inputs again with:
 
 ```sh
-uv run tools/dev.py run batched_reaching \
+uv run src/robo_arch/scenarios/batched_reaching/run.py \
   --inspect recordings/batched_reaching/newton_live.json --live --hold \
   --output recordings/batched_reaching/inspection
 ```
@@ -53,7 +53,7 @@ Live display copies poses at rendering cadence and is included in live timing.
 ## Measure scaling
 
 ```sh
-uv run tools/dev.py benchmark batched_reaching
+uv run src/robo_arch/scenarios/batched_reaching/benchmark.py
 ```
 
 `--backends physx` or `--backends newton` restricts the comparison. By default,

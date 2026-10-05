@@ -9,22 +9,27 @@ import warnings
 from dataclasses import replace
 from importlib.metadata import version
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import TypeAdapter
 
+from robo_arch.core.config.cli import add_overrides, apply_overrides
 from robo_arch.core.config.declarations import RunConfiguration
 from robo_arch.core.config.loading import load_run
 from robo_arch.core.controllers.joint_pd.definition import JointPdParameters
 from robo_arch.core.worlds.isaac.config import IsaacWorld
-from robo_arch.core.worlds.isaac.scene import IsaacScene
-from robo_arch.core.worlds.isaac.visualization import Viewer
+from robo_arch.core.worlds.launch import prepare
 from robo_arch.scenarios.batched_reaching.config import Measurement, Reaching
+
+if TYPE_CHECKING:
+    from robo_arch.core.worlds.isaac.scene import IsaacScene
+    from robo_arch.core.worlds.isaac.visualization import Viewer
 
 
 def rollout(
-    scene: IsaacScene,
-    viewer: Viewer | None,
+    scene: "IsaacScene",
+    viewer: "Viewer | None",
     *,
     run: RunConfiguration,
     measurement: Measurement,
@@ -206,14 +211,17 @@ def plot_trace(path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument(
+        "--run",
         "--config",
+        dest="run",
         default="package://robo_arch/scenarios/batched_reaching/scenario.yaml",
     )
-    parser.add_argument("--inspect", type=Path)
+    inputs.add_argument("--inspect", type=Path)
+    add_overrides(parser)
     parser.add_argument("--backend", choices=("physx", "newton"))
     parser.add_argument("--num-envs", type=int)
-    parser.add_argument("--duration", type=float)
     parser.add_argument("--sample-period", type=float)
     parser.add_argument("--sampled-envs", type=int)
     parser.add_argument("--warmup-steps", type=int)
@@ -231,7 +239,8 @@ def main() -> None:
         run = TypeAdapter(RunConfiguration).validate_python(report["configuration"])
         measurement = Measurement.model_validate(report["measurement"])
     else:
-        run = load_run(args.config)
+        run = load_run(args.run)
+    run = apply_overrides(run, args)
     if (
         run.world != "isaac"
         or run.task.type != "batched_reaching"
@@ -247,12 +256,9 @@ def main() -> None:
         }
     if args.num_envs is not None:
         world["num_envs"] = args.num_envs
-    if args.live:
+    if args.live and not args.headless:
         world["visualization"]["mode"] = "live"
-    duration = run.duration if args.duration is None else args.duration
-    if not math.isfinite(duration) or duration <= 0:
-        raise ValueError("Duration must be finite and positive")
-    run = replace(run, world_config=IsaacWorld.model_validate(world), duration=duration)
+    run = replace(run, world_config=IsaacWorld.model_validate(world))
     if run.world_config.physics.device != "cuda:0":
         raise ValueError("This measurement runner requires cuda:0")
     Reaching.model_validate(run.task.parameters)
@@ -268,6 +274,10 @@ def main() -> None:
         if (value := getattr(args, key)) is not None:
             settings[key] = value
     measurement = Measurement.model_validate(settings)
+    prepare(
+        run.world,
+        live=run.world_config.visualization.mode in {"live", "live_and_record"},
+    )
     started_ns = time.time_ns()
     output = args.output
     output.parent.mkdir(parents=True, exist_ok=True)

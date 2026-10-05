@@ -14,13 +14,15 @@ from pathlib import Path
 
 from pydantic import BaseModel, TypeAdapter
 
+from robo_arch.core.config.cli import add_overrides, apply_overrides
 from robo_arch.core.config.declarations import RunConfiguration
-from robo_arch.core.config.loading import load_run, load_world, resolve_resource
+from robo_arch.core.config.loading import load_run
 from robo_arch.core.config.worlds import parse_world
 from robo_arch.core.worlds.assembly import resolve_devices
 from robo_arch.core.worlds.devices import load_definitions
 from robo_arch.core.worlds.drake.config import DrakeWorld
 from robo_arch.core.worlds.isaac.config import IsaacWorld
+from robo_arch.core.worlds.launch import inspection_invocation, prepare
 from robo_arch.scenarios.arm_tracking.control import parameters_for
 from robo_arch.scenarios.arm_tracking.evaluation import evaluate, tracking_tasks
 
@@ -38,7 +40,7 @@ def _json_value(value: object) -> object:
 
 
 def _inspection_command(run: RunConfiguration, metadata: Path) -> str:
-    args = ["uv", "run", "--locked", "tools/dev.py", "run", "arm_tracking"]
+    args = inspection_invocation(__file__)
     args.extend(
         [
             "--inspect",
@@ -312,22 +314,7 @@ def main() -> None:
     inputs.add_argument(
         "--inspect", type=Path, help="Restore resolved inputs from run metadata"
     )
-    selection = parser.add_mutually_exclusive_group()
-    selection.add_argument(
-        "--world",
-        choices=("drake", "isaac", "real"),
-        help="Replace the world configuration with native defaults",
-    )
-    selection.add_argument(
-        "--world-config", help="Complete world configuration file or package URI"
-    )
-    viewing = parser.add_mutually_exclusive_group()
-    viewing.add_argument(
-        "--visualization", choices=("off", "live", "record", "live_and_record")
-    )
-    viewing.add_argument(
-        "--headless", action="store_true", help="Disable the viewer; preserve sensors"
-    )
+    add_overrides(parser)
     parser.add_argument(
         "--record", type=Path, help="Native recording output (Drake HTML)"
     )
@@ -345,23 +332,9 @@ def main() -> None:
     )
     args = parser.parse_args()
     run = load_inspection(args.inspect) if args.inspect else load_run(args.run)
+    run = apply_overrides(run, args)
     world = run.world_config
-    if args.world is not None:
-        world = parse_world({"type": args.world})
-        run = replace(run, world_source=None)
-    elif args.world_config is not None:
-        world = load_world(args.world_config)
-        source = (
-            resolve_resource(args.world_config)
-            if args.world_config.startswith("package:")
-            else Path(args.world_config).resolve()
-        )
-        run = replace(run, world_source=source)
     payload = world.model_dump()
-    if args.visualization is not None:
-        payload["visualization"]["mode"] = args.visualization
-    if args.headless:
-        payload["visualization"]["mode"] = "record" if args.record else "off"
     if args.record is not None:
         if args.visualization == "off":
             parser.error("--record conflicts with --visualization off")
@@ -375,6 +348,10 @@ def main() -> None:
     run = replace(run, world_config=parse_world(payload))
     if args.no_sensors:
         run = replace(run, sensors_enabled=False)
+    prepare(
+        run.world,
+        live=run.world_config.visualization.mode in {"live", "live_and_record"},
+    )
     destination = Path(os.environ.get("TEST_UNDECLARED_OUTPUTS_DIR", "recordings"))
     metadata = args.metadata or (
         args.record.with_suffix(".json")

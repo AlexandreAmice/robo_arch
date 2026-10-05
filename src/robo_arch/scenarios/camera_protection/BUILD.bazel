@@ -56,7 +56,10 @@ py_library(
         "plotting.py",
         "run.py",
     ],
-    visibility = ["//src/robo_arch:__subpackages__"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
     deps = [
         ":configuration",
         ":setup",
@@ -67,6 +70,7 @@ py_library(
         "//src/robo_arch/core/controllers/joint_pd:drake",
         "//src/robo_arch/core/controllers/joint_tracking:drake",
         "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds:launch",
         "//src/robo_arch/core/worlds/drake",
         "//src/robo_arch/objects/box",
         "//src/robo_arch/robots/ur7e",
@@ -164,7 +168,10 @@ py_library(
         "benchmark.py",
         "isaac.py",
     ],
-    visibility = ["//src/robo_arch:__subpackages__"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
     deps = [
         ":configuration",
         ":setup",
@@ -173,6 +180,7 @@ py_library(
         "//src/robo_arch/core/controllers/cbf:isaac",
         "//src/robo_arch/core/controllers/joint_tracking:torch",
         "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds:launch",
         "//src/robo_arch/core/worlds/drake",
         "//src/robo_arch/core/worlds/isaac",
         requirement("numpy"),

@@ -15,12 +15,16 @@ py_library(
         "scenario.yaml",
         "//src/robo_arch/robot_system/ur7e_d435:resources",
     ],
-    visibility = ["//src/robo_arch:__subpackages__"],
+    visibility = [
+        "//src/robo_arch:__subpackages__",
+        "//tests/build:__pkg__",
+    ],
     deps = [
         "//src/robo_arch/core/config",
         "//src/robo_arch/core/controllers/joint_pd",
         "//src/robo_arch/core/controllers/joint_pd:native",
         "//src/robo_arch/core/controllers/joint_pd:tensor",
+        "//src/robo_arch/core/worlds:launch",
         "//src/robo_arch/core/worlds/isaac",
         "//src/robo_arch/core/worlds/isaac:config",
         "//src/robo_arch/robots/ur7e",

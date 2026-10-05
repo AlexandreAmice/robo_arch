@@ -1,7 +1,23 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+exports_files(
+    ["install.py"],
+    visibility = ["//tools:__pkg__"],
+)
 
 py_binary(
     name = "wheel",
     srcs = ["wheel.py"],
     visibility = ["//src/robo_arch/core/controllers/joint_pd:__pkg__"],
+)
+
+py_test(
+    name = "install_test",
+    srcs = [
+        "install.py",
+        "tests/test_install.py",
+    ],
+    main = "tests/test_install.py",
+    deps = [requirement("pytest")],
 )

@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from robo_arch.core.worlds.launch import prepare as prepare_launch
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -21,6 +23,7 @@ def main() -> None:
         default=["physx", "newton"],
     )
     args = parser.parse_args()
+    prepare_launch("isaac")
     args.output.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, OMNI_KIT_ACCEPT_EULA="YES")
     env.pop("DISPLAY", None)
