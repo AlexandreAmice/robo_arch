@@ -5,6 +5,7 @@ module(
 )
 
 bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_python", version = "2.3.4")
 bazel_dep(name = "nanobind", version = "3.0.1")
 
@@ -27,11 +28,21 @@ python.toolchain(
     is_default = True,
     python_version = "3.12.13",
 )
+python.toolchain(python_version = "3.13.13")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
+    # The only source-only dependency is pure-Python pptree. Use the setuptools
+    # and wheel inputs already pinned by rules_python; no network build resolver.
+    extra_pip_args = ["--no-build-isolation"],
     hub_name = "python_deps",
     python_version = "3.12.13",
+    uv_lock = "//:uv.lock",
+)
+pip.parse(
+    extra_pip_args = ["--no-build-isolation"],
+    hub_name = "python_deps",
+    python_version = "3.13.13",
     uv_lock = "//:uv.lock",
 )
 use_repo(pip, "python_deps")

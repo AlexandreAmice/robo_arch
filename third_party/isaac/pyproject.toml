@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-cbf-gpu = ["moreau[cuda13]==0.4.1", "torch==2.11.0"]
+cbf-gpu = ["moreau[cuda13]==0.4.1", "torch==2.11.0", "jaxsim==0.8.2", "jax[cuda13]==0.11.2"]
 test = ["pytest==9.1.1"]
 
 [tool.uv]
@@ -33,6 +33,9 @@ override-dependencies = [
     "packaging>=20,<27",
 ]
 required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[tool.uv.extra-build-dependencies]
+pptree = ["setuptools==82.0.0"]
 
 [[tool.uv.index]]
 name = "nvidia"

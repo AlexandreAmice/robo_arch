@@ -15,6 +15,23 @@ exports_files(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "validation_inputs",
+    srcs = [
+        ".bazelrc",
+        ".python-version",
+        ".python-version-macos",
+        "MODULE.bazel",
+        "third_party/compatibility.toml",
+        "third_party/isaac/uv.lock",
+        "third_party/ros/.python-version",
+        "third_party/ros/packages.lock.json",
+        "third_party/support.md",
+        "uv.lock",
+    ],
+    visibility = ["//tools/validation:__pkg__"],
+)
+
 buildifier(
     name = "buildifier",
     exclude_patterns = [

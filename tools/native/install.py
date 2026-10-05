@@ -40,8 +40,17 @@ def install(profile: str) -> Path:
         ],
         text=True,
     )
-    if check.splitlines() != ["(3, 12)", "Linux x86_64", "cpython"]:
-        raise RuntimeError("Native profile requires CPython 3.12 on Linux x86_64")
+    supported = [
+        ["(3, 12)", "Linux x86_64", "cpython"],
+        ["(3, 13)", "Darwin arm64", "cpython"],
+    ]
+    if check.splitlines() not in supported or (
+        profile == "isaac" and check.splitlines() != supported[0]
+    ):
+        raise RuntimeError(
+            "Native profile requires CPython 3.12 on Linux x86_64 or "
+            "CPython 3.13 on macOS arm64 (Drake only)"
+        )
     subprocess.run(["bazel", "build", TARGET], cwd=ROOT, check=True)
     output = subprocess.check_output(
         ["bazel", "cquery", TARGET, "--output=files"],

@@ -1,0 +1,15 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "profiles_test",
+    srcs = [
+        "__init__.py",
+        "__main__.py",
+        "profiles.py",
+        "tests/test_profiles.py",
+    ],
+    data = ["//:validation_inputs"],
+    main = "tests/test_profiles.py",
+    deps = [requirement("pytest")],
+)
