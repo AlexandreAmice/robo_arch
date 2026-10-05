@@ -40,6 +40,7 @@ class PlacedRobot:
     mount_frame: str | None = None
     binding: DeviceBinding | None = None
     calibration: CalibrationProfile | None = None
+    calibration_source: str | None = None
     mounting_revision: str | None = None
 
 
@@ -112,6 +113,7 @@ def resolve_devices(scene: SceneConfiguration) -> Devices:
                     mount_frame=robot.mount_frame,
                     binding=robot.binding,
                     calibration=robot.calibration,
+                    calibration_source=robot.calibration_source,
                     mounting_revision=robot.mounting_revision,
                 )
             )

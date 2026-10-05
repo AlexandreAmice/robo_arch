@@ -36,8 +36,8 @@ class _Robot(Schema):
     model: Name
     pose: Pose = Field(default_factory=Pose)
     initial_positions: tuple[float, ...] | None = None
-    parent: str | None = None
-    mount_frame: str | None = None
+    parent: str | None = Field(default=None, min_length=1)
+    mount_frame: str | None = Field(default=None, min_length=1)
     binding: DeviceBinding | None = None
     calibration: str | None = None
     mounting_revision: str | None = None
@@ -258,6 +258,7 @@ def load_run(path: str | Path) -> RunConfiguration:
                     parent=robot.parent,
                     mount_frame=robot.mount_frame,
                     binding=robot.binding,
+                    calibration_source=robot.calibration,
                     mounting_revision=robot.mounting_revision,
                     calibration=(
                         read_validated_yaml(
@@ -277,6 +278,7 @@ def load_run(path: str | Path) -> RunConfiguration:
                     pose=sensor.pose,
                     parameters=sensor.parameters,
                     binding=sensor.binding,
+                    calibration_source=sensor.calibration,
                     mounting_revision=sensor.mounting_revision,
                     calibration=(
                         read_validated_yaml(
@@ -311,6 +313,7 @@ def load_run(path: str | Path) -> RunConfiguration:
                 return replace(
                     item,
                     binding=selection.binding,
+                    calibration_source=selection.calibration,
                     mounting_revision=selection.mounting_revision,
                     calibration=(
                         read_validated_yaml(

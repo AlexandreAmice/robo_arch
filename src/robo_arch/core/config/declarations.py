@@ -108,6 +108,7 @@ class RobotInstance:
     mount_frame: str | None = None
     binding: DeviceBinding | None = None
     calibration: CalibrationProfile | None = None
+    calibration_source: str | None = None
     mounting_revision: str | None = None
 
 
@@ -130,6 +131,7 @@ class SensorInstance:
     parameters: dict[str, JsonValue]
     binding: DeviceBinding | None = None
     calibration: CalibrationProfile | None = None
+    calibration_source: str | None = None
     mounting_revision: str | None = None
 
 
@@ -258,6 +260,11 @@ class RunConfiguration:
 
         def visit(system: RobotSystem) -> None:
             paths.append(system.source)
+            from robo_arch.core.config.loading import resolve_resource
+
+            for device in (*system.robots, *system.sensors):
+                if device.calibration_source:
+                    paths.append(resolve_resource(device.calibration_source))
             for child in system.systems:
                 visit(child)
 

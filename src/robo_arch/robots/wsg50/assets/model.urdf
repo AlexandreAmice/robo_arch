@@ -1,0 +1,145 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="wsg50">
+  <link name="body">
+    <inertial>
+      <mass value="0.988882" />
+      <inertia ixx="0.0006391680010416667" iyy="0.0019626011426666667" izz="0.0021897349770416664" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="wsg_body.obj" />
+      </geometry>
+      <material name="wsg">
+        <color rgba="0.3 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision name="collision">
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.146 0.0725 0.05" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="left_finger">
+    <inertial>
+      <mass value="0.05" />
+      <inertia ixx="2.968333333333334e-05" iyy="2.266666666666667e-06" izz="2.861666666666667e-05" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="finger_with_tip.obj" />
+      </geometry>
+      <material name="wsg">
+        <color rgba="0.3 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision name="left_top">
+      <origin xyz="-0.008 0.021 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="left_bottom">
+      <origin xyz="-0.008 0.041 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="left_left">
+      <origin xyz="-0.008 0.031 -0.01" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="left_right">
+      <origin xyz="-0.008 0.031 0.01" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="collision">
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.012 0.082 0.02" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="right_finger">
+    <inertial>
+      <mass value="0.05" />
+      <inertia ixx="2.968333333333334e-05" iyy="2.266666666666667e-06" izz="2.861666666666667e-05" ixy="0" ixz="0" iyz="0" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="finger_with_tip.obj" />
+      </geometry>
+      <material name="wsg">
+        <color rgba="0.3 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision name="right_top">
+      <origin xyz="-0.008 0.021 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="right_bottom">
+      <origin xyz="-0.008 0.041 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="right_left">
+      <origin xyz="-0.008 0.031 -0.01" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="right_right">
+      <origin xyz="-0.008 0.031 0.01" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.001" />
+      </geometry>
+    </collision>
+    <collision name="collision">
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.012 0.082 0.02" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_finger_sliding_joint" type="prismatic">
+    <parent link="body" />
+    <child link="left_finger" />
+    <origin xyz="-0.0115 0.077133 0" rpy="0 3.141592653589793 0" />
+    <axis xyz="-1 0 0" />
+    <limit lower="-0.055" upper="0" effort="80" velocity="0.2" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <transmission name="left_finger_sliding_joint_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="left_finger_sliding_joint">
+      <hardwareInterface>EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="left_finger_sliding_joint_actuator">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+  <joint name="right_finger_sliding_joint" type="prismatic">
+    <parent link="body" />
+    <child link="right_finger" />
+    <origin xyz="0.0115 0.077133 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="0.055" effort="80" velocity="0.2" />
+    <dynamics damping="0" friction="0" />
+  </joint>
+  <transmission name="right_finger_sliding_joint_transmission">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="right_finger_sliding_joint">
+      <hardwareInterface>EffortJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="right_finger_sliding_joint_actuator">
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+</robot>

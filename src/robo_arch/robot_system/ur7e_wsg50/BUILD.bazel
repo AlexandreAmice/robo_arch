@@ -1,0 +1,23 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "ur7e_wsg50",
+    srcs = [
+        "__init__.py",
+        "control.py",
+    ],
+    data = [
+        "calibration/nominal_mount.yaml",
+        "system.yaml",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        requirement("numpy"),
+        requirement("drake"),
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/robot_system",
+        "//src/robo_arch/robots/ur7e",
+        "//src/robo_arch/robots/wsg50",
+    ],
+)

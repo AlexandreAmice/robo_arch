@@ -117,3 +117,18 @@ py_test(
         requirement("pytest"),
     ],
 )
+
+py_test(
+    name = "mounted_test",
+    srcs = ["tests/test_mounted.py"],
+    main = "tests/test_mounted.py",
+    deps = [
+        ":worlds",
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/scenarios/grasping",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)
