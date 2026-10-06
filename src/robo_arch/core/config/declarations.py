@@ -7,7 +7,7 @@ declarations does not load YAML or simulator SDKs.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     Field,
@@ -63,6 +63,30 @@ class AutonomySelection(Schema):
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class DeviceBinding(Schema):
+    """Installation identity, separate from a serial number or transport endpoint."""
+
+    identity: str = Field(min_length=1)
+    physical_id: str | None = None
+    endpoint: str | None = None
+
+
+class CalibrationProfile(Schema):
+    """One explicitly selected effective mount, in metres and fixed-axis radians.
+
+    Synthetic profiles exercise identity checks without claiming measurements.
+    The selected transform replaces the nominal mount; it is not a hidden offset.
+    """
+
+    identity: str
+    parent_identity: str | None = None
+    parent_frame: str
+    child_frame: str
+    mounting_revision: str
+    kind: Literal["nominal", "synthetic", "measured"]
+    pose: Pose
+
+
 @dataclass(frozen=True, kw_only=True)
 class RobotInstance:
     """One robot or actuated tool in a containing system.
@@ -80,6 +104,12 @@ class RobotInstance:
     model: str
     pose: Pose
     initial_positions: tuple[float, ...] | None
+    parent: str | None = None
+    mount_frame: str | None = None
+    binding: DeviceBinding | None = None
+    calibration: CalibrationProfile | None = None
+    calibration_source: str | None = None
+    mounting_revision: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -99,6 +129,10 @@ class SensorInstance:
     parent: str
     pose: Pose
     parameters: dict[str, JsonValue]
+    binding: DeviceBinding | None = None
+    calibration: CalibrationProfile | None = None
+    calibration_source: str | None = None
+    mounting_revision: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -127,7 +161,7 @@ class RobotSystem:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectInstance:
-    """A named scene object, currently constructed as a fixed fixture.
+    """A named fixed fixture or free rigid object with initial world-frame state.
 
     :param name: Scene-wide name, distinct from resolved device names.
     :param model: Model package identifier under ``objects``.
@@ -137,6 +171,10 @@ class ObjectInstance:
     name: str
     model: str
     pose: Pose
+    motion: Literal["fixed", "free"] = "fixed"
+    # Velocity at the object's declared base origin, expressed in world.
+    angular_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    linear_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -146,7 +184,7 @@ class SceneConfiguration:
     :param robot_system: Root physical composition.
     :param sensors_enabled: Enable observations. False still retains sensor
         bodies, mounts, inertia and collisions in physical assembly.
-    :param objects: World-placed fixed objects, in declaration order.
+    :param objects: World-placed objects, in declaration order.
 
     Records are shared with the originating run, not copied or instantiated here.
     """
@@ -161,8 +199,8 @@ class RunConfiguration:
     """Validated selections and names; device compatibility is checked at assembly.
 
     The robot system retains its hierarchy and local names. World assembly
-    resolves device names, sensor parents and robot pose chains. Objects are fixed
-    scene fixtures in this first runtime. Parameters remain caller-owned; do not
+    resolves device names, attachment topology and robot pose chains. Objects
+    declare fixed or free motion. Parameters remain caller-owned; do not
     mutate after loading.
 
     :param source: Resolved scenario YAML file.
@@ -170,7 +208,7 @@ class RunConfiguration:
     :param duration: Requested simulation duration in seconds.
     :param robot_system: Root composition with a world-relative pose.
     :param sensors_enabled: Whether to construct observation outputs.
-    :param objects: World-placed fixed fixtures.
+    :param objects: World-placed fixed or free bodies.
     :param task: Evaluation selection, validated further by the scenario.
     :param autonomy: Controller selection, validated further by scenario wiring.
     :param world_source: Resolved external world profile, or None for inline settings.
@@ -222,6 +260,11 @@ class RunConfiguration:
 
         def visit(system: RobotSystem) -> None:
             paths.append(system.source)
+            from robo_arch.core.config.loading import resolve_resource
+
+            for device in (*system.robots, *system.sensors):
+                if device.calibration_source:
+                    paths.append(resolve_resource(device.calibration_source))
             for child in system.systems:
                 visit(child)
 
@@ -288,7 +331,7 @@ class SensorDefinition:
 
 @dataclass(frozen=True, kw_only=True)
 class ObjectDefinition:
-    """Reusable fixed-object metadata; importing it does not load a world.
+    """Reusable rigid-object metadata; importing it does not load a world.
 
     :param package: Importable owning package used to resolve the asset.
     :param resource: Asset name relative to that package.

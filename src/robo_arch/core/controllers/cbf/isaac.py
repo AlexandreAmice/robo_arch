@@ -31,8 +31,6 @@ def build_filter(
     """
     from robo_arch.core.controllers.cbf.moreau import MoreauProjection
 
-    if parameters.backend != "torch_moreau":
-        raise ValueError("Tensor CBF factory requires backend: torch_moreau")
     tensor_model = build_tensor_model(
         model,
         joints,
@@ -40,8 +38,6 @@ def build_filter(
         points=tuple(sphere.center for sphere in geometry.spheres),
         device=device,
     )
-    if parameters.compile_model:
-        tensor_model.enable_compilation()
     projection = MoreauProjection(
         count=tensor_model.count,
         constraint_count=len(geometry.pairs)

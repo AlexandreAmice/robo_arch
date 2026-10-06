@@ -29,8 +29,7 @@ def parameters(**changes):
         ({"velocity_limit_gain": float("nan")}, "finite"),
         ({"residual_tolerance": float("nan")}, "finite"),
         ({"robot": "arm"}, "Extra inputs"),
-        ({"backend": "unknown"}, "Input should be"),
-        ({"compile_model": True}, "requires backend"),
+        ({"backend": "unknown"}, "Extra inputs"),
         ({"nominal_controller": "joint_tracking"}, "Extra inputs"),
         ({"nominal": {"kp": [1], "kd": [1]}}, "Extra inputs"),
         ({"unsafe_target": [1]}, "Extra inputs"),
@@ -49,8 +48,6 @@ def test_defaults_preserve_existing_barrier_tuning():
     assert selected.residual_tolerance == 1e-6
     assert selected.exclude_frames == ()
     assert selected.protected == ("device",)
-    assert selected.backend == "drake" and not selected.compile_model
-    assert parameters(backend="torch_moreau", compile_model=True).compile_model
 
 
 if __name__ == "__main__":

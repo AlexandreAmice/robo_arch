@@ -21,7 +21,7 @@ from robo_arch.core.worlds.devices import load_definitions
 from robo_arch.core.worlds.isaac.backend import validate_observations
 from robo_arch.core.worlds.isaac.config import IsaacWorld
 from robo_arch.core.worlds.isaac.objects import load_boxes
-from robo_arch.core.worlds.isaac.scene import IsaacScene, build_scene, initialize_scene
+from robo_arch.core.worlds.isaac.scene import IsaacScene, initialize_scene
 
 
 def run_scenario(
@@ -51,6 +51,12 @@ def run_scenario(
     if run.world != "isaac" or not devices.robots:
         raise ValueError("Isaac runner requires fixed-base robots")
     world = run.world_config
+    if not math.isclose(
+        run.duration / run.time_step, round(run.duration / run.time_step), abs_tol=1e-9
+    ):
+        raise ValueError(
+            "Isaac duration must contain an integer number of physics ticks"
+        )
     if not isinstance(world, IsaacWorld):
         raise ValueError("Isaac runner requires Isaac world configuration")
     validate_observations(
@@ -178,6 +184,8 @@ class Execution:
         self.episode_times = np.zeros(scene.world.num_envs)
         self.time = 0.0
         self.reset_events = []
+        self.environment = scene.environment
+        self.environment.after_reset = self._on_reset
         self.efforts = {
             name: np.zeros((scene.world.num_envs, len(q)))
             for name, q in self.initial.items()
@@ -203,21 +211,20 @@ class Execution:
             raise ValueError("Commands must name exactly the configured robots")
         import torch
 
-        device = self.scene.world.physics.device
-        indices = torch.tensor(ids, dtype=torch.int32, device=device)
-        self.scene.native.reset(ids)
-        for name, arm in self.scene.native.articulations.items():
-            q = torch.as_tensor(self.initial[name], device=device).repeat(len(ids), 1)
-            arm.write_joint_state_to_sim_index(
-                position=q, velocity=torch.zeros_like(q), env_ids=indices
-            )
-            arm.actuators.target_command.set_effort_index(
-                value=torch.zeros_like(q), env_ids=indices
-            )
-            self.efforts[name][ids] = 0
-        for env, commands in zip(ids, fresh, strict=True):
-            self.commands[env] = commands
+        self._fresh = dict(zip(ids, fresh, strict=True))
+        self.environment._reset_idx(
+            torch.tensor(ids, device=self.scene.world.physics.device, dtype=torch.int32)
+        )
+
+    def _on_reset(self, env_ids):
+        ids = env_ids.cpu().tolist()
+        fresh = getattr(self, "_fresh", {})
+        for env in ids:
+            self.commands[env] = fresh.get(env) or self.configure(self.scene)
+        self._fresh = {}
         self.episode_times[ids] = 0
+        for efforts in self.efforts.values():
+            efforts[ids] = 0
         self.reset_events.append({"time_seconds": self.time, "env_ids": ids})
 
     def step(self, dt: float) -> None:
@@ -240,21 +247,17 @@ class Execution:
                         f"Controller returned invalid effort for env {env}/{name}"
                     )
                 self.efforts[name][env] = effort
-            arm.actuators.target_command.set_effort_index(
-                value=torch.as_tensor(
-                    self.efforts[name],
-                    dtype=torch.float32,
-                    device=self.scene.world.physics.device,
-                )
+            converted = torch.as_tensor(
+                self.efforts[name],
+                dtype=torch.float32,
+                device=self.scene.world.physics.device,
             )
-        self.scene.native.write_data_to_sim()
-        # Lab's PhysX manager reads cfg.dt when stepping; retain the final partial
-        # step so reported time never exceeds the requested run duration.
-        self.scene.simulation.cfg.dt = dt
-        self.scene.simulation.step(render=False)
-        self.scene.native.update(dt)
-        self.time += dt
-        self.episode_times += dt
+            if not bool(torch.isfinite(converted).all()):
+                raise ValueError(f"Effort overflows native dtype for {name}")
+            self.environment.efforts[name] = converted
+        self.environment.advance(dt)
+        self.time = self.environment.time
+        self.episode_times[:] = self.environment.times.cpu().numpy()
 
     def sample(self) -> dict[str, np.ndarray]:
         """Copy samples to CPU; one environment retains the original trace keys."""
@@ -265,6 +268,13 @@ class Execution:
             values[name + "/effort"] = self.efforts[name].copy()
             if not np.isfinite(values[name + "/q"]).all():
                 raise RuntimeError(f"Isaac Lab returned nonfinite state for {name}")
+        for name, obj in self.scene.native.rigid_objects.items():
+            values[name + "/pose"] = (
+                obj.data.root_link_pose_w.torch.cpu().numpy().copy()
+            )
+            values[name + "/twist"] = (
+                obj.data.root_link_vel_w.torch.cpu().numpy().copy()
+            )
         for name, observe in self.scene.observations.items():
             values[name + "/wrench"] = observe()
             values[name + "/wrench"][self.episode_times == 0] = np.nan
@@ -297,21 +307,23 @@ def _simulate(
     rollout: Callable[[IsaacScene, Any], dict] | None,
 ) -> dict:
     """Release Lab scene/physics and viewer resources before Kit shutdown."""
-    from isaaclab.sim import SimulationContext
     from pxr import PhysxSchema
+
+    from robo_arch.core.worlds.isaac.environment import Environment
 
     world = run.world_config
     times = []
     samples = {}
     viewer = None
+    environment = None
     with TemporaryDirectory(prefix="robo_arch_isaac_") as directory:
         try:
-            scene = build_scene(run.scene, world, directory=Path(directory))
+            environment = Environment(run.scene, world, directory=Path(directory))
+            scene = environment.assembly
             if world.visualization.mode == "live":
                 from robo_arch.core.worlds.isaac.visualization import Viewer
 
                 viewer = Viewer(app, scene, world.visualization)
-            scene.simulation.reset()
             # Lab steps explicitly; Kit updates serve the viewport and cleanup.
             scene.simulation.set_setting("/app/player/playSimulations", False)
             if rollout is not None:
@@ -376,17 +388,14 @@ def _simulate(
                     np.savez(trace_path, times=times, **samples)
             finally:
                 try:
-                    if simulation := SimulationContext.instance():
-                        simulation.stop()
+                    if environment is not None:
+                        environment.close()
                 finally:
                     try:
                         if viewer is not None:
                             viewer.pause_rendering()
                     finally:
-                        try:
-                            SimulationContext.clear_instance()
-                        finally:
-                            # Lab pumps Kit while closing. Fence rendering again
-                            # after that work, before releasing viewport handles.
-                            if viewer is not None:
-                                viewer.close(close_stage=False)
+                        # Lab pumps Kit while closing. Fence rendering again
+                        # after that work, before releasing viewport handles.
+                        if viewer is not None:
+                            viewer.close(close_stage=False)

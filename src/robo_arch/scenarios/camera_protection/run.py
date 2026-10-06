@@ -263,7 +263,7 @@ def run_scenario(
             result["success"] = all(item["success"] for item in items)
             result["clearance_evaluation_period_seconds"] = run.time_step
             result["trace_sample_period_seconds"] = (
-                run.time_step * run.world_config.log_every_n_steps
+                run.time_step * parameters_for(run)[1].log_every_n_steps
             )
             result["environment_steps_per_second"] = native[
                 "environment_steps_per_second"
@@ -307,13 +307,7 @@ def main() -> None:
     parser.add_argument("--record", type=Path)
     parser.add_argument("--metadata", type=Path)
     parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument("--backend", choices=("drake", "torch_moreau"))
     parser.add_argument("--batch-size", type=int, help="Isaac tensor environments")
-    parser.add_argument(
-        "--compile-model",
-        action="store_true",
-        help="Compile shared tensor dynamics; incurs first-call compilation",
-    )
     args = parser.parse_args()
     if args.inspect:
         report = json.loads(args.inspect.read_text())
@@ -323,24 +317,6 @@ def main() -> None:
         run = load_run(args.run)
         filtered = not args.baseline
     run = apply_overrides(run, args)
-    if args.backend:
-        run = replace(
-            run,
-            autonomy=run.autonomy.model_copy(
-                update={
-                    "parameters": {**run.autonomy.parameters, "backend": args.backend}
-                }
-            ),
-        )
-    if args.compile_model:
-        run = replace(
-            run,
-            autonomy=run.autonomy.model_copy(
-                update={
-                    "parameters": {**run.autonomy.parameters, "compile_model": True}
-                }
-            ),
-        )
     if args.batch_size is not None:
         if run.world != "isaac":
             parser.error("--batch-size requires Isaac")

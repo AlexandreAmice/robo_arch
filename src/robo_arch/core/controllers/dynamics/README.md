@@ -1,42 +1,48 @@
-# Batched nominal dynamics
+# Shared nominal dynamics
 
-`drake.build_tensor_model` extracts a fixed-base, fully actuated model once,
-including welded bodies, mounted inertias, joint frames, damping, gravity and
-reflected rotor inertia. Ordered scalar revolute/prismatic joints and identity
-actuation are supported; unsupported joints, extra force elements, loops and
-floating bases raise errors. The generic `torch.TensorModel` runtime imports no simulator SDK and retains no
-Drake model or context. Its constructor takes owned device constants; the Drake
-loader owns source-model validation and conversion.
+`drake.build_tensor_model` converts a finalized independent nominal model into
+JaxSim's model description. JaxSim supplies rigid-body mass, bias and forward
+kinematics; JAX differentiates the queried point positions for velocity
+Jacobians and `Jdot v`. The same computation runs on CPU and CUDA. Drake remains
+the canonical model loader and the independent parity oracle, not a second
+runtime dynamics implementation.
 
-`evaluate(state)` accepts float64 `[batch, 2*joints]` tensors in q/v order and
-returns world-expressed point positions, velocity Jacobians, bias accelerations,
-mass matrices and joint dynamics. `bias_force` includes Coriolis, gravity and
-damping, so `effort = mass @ desired_acceleration + bias_force`. Constants and
-outputs stay on the selected CPU/CUDA device. Loops traverse the body tree, not
-environments; Torch batches the numerical operations. This implementation has
-not established a speedup over scalar Drake for one arm.
+The converter supports fixed-base, fully actuated trees with scalar revolute or
+prismatic joints, welds, world-z gravity, viscous joint damping and reflected
+rotor inertia. It converts body inertias and offset child joint frames into
+JaxSim's joint-attached link convention. Weld reduction preserves payload mass
+and query frames. It rejects floating bases, loop constraints, extra force
+elements, per-instance gravity disabling and nonidentity actuation. Attached
+actuated tools remain part of the full mechanism; their coordinates are not
+replaced with a rigid payload. Contact and external forces are excluded.
 
-`enable_compilation()` opts into `torch.compile` on the same equations. The
-first call for a new shape incurs compilation/warmup; eager evaluation remains
-the default. Compiled outputs are cloned outside the graph to preserve ownership
-across subsequent calls. Use the camera scenario benchmark with `--compile-model`
-to measure the complete control loop, including ownership copies and the QP.
+`evaluate_numpy` takes float64 `[batch, 2*joints]` state on CPU.
+`evaluate` accepts a Torch float64 tensor on the selected device and uses
+DLPack for device transfer to JAX, then returns owned Torch arrays. Neither GPU
+boundary copies state through NumPy. Both return positions, Jacobians, point bias
+accelerations, mass, bias force and the affine effort-to-acceleration mapping.
+Bias includes gravity and damping: `effort = mass @ acceleration + bias_force`.
+Callers must check the returned per-row `valid` flag before applying effort.
 
-`valid` is a per-environment device boolean covering finite input and successful
-finite mass solves. Callers must reject invalid environments before applying
-effort. The mass solve uses `solve_ex(check_errors=False)` to avoid implicit
-CUDA synchronization; the caller decides when to surface failures on the host.
-No contact or externally applied forces are inferred from the simulator.
+JAX compilation is mandatory and specialized by model topology and batch shape;
+there is no separate eager algorithm. First evaluation includes compilation.
+Repeated owners of the same topology reuse the compiled function, but retained
+outputs remain independent. CPU execution and GPU execution have different costs;
+shared source does not establish a speedup. With Isaac's other GPU consumers,
+set `XLA_PYTHON_CLIENT_PREALLOCATE=false` before launching to avoid JAX reserving
+most device memory up front.
 
-Run the same parity tests in the optional vendor profile:
+The `numerical` Python dependency group supplies JaxSim/JAX on CPU; the Isaac
+`cbf-gpu` group supplies the matching CUDA plugin. Model conversion uses the
+maintained in-memory parser API and does not invoke an SDF/URDF conversion CLI.
+The model retains no Drake context or borrowed native views after conversion.
+
+Run independent model/kinematics parity in the optional tensor environment:
 
 ```sh
 third_party/isaac/.venv/bin/python -m pytest -q \
   src/robo_arch/core/controllers/dynamics/tests
 ```
 
-The tests compare independent Drake kinematics/dynamics on CPU and CUDA for a
-batched mechanism with a rotated base, offset joint frames, mixed joint types,
-joint damping, reflected rotor inertia and a welded payload. Bazel exposes the
-test source as `gpu_tests`; execute it in the vendor profile above. The core
-Bazel environment does not supply Torch and does not validate GPU execution.
+Tests cover rotated bases, shifted joint frames, revolute/prismatic coordinates,
+damping, rotor inertia, payloads, batch isolation and ownership across evaluations.

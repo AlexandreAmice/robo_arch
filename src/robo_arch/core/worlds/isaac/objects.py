@@ -14,6 +14,9 @@ class BoxFixture:
     instance: ObjectInstance
     size: tuple[float, ...]
     rgba: tuple[float, ...]
+    mass: float | None
+    inertia: tuple[float, ...] | None
+    friction: tuple[float, float]
 
 
 # Every accepted element/attribute is consumed below, except inertial data:
@@ -25,12 +28,27 @@ _CHILDREN = {
     "inertial": ("mass", "inertia"),
     "inertia": ("ixx", "iyy", "izz", "ixy", "ixz", "iyz"),
     "visual": ("geometry", "material"),
-    "collision": ("geometry",),
+    "collision": ("geometry", "surface"),
+    "surface": ("friction",),
+    "friction": ("ode",),
+    "ode": ("mu", "mu2"),
     "geometry": ("box",),
     "box": ("size",),
     "material": ("diffuse",),
 }
-_LEAVES = {"mass", "ixx", "iyy", "izz", "ixy", "ixz", "iyz", "size", "diffuse"}
+_LEAVES = {
+    "mass",
+    "ixx",
+    "iyy",
+    "izz",
+    "ixy",
+    "ixz",
+    "iyz",
+    "size",
+    "diffuse",
+    "mu",
+    "mu2",
+}
 
 
 def _validate(element: ET.Element, owner: str) -> None:
@@ -101,6 +119,7 @@ def load_boxes(
             raise ValueError(
                 f"Isaac fixture {owner}: expected matching positive box sizes"
             )
+        mass, inertia = None, None
         inertial = link.find("inertial")
         if inertial is not None:
             if _numbers(inertial, "mass", 1, owner)[0] <= 0:
@@ -111,6 +130,27 @@ def load_boxes(
             for axis in ("ixy", "ixz", "iyz"):
                 if inertial.find("inertia/" + axis) is not None:
                     _numbers(inertial, "inertia/" + axis, 1, owner)
+            mass = _numbers(inertial, "mass", 1, owner)[0]
+            inertia = tuple(
+                float(inertial.findtext("inertia/" + key, "0"))
+                for key in ("ixx", "iyy", "izz", "ixy", "ixz", "iyz")
+            )
+            import numpy as np
+
+            xx, yy, zz, xy, xz, yz = inertia
+            eigenvalues = np.linalg.eigvalsh([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
+            if eigenvalues[0] <= 0 or eigenvalues[-1] > eigenvalues[:2].sum() + 1e-12:
+                raise ValueError(f"Isaac object {owner}: invalid rigid-body inertia")
+        if instance.motion == "free" and mass is None:
+            raise ValueError(f"Isaac object {owner}: free body requires inertia")
+        friction = (1.0, 1.0)
+        if link.find("collision/surface") is not None:
+            friction = tuple(
+                _numbers(link, "collision/surface/friction/ode/" + key, 1, owner)[0]
+                for key in ("mu", "mu2")
+            )
+            if not 0 <= friction[1] <= friction[0]:
+                raise ValueError(f"Isaac object {owner}: invalid friction")
         rgba = (
             _numbers(link, "visual/material/diffuse", 4, owner)
             if link.find("visual/material") is not None
@@ -118,25 +158,50 @@ def load_boxes(
         )
         if not all(0 <= v <= 1 for v in rgba):
             raise ValueError(f"Isaac fixture {owner}: diffuse RGBA must be in [0, 1]")
-        result.append(BoxFixture(instance, size, rgba))
+        result.append(BoxFixture(instance, size, rgba, mass, inertia, friction))
     return tuple(result)
 
 
 def add_objects(
     stage, scene: SceneConfiguration, definitions: DeviceDefinitions, *, root: str = ""
-) -> None:
-    """Create validated static boxes, preserving placement and diffuse color."""
+) -> dict[str, str]:
+    """Create fixed and free boxes; return native free-body paths by instance."""
     import numpy as np
-    from pxr import Gf, UsdGeom, UsdPhysics
+    from pxr import Gf, UsdGeom, UsdPhysics, UsdShade
 
     from robo_arch.core.worlds.assembly import pose_transform
 
+    dynamic = {}
     for fixture in load_boxes(scene, definitions):
-        box = UsdGeom.Cube.Define(stage, root + "/objects/" + fixture.instance.name)
-        box.CreateSizeAttr(1.0)
+        path = root + "/objects/" + fixture.instance.name
+        body = UsdGeom.Xform.Define(stage, path)
         transform = pose_transform(fixture.instance.pose).GetAsMatrix4()
-        transform[:3, :3] = transform[:3, :3] @ np.diag(fixture.size)
-        box.AddTransformOp().Set(Gf.Matrix4d(transform.T.tolist()))
+        body.AddTransformOp().Set(Gf.Matrix4d(transform.T.tolist()))
+        box = UsdGeom.Cube.Define(stage, path + "/geometry")
+        box.CreateSizeAttr(1.0)
+        box.AddScaleOp().Set(Gf.Vec3f(*fixture.size))
         box.CreateDisplayColorAttr([Gf.Vec3f(*fixture.rgba[:3])])
         box.CreateDisplayOpacityAttr([fixture.rgba[3]])
         UsdPhysics.CollisionAPI.Apply(box.GetPrim())
+        material = UsdShade.Material.Define(stage, path + "/material")
+        physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+        physics.CreateStaticFrictionAttr(fixture.friction[0])
+        physics.CreateDynamicFrictionAttr(fixture.friction[1])
+        physics.CreateRestitutionAttr(0.0)
+        UsdShade.MaterialBindingAPI.Apply(box.GetPrim()).Bind(
+            material, materialPurpose="physics"
+        )
+        if fixture.instance.motion == "free":
+            UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
+            mass = UsdPhysics.MassAPI.Apply(body.GetPrim())
+            mass.CreateMassAttr(fixture.mass)
+            xx, yy, zz, xy, xz, yz = fixture.inertia
+            moments, axes = np.linalg.eigh([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
+            if np.linalg.det(axes) < 0:
+                axes[:, 0] *= -1
+            mass.CreateDiagonalInertiaAttr(Gf.Vec3f(*moments))
+            rotation = Gf.Matrix3d(axes.T.tolist()).ExtractRotation()
+            mass.CreatePrincipalAxesAttr(Gf.Quatf(rotation.GetQuat()))
+            mass.CreateCenterOfMassAttr(Gf.Vec3f(0, 0, 0))
+            dynamic[fixture.instance.name] = path
+    return dynamic

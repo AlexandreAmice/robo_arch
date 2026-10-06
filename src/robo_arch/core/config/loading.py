@@ -1,18 +1,22 @@
 """Load declared physical assemblies and run settings from strict YAML.
 
-Mounts are nominal transforms, not measured calibration. Robot bases are fixed
-relative to their containing system in this initial schema. Autonomy wiring
-lives in Python; measured calibration profiles are not yet supported.
+Instance selections retain explicit installation and calibration identities.
+World loaders validate named frames and native assets before building devices.
+Autonomy remains Python code selected independently of physical composition.
 """
 
+from dataclasses import replace
 from importlib.resources import files
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field, JsonValue, RootModel
 
 from robo_arch.core.config.declarations import (
     AutonomySelection,
+    CalibrationProfile,
+    DeviceBinding,
     Name,
     ObjectInstance,
     Pose,
@@ -32,6 +36,11 @@ class _Robot(Schema):
     model: Name
     pose: Pose = Field(default_factory=Pose)
     initial_positions: tuple[float, ...] | None = None
+    parent: str | None = Field(default=None, min_length=1)
+    mount_frame: str | None = Field(default=None, min_length=1)
+    binding: DeviceBinding | None = None
+    calibration: str | None = None
+    mounting_revision: str | None = None
 
 
 class _Sensor(Schema):
@@ -39,11 +48,21 @@ class _Sensor(Schema):
     parent: str
     pose: Pose = Field(default_factory=Pose)
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    binding: DeviceBinding | None = None
+    calibration: str | None = None
+    mounting_revision: str | None = None
+
+
+class _InstanceSelection(Schema):
+    binding: DeviceBinding
+    calibration: str | None = None
+    mounting_revision: str | None = None
 
 
 class _ChildSystem(Schema):
     definition: str
     pose: Pose = Field(default_factory=Pose)
+    instances: dict[str, _InstanceSelection] = Field(default_factory=dict)
 
 
 class _System(Schema):
@@ -56,11 +75,15 @@ class _RobotSystemSelection(Schema):
     definition: str
     pose: Pose = Field(default_factory=Pose)
     autonomy: AutonomySelection
+    instances: dict[str, _InstanceSelection] = Field(default_factory=dict)
 
 
 class _Object(Schema):
     model: Name
     pose: Pose = Field(default_factory=Pose)
+    motion: Literal["fixed", "free"] = "fixed"
+    angular_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    linear_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 class _Scenario(Schema):
@@ -213,6 +236,7 @@ def load_run(path: str | Path) -> RunConfiguration:
         name: str,
         pose: Pose,
         ancestors: tuple[Path, ...],
+        selections: dict[str, _InstanceSelection],
     ) -> RobotSystem:
         if file in ancestors:
             chain = " -> ".join(str(item) for item in (*ancestors, file))
@@ -221,7 +245,7 @@ def load_run(path: str | Path) -> RunConfiguration:
         names = [*system.robots, *system.sensors, *system.systems]
         if len(set(names)) != len(names):
             raise ValueError(f"Device and child-system names must be unique in {file}")
-        return RobotSystem(
+        result = RobotSystem(
             name=name,
             source=file,
             pose=pose,
@@ -231,6 +255,18 @@ def load_run(path: str | Path) -> RunConfiguration:
                     model=robot.model,
                     pose=robot.pose,
                     initial_positions=robot.initial_positions,
+                    parent=robot.parent,
+                    mount_frame=robot.mount_frame,
+                    binding=robot.binding,
+                    calibration_source=robot.calibration,
+                    mounting_revision=robot.mounting_revision,
+                    calibration=(
+                        read_validated_yaml(
+                            resolve_resource(robot.calibration), CalibrationProfile
+                        )
+                        if robot.calibration
+                        else None
+                    ),
                 )
                 for name, robot in system.robots.items()
             ),
@@ -241,6 +277,16 @@ def load_run(path: str | Path) -> RunConfiguration:
                     parent=sensor.parent,
                     pose=sensor.pose,
                     parameters=sensor.parameters,
+                    binding=sensor.binding,
+                    calibration_source=sensor.calibration,
+                    mounting_revision=sensor.mounting_revision,
+                    calibration=(
+                        read_validated_yaml(
+                            resolve_resource(sensor.calibration), CalibrationProfile
+                        )
+                        if sensor.calibration
+                        else None
+                    ),
                 )
                 for name, sensor in system.sensors.items()
             ),
@@ -250,16 +296,54 @@ def load_run(path: str | Path) -> RunConfiguration:
                     name,
                     child.pose,
                     (*ancestors, file),
+                    child.instances,
                 )
                 for name, child in system.systems.items()
             ),
         )
+        remaining = set(selections)
+
+        def select(system: RobotSystem, prefix: str) -> RobotSystem:
+            def device(item):
+                key = prefix + item.name
+                if key not in selections:
+                    return item
+                remaining.remove(key)
+                selection = selections[key]
+                return replace(
+                    item,
+                    binding=selection.binding,
+                    calibration_source=selection.calibration,
+                    mounting_revision=selection.mounting_revision,
+                    calibration=(
+                        read_validated_yaml(
+                            resolve_resource(selection.calibration), CalibrationProfile
+                        )
+                        if selection.calibration
+                        else None
+                    ),
+                )
+
+            return replace(
+                system,
+                robots=tuple(device(item) for item in system.robots),
+                sensors=tuple(device(item) for item in system.sensors),
+                systems=tuple(
+                    select(child, prefix + child.name + "/") for child in system.systems
+                ),
+            )
+
+        result = select(result, "")
+        if remaining:
+            raise ValueError(f"Unknown device instance selections: {sorted(remaining)}")
+        return result
 
     robot_system = load_system(
         _resolve_package_reference(source, scenario.robot_system.definition),
         "",
         scenario.robot_system.pose,
         (),
+        scenario.robot_system.instances,
     )
 
     return RunConfiguration(
@@ -270,7 +354,14 @@ def load_run(path: str | Path) -> RunConfiguration:
         robot_system=robot_system,
         sensors_enabled=scenario.sensors_enabled,
         objects=tuple(
-            ObjectInstance(name=name, model=obj.model, pose=obj.pose)
+            ObjectInstance(
+                name=name,
+                model=obj.model,
+                pose=obj.pose,
+                motion=obj.motion,
+                angular_velocity=obj.angular_velocity,
+                linear_velocity=obj.linear_velocity,
+            )
             for name, obj in scenario.objects.items()
         ),
         task=scenario.task,

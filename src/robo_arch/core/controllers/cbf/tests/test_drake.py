@@ -122,7 +122,8 @@ def test_independent_filter_contexts_and_callable():
     expected = command(np.array([0.5, 0]), 0)
     second.filter([0.6, -0.1], [0])
     np.testing.assert_array_equal(command(np.array([0.5, 0]), 0), expected)
-    assert first._context is not second._context
+    assert first._state is not second._state
+    assert first._program is not second._program
 
 
 def test_native_cache_shared_outputs_and_context_isolation(monkeypatch):

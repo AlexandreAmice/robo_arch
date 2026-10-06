@@ -3,6 +3,7 @@
 import torch
 
 from robo_arch.core.controllers.dynamics.torch import ModelEvaluation, TensorModel
+from robo_arch.core.controllers.feedback import inverse_dynamics
 from robo_arch.core.controllers.joint_tracking.definition import JointTrackingParameters
 
 
@@ -29,8 +30,12 @@ class TensorJointTracking:
         evaluation: ModelEvaluation | None = None,
     ) -> torch.Tensor:
         data = self.model.evaluate(state) if evaluation is None else evaluation
-        count = self.model.count
-        acceleration = self.kp * (desired_position - state[:, :count]) + self.kd * (
-            desired_velocity - state[:, count:]
+        return inverse_dynamics(
+            state,
+            desired_position,
+            desired_velocity,
+            self.kp,
+            self.kd,
+            data.mass,
+            data.bias_force,
         )
-        return torch.einsum("bij,bj->bi", data.mass, acceleration) + data.bias_force

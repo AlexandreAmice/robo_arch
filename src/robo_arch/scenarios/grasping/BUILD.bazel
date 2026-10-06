@@ -1,0 +1,38 @@
+load("@python_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "grasping",
+    srcs = [
+        "__init__.py",
+        "isaac.py",
+        "reference.py",
+        "run.py",
+    ],
+    data = ["scenario.yaml"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [
+        "//src/robo_arch/core/config",
+        "//src/robo_arch/core/worlds",
+        "//src/robo_arch/core/worlds/drake",
+        "//src/robo_arch/core/worlds/isaac",
+        "//src/robo_arch/objects/box",
+        "//src/robo_arch/robot_system/ur7e_wsg50",
+        "//src/robo_arch/scenarios",
+        requirement("drake"),
+        requirement("numpy"),
+    ],
+)
+
+py_test(
+    name = "reference_test",
+    srcs = ["tests/test_reference.py"],
+    main = "tests/test_reference.py",
+    deps = [
+        ":grasping",
+        "//src/robo_arch/core/worlds/drake",
+        requirement("drake"),
+        requirement("numpy"),
+        requirement("pytest"),
+    ],
+)

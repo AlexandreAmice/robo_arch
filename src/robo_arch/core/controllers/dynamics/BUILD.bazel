@@ -1,15 +1,27 @@
 load("@python_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library")
 
-# Torch is supplied by the optional vendor profile, not the core environment.
 py_library(
-    name = "torch",
+    name = "jax",
     srcs = [
         "__init__.py",
-        "torch.py",
+        "jax.py",
     ],
     visibility = ["//src/robo_arch:__subpackages__"],
-    deps = ["//src/robo_arch/core/controllers"],
+    deps = [
+        "//src/robo_arch/core/controllers",
+        requirement("jax"),
+        requirement("jaxsim"),
+        requirement("numpy"),
+    ],
+)
+
+# Torch is only required when callers request the DLPack tensor boundary.
+py_library(
+    name = "torch",
+    srcs = ["torch.py"],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = [":jax"],
 )
 
 py_library(
@@ -17,9 +29,11 @@ py_library(
     srcs = ["drake.py"],
     visibility = ["//src/robo_arch:__subpackages__"],
     deps = [
-        ":torch",
+        ":jax",
         requirement("drake"),
         requirement("numpy"),
+        requirement("jax"),
+        requirement("jaxsim"),
     ],
 )
 

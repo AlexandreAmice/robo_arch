@@ -108,6 +108,8 @@ py_library(
     deps = [
         ":joint_pd",
         ":native",
+        "//src/robo_arch/core/controllers",
+        "//src/robo_arch/core/controllers/dynamics:drake",
         requirement("drake"),
         requirement("numpy"),
     ],

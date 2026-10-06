@@ -1,0 +1,31 @@
+world:
+  type: drake
+  physics:
+    time_step: 0.001
+  ground: true
+  visualization:
+    type: meshcat
+    mode: record
+duration: 10.0
+sensors_enabled: false
+robot_system:
+  definition: package://robo_arch/robot_system/ur7e_wsg50/system.yaml
+  instances:
+    arm:
+      binding:
+        identity: demo-arm
+    gripper:
+      binding:
+        identity: demo-gripper
+      calibration: package://robo_arch/robot_system/ur7e_wsg50/calibration/nominal_mount.yaml
+      mounting_revision: synthetic-v1
+  autonomy:
+    controller: mounted_tracking
+task:
+  type: grasping
+objects:
+  block:
+    model: box
+    motion: free
+    pose:
+      translation: [0.4, 0, 0.025]

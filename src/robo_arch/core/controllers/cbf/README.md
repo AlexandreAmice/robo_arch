@@ -12,7 +12,7 @@ on an individual filter must be sequential.
 
 `config.ProtectionParameters` owns the reusable YAML fields: `profiles`,
 `protected`, `exclude_frames`, `margin`, `alpha1`, `alpha2`, `backend`,
-`compile_model`, `velocity_limit_gain`, and `residual_tolerance`. It selects no robot model, nominal controller or task.
+`velocity_limit_gain` and `residual_tolerance`. It selects no robot model, nominal controller or task.
 `assembly.resolve_geometry(scene, parameters, ground=...)` resolves coverings,
 fixed-object poses, exclusions and optional ground constraints into
 `ProtectionGeometry`. Both configuration and geometry assembly work without
@@ -158,20 +158,14 @@ References: [high-order barriers](https://arxiv.org/abs/1903.04706) and
 
 ## GPU execution
 
-`isaac.build_filter(..., batch_size=N, device="cuda:0")` selects the batched
-Torch/Moreau implementation with `backend: torch_moreau`. It consumes the same
-`ProtectionGeometry`, gains and independent Drake model as the CPU factory.
-`core.controllers.dynamics.drake` extracts constants once; the SDK-independent
-`core.controllers.dynamics.torch.TensorModel` evaluates nominal dynamics on the
-selected device. `barrier.py`, `layout.py` and `velocity.py` share the constraint
-equations and indexing. `filter.py` shares initial-domain validation, full QP-row
-assembly, command-rounding guards, acceptance checks and diagnostics across
-NumPy and Torch. `drake.py` supplies Drake kinematics, Clarabel and native ports;
-`isaac.py` constructs the tensor/Moreau filter for native effort commands.
-`tensor.py` and `moreau.py` are numerical providers without simulator imports. There is no second
-camera-specific CBF algorithm. `compile_model: true` optionally compiles those
-same tensor dynamics with Torch; it incurs a substantial first-call compile and
-keeps returned evaluations owned. Eager execution is the default.
+The world selects the batched Torch/Moreau adapter on supported Isaac CUDA
+profiles. Scalar Drake ports use Clarabel. Both consume the same geometry,
+gains and [shared nominal dynamics](../dynamics/README.md); the independent
+Drake plant is a model source, never privileged physical simulation state.
+`barrier.py`, `layout.py`, `velocity.py` and `filter.py` share constraint
+assembly, acceptance, command-rounding guards and diagnostics across array
+boundaries. JAX compilation is mandatory for nominal model evaluation; changing
+batch shape can require another compilation. Output arrays remain owned.
 
 `TensorCbfFilter.filter(state, nominal_effort)` accepts float64 CUDA arrays of
 shape `[batch, 2*joints]` and `[batch, joints]`. `wrap(nominal)` protects any
