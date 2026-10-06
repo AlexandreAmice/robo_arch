@@ -7,21 +7,21 @@ documents its equation, units, array contract, ownership and errors from the
 in [JointPdParameters](definition.py); its torque-feedback gains differ from
 `joint_tracking`'s acceleration-feedback gains.
 
-The Drake port adapter and the Isaac callable use the same extension. Each owns
-an independent nominal Drake model context for gravity feedforward, including
-mounted-device inertia; neither reads the simulation's dynamics context. The
-adapters clip effort to model actuator limits. There is no integral term or
-hidden reset state. Parameters and joint identities are checked at construction.
+Supported scalar and tensor autonomy calls the authoritative array feedback law
+in `core/controllers/feedback.py`. Independent JaxSim nominal models supply
+gravity, including mounted-device inertia; no physical simulation dynamics are
+queried. Adapters clip effort to model limits and validate joint identity/gains.
+There is no integral term or hidden reset state.
 
-`tensor.compute` implements the same stateless feedback law on Torch CPU/CUDA
-tensors, with leading batch dimensions and a final joint dimension. Gains and
-effort limits broadcast; state/reference/feedforward shapes must match. Inputs
-are borrowed and outputs own their storage. It clips effort to caller-provided
-limits without host synchronization. The owner validates finite gains/limits
-before execution and checks rollout state for failures. Native/tensor parity is
-tested in float32 and float64. Torch remains in the vendor runtime profile.
-Batched reaching supplies Isaac Lab gravity forces explicitly; the feedback
-function itself has no simulator dependency or privileged state access.
+`tensor.compute` supplies a Torch array boundary around that same law. Inputs are
+borrowed, outputs own storage, and gains/limits broadcast across batch axes.
+Batched reaching uses the same independent nominal gravity computation.
+
+The standalone C++ library and `native.compute` binding are retained compatibility
+APIs and build/binding examples; supported autonomy no longer selects them as an
+alternative backend. Native/tensor parity tests in float32/float64 guard the
+retained compatibility implementation against drift. Torch remains optional in
+the vendor runtime profile.
 
 The binding is included in the project aggregate `//tools/native:wheel`; this
 package owns the C++ library and extension target. The local wheel targets

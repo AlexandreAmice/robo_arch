@@ -20,7 +20,7 @@ def run():
 
 @pytest.mark.parametrize("world", ["real"])
 def test_unsupported_world_fails_before_execution(run, world):
-    with pytest.raises(ValueError, match="only Drake"):
+    with pytest.raises(ValueError, match="Unsupported command joint_effort"):
         parameters_for(replace(run, world_config=parse_world({"type": world})))
 
 
@@ -124,12 +124,11 @@ def test_ground_barriers_follow_world_floor_and_protected_instances(run, enabled
     )
 
 
-def test_isaac_requires_explicit_gpu_selection(run):
-    isaac = replace(run, world_config=parse_world({"type": "isaac"}))
-    with pytest.raises(ValueError, match="torch_moreau"):
-        parameters_for(isaac)
+def test_world_selects_compatible_gpu_adapter(run):
+    from robo_arch.core.controllers.selection import select_controller
+
     isaac = replace(
-        isaac,
+        run,
         world_config=parse_world(
             {
                 "type": "isaac",
@@ -137,31 +136,27 @@ def test_isaac_requires_explicit_gpu_selection(run):
                 "physics": {"solver": "pgs"},
             }
         ),
-        autonomy=run.autonomy.model_copy(
-            update={
-                "parameters": {**run.autonomy.parameters, "backend": "torch_moreau"}
-            }
-        ),
     )
-    assert parameters_for(isaac)[0].backend == "torch_moreau"
+    parameters_for(isaac)
+    assert (
+        select_controller(isaac.world_config, "cbf", batched=True).implementation
+        == "tensor_moreau"
+    )
+    parameters_for(replace(isaac, world_config=run.world_config))
     with pytest.raises(ValueError, match="requires PGS"):
-        parameters_for(
-            replace(
-                isaac,
-                world_config=parse_world({"type": "isaac"}),
-            )
-        )
+        parameters_for(replace(isaac, world_config=parse_world({"type": "isaac"})))
     with pytest.raises(ValueError, match="only PhysX"):
         parameters_for(
             replace(
                 isaac,
                 world_config=parse_world(
-                    {"type": "isaac", "physics": {"backend": "newton"}}
+                    {
+                        "type": "isaac",
+                        "physics": {"backend": "newton"},
+                    }
                 ),
             )
         )
-    with pytest.raises(ValueError, match="backend: drake"):
-        parameters_for(replace(isaac, world_config=run.world_config))
 
 
 if __name__ == "__main__":

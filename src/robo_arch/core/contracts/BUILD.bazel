@@ -1,0 +1,11 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "commands",
+    srcs = [
+        "__init__.py",
+        "commands.py",
+    ],
+    visibility = ["//src/robo_arch:__subpackages__"],
+    deps = ["//src/robo_arch/core"],
+)

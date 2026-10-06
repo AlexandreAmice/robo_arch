@@ -26,27 +26,17 @@ def test_invalid_or_retired_batch_settings(settings):
 @pytest.fixture
 def execution(monkeypatch):
     torch = pytest.importorskip("torch")
-    wp = pytest.importorskip("warp")
-    wp.init()
     from robo_arch.core.worlds.isaac import batched
 
     q = torch.zeros((2, 1))
     v, u = q.clone(), q.clone()
 
-    def state(*, position, velocity, env_mask):
-        mask = torch.from_numpy(env_mask.numpy())
-        q[mask], v[mask] = position[mask], velocity[mask]
-
-    def effort(*, value, env_mask=None):
-        mask = slice(None) if env_mask is None else torch.from_numpy(env_mask.numpy())
-        u[mask] = value[mask]
+    def effort(*, value):
+        u[:] = value
 
     arm = SimpleNamespace(
-        write_joint_state_to_sim_mask=state,
         actuators=SimpleNamespace(
-            target_command=SimpleNamespace(
-                set_effort_mask=effort, set_effort_index=effort
-            )
+            target_command=SimpleNamespace(set_effort_index=effort)
         ),
         data=SimpleNamespace(
             joint_pos=SimpleNamespace(torch=q), joint_vel=SimpleNamespace(torch=v)
@@ -57,6 +47,21 @@ def execution(monkeypatch):
         world=IsaacWorld(num_envs=2, physics={"device": "cpu"}),
         native=SimpleNamespace(articulations={"arm": arm}, reset=lambda: None),
     )
+    owner = SimpleNamespace(
+        time=0.0,
+        times=torch.zeros(2, dtype=torch.float64),
+        efforts={"arm": torch.zeros_like(q)},
+    )
+
+    def reset(ids):
+        q[ids] = 0.2
+        v[ids] = 0
+        u[ids] = 0
+        owner.times[ids] = 0
+        owner.efforts["arm"][ids] = 0
+
+    owner._reset_idx = reset
+    scene.environment = owner
     monkeypatch.setattr(
         batched,
         "initialize_scene",

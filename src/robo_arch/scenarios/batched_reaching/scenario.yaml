@@ -30,4 +30,4 @@ task:
     velocity_tolerance: 0.05
     settle_seconds: 0.1
     episode_seconds: 2.0
-    feedforward: simulator_gravity
+    feedforward: nominal_gravity

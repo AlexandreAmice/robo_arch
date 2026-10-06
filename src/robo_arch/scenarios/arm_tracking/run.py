@@ -228,7 +228,12 @@ def _results(run, tasks, trace):
         }
         for name, task in tasks.items()
     }
+    from robo_arch.core.controllers.selection import select_controller
+
     result = {
+        "controller_selection": select_controller(
+            run.world_config, run.autonomy.controller
+        ).describe(),
         "world": run.world,
         "controller": run.autonomy.controller,
         "duration_seconds": trace["times"][-1],

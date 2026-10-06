@@ -16,7 +16,7 @@ class IsaacPhysics(Schema):
     :param device: cpu or cuda:0 physics selection. This does not move autonomy
         code onto the GPU or guarantee that the selected combination can run.
     :param gpu_found_lost_aggregate_pairs_capacity: Positive integer broadphase
-        aggregate-pair capacity; default accommodates the segmented Mini45 mesh.
+        aggregate-pair capacity; unset uses the native SDK default.
 
     Unknown/invalid fields raise ValidationError; runtime compatibility requires
     the separately pinned Isaac environment.
@@ -26,8 +26,7 @@ class IsaacPhysics(Schema):
     time_step: float = Field(default=0.001, gt=0)
     solver: Literal["tgs", "pgs"] = "tgs"
     device: Literal["cpu", "cuda:0"] = "cuda:0"
-    # Needed by the explicit convex sectors in mounted Mini45 collision geometry.
-    gpu_found_lost_aggregate_pairs_capacity: int = Field(default=32768, gt=0)
+    gpu_found_lost_aggregate_pairs_capacity: int | None = Field(default=None, gt=0)
 
 
 class NewtonPhysics(Schema):
@@ -90,9 +89,6 @@ class IsaacWorld(Schema):
     :param num_envs: Number of independent physical environments (default one).
     :param env_layout: line or grid placement of environment origins.
     :param env_spacing: Positive separation between origins, in metres.
-    :param log_every_n_steps: Positive trace stride for camera protection; its
-        controller still evaluates every physics step. Reaching owns separate
-        sampled-trace measurement settings.
     :param physics: IsaacPhysics or NewtonPhysics settings; defaults to PhysX.
     :param visualization: IsaacVisualization settings, off by default.
 
@@ -101,7 +97,6 @@ class IsaacWorld(Schema):
     """
 
     type: Literal["isaac"] = "isaac"
-    log_every_n_steps: int = Field(default=1, ge=1)
     num_envs: int = Field(default=1, ge=1)
     env_layout: Literal["line", "grid"] = "line"
     env_spacing: float = Field(default=3.0, gt=0)

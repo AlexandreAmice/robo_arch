@@ -75,6 +75,8 @@ py_library(
         ":assembly",
         ":cbf",
         ":config",
+        "//src/robo_arch/core/controllers",
+        "//src/robo_arch/core/controllers/dynamics:drake",
         "//src/robo_arch/core/worlds/drake",
         requirement("drake"),
         requirement("numpy"),

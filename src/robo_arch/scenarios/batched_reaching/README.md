@@ -8,8 +8,8 @@ completed environments reset at the next 20 ms reset boundary.
 
 The shared Torch PD implementation takes `[environment, joint]` tensors and
 clips effort to URDF limits. Both engines use the same gains. Feedforward is
-explicitly `simulator_gravity`: privileged model information supplied by Isaac
-Lab, not the independent Drake model used by scalar arm tracking. The default
+`nominal_gravity`, computed by the same independent JaxSim model used by scalar
+arm tracking. The default
 wrist gains accommodate explicit effort integration on both engines. This is
 joint-space reaching, not Cartesian planning, learning or hardware validation.
 
@@ -58,9 +58,9 @@ uv run src/robo_arch/scenarios/batched_reaching/benchmark.py
 
 `--backends physx` or `--backends newton` restricts the comparison. By default,
 this runs both backends at 1, 16 and 64 environments in fresh, sequential
-processes, then compares scalar native PD at 16 environments. Scalar comparison
-uses exactly the same targets and simulator gravity feedforward. Its CPU copies
-and per-environment loop are intentional. Initialization and 200 warmup steps
+processes, then compares scalar CPU PD at 16 environments. Scalar comparison
+uses exactly the same targets and independent nominal gravity feedforward. Its CPU copies
+are included in the comparison. Initialization and 200 warmup steps
 are excluded from steady-state throughput. GPU synchronization brackets timing
 chunks; reported latency percentiles are **100-step chunk means**, not individual
 step latency percentiles. Rendering is off. Results and a throughput plot live
@@ -73,29 +73,10 @@ hardware-independent speedup threshold.
 
 ### Local measurements
 
-October 4, 2026, RTX 3060 Laptop 6 GB, pinned Lab 3.0 EA profile, three simulated
-seconds per run after warmup, with no ground plane. Every environment completed
-goals with zero timeouts, including 320 PhysX and 323 Newton episodes at 64
-environments.
-
-| Control / environments | PhysX env-steps/s | Newton env-steps/s |
-|---|---:|---:|
-| Tensor / 1 | 96 | 373 |
-| Tensor / 16 | 1,296 | 1,969 |
-| Tensor / 64 | 7,596 | 10,929 |
-| Scalar / 16 | 3,025 | 5,259 |
-
-These measurements precede the shared runtime's finite-effort checks, which
-synchronize scalar GPU status. They are single sweeps on a shared desktop with
-variable CPU load. PhysX timings
-were repeated after an unrelated CUDA job ended. The small PD calculation did
-not show a tensor-control speedup at 16 environments in these runs; GPU-resident
-control does not guarantee lower latency. The example establishes batched
-execution and measured capacity, with timing variability limiting comparisons.
-Live/headless replay on both engines matched all 151 recorded frames (four
-sampled environments) and episode/error statistics for all 16 environments.
-Reports under `recordings/batched_reaching/benchmark/` (Newton) and
-`benchmark_physx/` (PhysX) retain inputs, versions and latency distributions.
+Previous simulator-gravity/Torch-tree timing reports do not describe the current
+independent nominal-model workload. Rerun the benchmark above after changing the
+model, execution profile or device. Include compilation, steady-state costs and
+status synchronization separately; GPU residency does not guarantee a speedup.
 
 ## Tests
 

@@ -5,7 +5,6 @@ import json
 import math
 import sys
 import time
-import warnings
 from dataclasses import replace
 from importlib.metadata import version
 from pathlib import Path
@@ -37,7 +36,10 @@ def rollout(
 ) -> dict:
     import torch
 
-    from robo_arch.core.controllers.joint_pd.tensor import compute
+    from robo_arch.core.controllers.dynamics.drake import build_tensor_model
+    from robo_arch.core.controllers.feedback import feedback
+    from robo_arch.core.controllers.selection import select_controller, tensor_policy
+    from robo_arch.core.worlds.drake.scene import build_controller_model
     from robo_arch.core.worlds.isaac.batched import BatchedExecution
     from robo_arch.scenarios.batched_reaching.task import Episodes
 
@@ -51,35 +53,46 @@ def rollout(
         raise ValueError("PD gains must match the declared joint order")
     config = Reaching.model_validate(run.task.parameters)
     device = scene.world.physics.device
-    kp = torch.tensor(parameters.kp, device=device)
-    kd = torch.tensor(parameters.kd, device=device)
+    selection = select_controller(
+        scene.world, "joint_pd", batched=measurement.controller_mode == "tensor"
+    )
+    robot = scene.devices.robots[0]
+    definition = scene.definitions.robots[robot.model]
+    source = build_controller_model(
+        robot, definition, sensors=scene.devices.sensors, definitions=scene.definitions
+    )
+    nominal = build_tensor_model(
+        source, definition.joints, ("world",), ((0, 0, 0),), device=selection.device
+    )
+    policy = (
+        tensor_policy("joint_pd", nominal, parameters) if selection.batched else None
+    )
     limits = arm.data.joint_effort_limits.torch.clone()
-    if not torch.isfinite(limits).all() or not (limits > 0).all():
-        raise ValueError("Reaching requires finite positive effort limits")
     zero = torch.zeros_like(execution.initial[name])
     task = Episodes(execution.initial[name], arm.data.joint_pos_limits.torch, config)
-    if measurement.controller_mode == "scalar":
-        warnings.warn(
-            "Scalar comparison copies state/feedforward to CPU each step",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-        from robo_arch.core.controllers.joint_pd.native import compute as native_compute
+    kp_cpu, kd_cpu = np.array(parameters.kp), np.array(parameters.kd)
+    limits_cpu = limits.cpu().numpy().astype(float)
 
-        kp_cpu, kd_cpu = np.array(parameters.kp), np.array(parameters.kd)
-        limits_cpu = limits.cpu().numpy().astype(float)
-
-    def command(
-        robot: str, q: torch.Tensor, v: torch.Tensor, gravity: torch.Tensor
-    ) -> torch.Tensor:
-        if measurement.controller_mode == "tensor":
-            return compute(q, v, task.targets, zero, gravity, kp, kd, limits)
-        state = [x.cpu().numpy().astype(float) for x in (q, v, task.targets, gravity)]
-        effort = np.stack(
-            [
-                native_compute(qi, vi, goal, np.zeros_like(vi), g, kp_cpu, kd_cpu)
-                for qi, vi, goal, g in zip(*state, strict=True)
-            ]
+    def command(robot, q, v, gravity):
+        if selection.batched:
+            return policy.effort(
+                torch.cat((q, v), -1).double(), task.targets.double(), zero.double()
+            )
+        state = torch.cat((q, v), -1).cpu().numpy().astype(float)
+        target = task.targets.cpu().numpy().astype(float)
+        stationary = state.copy()
+        stationary[:, arm.num_joints :] = 0
+        gravity = nominal.evaluate_numpy(stationary).bias_force
+        effort = (
+            feedback(
+                state[:, : arm.num_joints],
+                state[:, arm.num_joints :],
+                target,
+                np.zeros_like(target),
+                kp_cpu,
+                kd_cpu,
+            )
+            + gravity
         )
         return torch.as_tensor(
             np.clip(effort, -limits_cpu, limits_cpu), dtype=torch.float32, device=device
@@ -96,6 +109,30 @@ def rollout(
     reset_every = max(1, round(measurement.reset_period / dt))
     times, samples = [], []
     reset_counts = torch.zeros(scene.world.num_envs, dtype=torch.int64, device=device)
+
+    def episode_status():
+        task.observe(arm.data.joint_pos.torch, arm.data.joint_vel.torch, dt)
+        if scene.environment.common_step_counter % reset_every:
+            return torch.zeros_like(task.pending_success), torch.zeros_like(
+                task.pending_timeout
+            )
+        return task.pending_success.clone(), task.pending_timeout.clone()
+
+    def reset_task(ids):
+        mask = torch.zeros(scene.world.num_envs, dtype=torch.bool, device=device)
+        mask[ids] = True
+        reset_counts[ids] += 1
+        task.reset(mask)
+
+    execution.configure_episodes(
+        status=episode_status,
+        reset=reset_task,
+        observations=lambda: {
+            "task/targets": task.targets,
+            "task/age": task.age,
+            "task/completed": task.successes + task.timeouts,
+        },
+    )
     chunks = []
     steps = math.ceil(run.duration / dt)
     torch.cuda.synchronize()
@@ -107,8 +144,19 @@ def rollout(
         for step in range(steps):
             actual_dt = min(dt, run.duration - execution.time)
             execution.step(command, actual_dt)
-            q, v = arm.data.joint_pos.torch, arm.data.joint_vel.torch
-            mask = task.observe(q, v, actual_dt)
+            terminal = execution.environment.extras.get(
+                "final_obs", execution.environment.obs_buf
+            )
+            q = (
+                terminal[name + "/q"]
+                if terminal is not None
+                else arm.data.joint_pos.torch
+            )
+            v = (
+                terminal[name + "/v"]
+                if terminal is not None
+                else arm.data.joint_vel.torch
+            )
             # Buffer the terminal state before any reset. CPU transfer happens below.
             if sampled and (step % sample_every == 0 or step == steps - 1):
                 times.append(execution.time)
@@ -116,19 +164,15 @@ def rollout(
                     torch.cat(
                         (
                             q[:sampled],
-                            task.targets[:sampled],
+                            terminal["task/targets"][:sampled],
                             v[:sampled],
                             execution.efforts[name][:sampled],
-                            task.age[:sampled, None],
-                            (task.successes + task.timeouts)[:sampled, None],
+                            terminal["task/age"][:sampled, None],
+                            terminal["task/completed"][:sampled, None],
                         ),
                         dim=-1,
                     ).clone()
                 )
-            if (step + 1) % reset_every == 0:
-                reset_counts += mask
-                execution.reset(mask)
-                task.reset(mask)
             if viewer is not None:
                 viewer.update(execution.time, scene.world.target_realtime_rate)
             if (step + 1) % 100 == 0 or step == steps - 1:
@@ -153,6 +197,7 @@ def rollout(
             "device_name": torch.cuda.get_device_name(),
             "measured_steps": steps,
             "controller_mode": measurement.controller_mode,
+            "controller_selection": selection.describe(),
             "feedforward": config.feedforward,
             "steady_state_seconds": elapsed,
             "environment_steps_per_second": steps * scene.world.num_envs / elapsed,

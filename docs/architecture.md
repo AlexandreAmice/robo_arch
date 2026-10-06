@@ -77,13 +77,11 @@ composes a nominal effort controller with a reusable
 [sphere CBF filter](../src/robo_arch/core/controllers/cbf/README.md).
 Model-owned sphere profiles describe conservative geometry; scenario autonomy
 selects protected instances, pairs, margins and explicit mounting exclusions.
-The Drake filter uses an independent dynamics model and bounded torque QPs.
-The current Torch/Moreau path shares barrier equations but maintains a separate
-handwritten Torch dynamics tree and scenario-specific backend restrictions.
-These are transitional implementations that do not meet the shared numerical
-implementation and world-owned selection requirements. Its current Isaac
-execution requires PhysX/PGS; Newton camera protection remains unsupported.
-Its discrete simulation evidence does not establish hardware safety.
+Scalar and tensor filters now consume the same independent JaxSim nominal
+dynamics and shared barrier laws; Clarabel and Moreau provide the QP solves.
+World capability selection replaces user-selected CBF backends. Isaac CBF
+execution still requires validated PhysX/PGS settings; Newton camera protection
+remains unsupported. Discrete simulation evidence does not establish hardware safety.
 
 YAML selects physical assets, instances, layout, task, autonomy settings and world. It does not describe executable autonomy graphs, child-port exports or scheduling. Loaded records and device metadata live in `core/config/declarations.py`; `loading.py` owns the YAML document schemas, parses YAML and resolves referenced systems. `schema.py` defines the common strict validation policy used by document, world and parameter schemas. Use safe loading and typed validation with PyYAML and Pydantic. Resolve YAML references through `package://robo_arch/...` resources in the installed application package, independently of the declaring file or working directory; reject duplicate keys, unknown fields and recursive physical-system inclusion. Keep defaults in parameter schemas and avoid generic deep-merge inheritance. Training sweep tools can sit outside this loader.
 
@@ -94,31 +92,19 @@ control law. Target shared nominal dynamics as well; any native dynamics
 exception must satisfy the query requirements below. A world switch reuses
 algorithm code and parameters; it need not reuse a parsed execution graph. A separately
 maintained CPU/GPU dynamics tree is not an acceptable reuse boundary, even with
-parity tests. The numerical library and batched execution mechanism remain open.
-Existing Drake computation provides a shared scalar baseline, with explicit transfer and
-throughput costs in batched worlds; it does not demonstrate GPU control execution.
-Drake owns its Systems, Diagrams, scheduling and state. Batched execution uses
-appropriate native operations without requiring a Diagram per environment.
+parity tests. [JaxSim](https://github.com/gbionics/jaxsim) supplies shared CPU/CUDA
+nominal dynamics, with a single JAX computation and NumPy/Torch boundaries.
+Drake loads the canonical model and supplies an independent parity oracle;
+JaxSim's in-memory description API avoids an external sdformat conversion tool.
+Drake continues to own its Systems, Diagrams, scheduling and state.
 
-Evaluate a maintained computation dependency before extending project-owned
-dynamics. These candidates remain proposals, not selected dependencies:
-
-| Candidate | Relevant evidence and unresolved fit |
-|---|---|
-| [PyRoki](https://github.com/chungmin99/pyroki) | JAX URDF kinematics and optimization; these capabilities alone do not replace mass, bias-force and acceleration calculations. |
-| [JaxSim](https://github.com/gbionics/jaxsim) | Standalone mass, bias-force and Jacobian queries with CPU/GPU execution; experimental API and URDF conversion through sdformat require compatibility/build evaluation. Its contact engine is not proposed as another world. |
-| [frax](https://github.com/StanfordASL/frax) | JAX kinematics and dynamics; beta API, excluded closed chains and guidance to fix gripper joints outside the controlled tree require scrutiny against the complete moving assembly. |
-
-Any candidate must preserve the compound arm/gripper model, joint/actuator maps,
-frames, gravity, damping and rotor-inertia assumptions. Verify the same numerical
-source at batch size one on deployment CPU and batched on CUDA, including command
-conversion and solver tolerances. Include startup/compilation, array exchange and
-steady-state costs; library throughput claims are not repository measurements.
-Generated execution is acceptable only from that authoritative computation and
-model, without hand-edited numerical outputs. [JAX AOT compilation](https://docs.jax.dev/en/latest/aot.html)
-specializes shapes/dtypes; its process-local compiled objects do not establish
-portable deployment artifacts. Preserve existing supported behavior while
-replacement selection and validation remain open.
+The [numerical provider](../src/robo_arch/core/controllers/dynamics/README.md)
+supports fixed-base, fully actuated trees, moving attached tools, world-z
+gravity, damping and rotor inertia. Unsupported constraints and force models
+fail explicitly. JAX compiles per model topology and batch shape; its compiled
+objects are process-local, not portable deployment artifacts. Evaluate startup,
+array exchange and steady-state costs separately; shared source does not imply
+GPU efficiency or identical simulator trajectories.
 
 If a shared dynamics implementation cannot cover a required mode, document the
 specific limitation before accepting a narrow native query. For the current
@@ -139,26 +125,19 @@ Read declarations without importing simulator SDKs or robot code. Sensor and obj
 
 `core/worlds/<world>/scene.py` consumes `SceneConfiguration` and native settings to construct physics. `scenario.py` consumes `RunConfiguration` and a scenario-supplied Python `configure` function to wire autonomy and launch execution; it returns data for scenario evaluation. Drake advances its native `Simulator` once to the run boundary, with native diagram events handling visualization and signal logging; no shared simulation recorder or Python sampling loop is required. Each world also owns `config.py` and `visualization.py`. Real construction/execution currently fails explicitly because hardware adapters are absent. Implementations own timing, initialization and reset behavior. World integration coordinates physical reset; each controller or policy resets its own state. Resetting a real controller does not reposition the robot. Add timing, reset and execution metadata only when an implemented consumer needs it; no universal scheduler or performance framework is required.
 
-For Isaac, the selected native Lab environment must own context/scene lifecycle,
-observation collection, control decimation, terminal observations and selective
-reset. The pinned Lab `DirectRLEnv` source creates its own context and
-`InteractiveScene`, rejecting an existing context; reusable scene population
-must therefore populate those owned objects. Its explicit physics-step loop is
-legitimate native execution. Exact environment choice remains provisional;
-scenarios supply task, reference and evaluation behavior through native hooks
-instead of maintaining independent rollout lifecycle code.
+Isaac uses native Lab `DirectRLEnv` to create and own the context and
+`InteractiveScene`; shared population fills those objects. Native step hooks own
+observations, terminal state and selective reset. Control decimation is one:
+feedback is evaluated every physics tick, even if task/reference updates are
+slower. Runs must contain an integer number of fixed ticks rather than changing
+the solver step for a partial final tick.
 
-Preserve the pinned lifecycle semantics during migration: action preprocessing
-runs once per environment step, while action application runs at physics
-substeps unless the backend handles decimation. Specify where feedback is
-recomputed versus held. `DirectRLEnv` normally returns observations after
-automatic reset; its optional `compute_final_obs` captures terminal observations
-first. Episode evaluation must retain those terminal samples and termination
-versus timeout status. Reset the selected mechanism, free objects, controller
-memory and task state together, preserving other environments and global time.
-Do not trade away terminal observations or sensor freshness for mask-only reset
-performance. Validate exact-duration behavior, failure cleanup and viewing with
-the pinned source before replacing the current runners.
+`compute_final_obs` captures terminal observations before automatic reset.
+Reset restores the selected mechanism and free objects together with controller
+and task state while preserving other environments and global time. Native
+startup/failure/shutdown and viewing remain acceptance requirements. The pinned
+Kit profile has an intermittent extension-unload crash after otherwise successful
+runs; full lifecycle support is not established until that is resolved.
 
 The [world construction guide](../src/robo_arch/core/worlds/README.md) maps the current configuration-to-physics paths, records asset translation limits and explains how to add a world. All objects remain fixed fixtures. Isaac supports a validated single-box SDF subset and rejects unsupported content before launch; it does not provide general SDF physics import.
 
@@ -272,17 +251,12 @@ commands. Controller reset never repositions the arm. These requirements remain
 unimplemented; gripper/sensor drivers and physical hardware validation are
 outside this initial boundary.
 
-Current scalar arm tracking reuses the Drake inverse-dynamics controller or the
-C++ PD-plus-feedforward controller in both simulators, including the mixed
-bimanual system. Its native PD boundary carries CPU float64 arrays; Python
-adapters supply independent-model gravity feedforward. Current batched reaching
-uses a separate Torch PD equation and explicitly selected simulator-gravity
-feedforward, with GPU task state and masked resets on PhysX or Newton/MuJoCo
-Warp. This establishes batched execution, not completion of the authoritative
-numerical implementation requirement. Match controller outputs for matching
-inputs/state and preserve reset semantics; do not require identical physics
-trajectories. Retain supported CPU execution with a cost warning, and measure
-GPU behavior without treating residency as evidence of efficiency. The
+Scalar arm tracking and batched reaching use shared feedback and independent
+JaxSim nominal dynamics, including attached-device inertia. Scalar execution in
+Isaac warns about CPU costs and device transfers. The standalone C++ PD binding
+remains a compatibility API with parity tests; supported autonomy no longer
+selects it as a second numerical backend. Match outputs for matching state and
+preserve reset semantics without requiring identical physics trajectories. The
 [implementation plan](implementation_tasks.md) records remaining acceptance gates.
 
 Share physical assembly and control construction functions across simulation and deployment, following the separation illustrated by HardwareStation. Runtime-specific application wiring stays ordinary code; reuse does not require reimplementing Drake's Diagram architecture in a parser.

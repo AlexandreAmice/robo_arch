@@ -210,7 +210,6 @@ def test_compiled_cuda_evaluations_match_drake_and_retain_owned_outputs():
     backend = build_tensor_model(
         model, ("shoulder", "slide", "wrist"), frames, points, device="cuda:0"
     )
-    backend.enable_compilation()
     states = np.random.default_rng(824).uniform(-1, 1, (3, 6))
     with torch.no_grad():
         first = backend.evaluate(torch.tensor(states, device="cuda:0"))

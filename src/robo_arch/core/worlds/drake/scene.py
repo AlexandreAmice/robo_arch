@@ -31,8 +31,9 @@ from robo_arch.core.config.declarations import (
     SensorInstance,
 )
 from robo_arch.core.worlds.assembly import (
+    Mechanism,
     PlacedRobot,
-    base_pose,
+    attachment_pose,
     pose_transform,
     resolve_devices,
 )
@@ -44,6 +45,99 @@ from robo_arch.core.worlds.devices import (
 from robo_arch.core.worlds.drake.config import DrakePhysics, DrakeWorld
 from robo_arch.core.worlds.drake.models import add_robot
 from robo_arch.core.worlds.drake.sensors import add_sensor_body
+from robo_arch.core.worlds.urdf import mount_to_base
+
+
+@dataclass(frozen=True)
+class JointIndices:
+    """Indices into the connected plant's q, v and actuator vectors."""
+
+    q: tuple[int, ...]
+    v: tuple[int, ...]
+    u: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class ControllerMechanism:
+    """Independent nominal model with explicit per-device vector ownership."""
+
+    plant: MultibodyPlant
+    robots: dict[str, ModelInstanceIndex]
+    indices: dict[str, JointIndices]
+
+
+def _add_mechanism(plant, mechanism, definitions, sensors):
+    instances = {}
+    for robot in mechanism.robots:
+        definition = definitions.robots[robot.model]
+        mount_to_base(robot, definitions)  # Validate the shared rigid-mount contract.
+        instance = add_robot(plant, definition, name=robot.name)
+        if robot.parent:
+            parent, frame = robot.parent.rsplit("/", 1)
+            parent_frame = plant.GetFrameByName(frame, instances[parent])
+        else:
+            parent_frame = plant.world_frame()
+        child_frame = robot.mount_frame or definition.base_frame
+        if robot.calibration and robot.calibration.child_frame != child_frame:
+            raise ValueError(f"Calibration child frame differs for {robot.name}")
+        plant.WeldFrames(
+            parent_frame,
+            plant.GetFrameByName(child_frame, instance),
+            attachment_pose(robot),
+        )
+        instances[robot.name] = instance
+    sensor_instances = {}
+    for sensor in sensors:
+        parent, frame = sensor.parent.rsplit("/", 1)
+        if parent in instances:
+            definition = definitions.sensors[sensor.model]
+            if (
+                sensor.calibration
+                and sensor.calibration.child_frame != definition.base_frame
+            ):
+                raise ValueError(f"Calibration child frame differs for {sensor.name}")
+            sensor_instances[sensor.name] = add_sensor_body(
+                plant,
+                sensor,
+                definition,
+                plant.GetFrameByName(frame, instances[parent]),
+                pose_transform(
+                    sensor.calibration.pose if sensor.calibration else sensor.pose
+                ),
+            )
+    return instances, sensor_instances
+
+
+def build_mechanism_model(
+    mechanism: Mechanism,
+    definitions: DeviceDefinitions,
+    *,
+    sensors: tuple[SensorInstance, ...] = (),
+) -> ControllerMechanism:
+    """Build full connected nominal dynamics, including actuated tool state."""
+    plant = MultibodyPlant(0.0)
+    instances, _ = _add_mechanism(plant, mechanism, definitions, sensors)
+    plant.Finalize()
+    indices = {}
+    actuator_indices = list(plant.GetJointActuatorIndices())
+    for robot in mechanism.robots:
+        instance = instances[robot.name]
+        joints = [
+            plant.GetJointByName(name, instance)
+            for name in definitions.robots[robot.model].joints
+        ]
+        if any(j.num_positions() != 1 or j.num_velocities() != 1 for j in joints):
+            raise ValueError("Declared device joints must be scalar")
+        indices[robot.name] = JointIndices(
+            tuple(j.position_start() for j in joints),
+            tuple(j.velocity_start() for j in joints),
+            tuple(
+                i
+                for i, index in enumerate(actuator_indices)
+                if plant.get_joint_actuator(index).model_instance() == instance
+            ),
+        )
+    return ControllerMechanism(plant, instances, indices)
 
 
 def build_controller_model(
@@ -53,28 +147,18 @@ def build_controller_model(
     sensors: tuple[SensorInstance, ...] = (),
     definitions: DeviceDefinitions | None = None,
 ) -> MultibodyPlant:
-    """Independent nominal dynamics, also usable when another world supplies state."""
-    if sensors and definitions is None:
-        raise ValueError("Mounted sensor models require their definitions")
-    model = MultibodyPlant(0.0)
-    instance = add_robot(model, definition, name=robot.name)
-    model.WeldFrames(
-        model.world_frame(),
-        model.GetFrameByName(definition.base_frame, instance),
-        base_pose(robot),
-    )
-    for sensor in sensors:
-        parent_name, frame_name = sensor.parent.rsplit("/", 1)
-        if parent_name == robot.name:
-            add_sensor_body(
-                model,
-                sensor,
-                definitions.sensors[sensor.model],
-                model.GetFrameByName(frame_name, instance),
-                pose_transform(sensor.pose),
-            )
-    model.Finalize()
-    return model
+    """Standalone compatibility helper; attached tools require the full mechanism."""
+    if robot.parent:
+        raise ValueError("Attached robot requires build_mechanism_model")
+    if definitions is None:
+        if sensors:
+            raise ValueError("Mounted sensor models require their definitions")
+        definitions = DeviceDefinitions(
+            robots={robot.model: definition}, sensors={}, objects={}
+        )
+    return build_mechanism_model(
+        Mechanism(robot.name, (robot,)), definitions, sensors=sensors
+    ).plant
 
 
 @dataclass
@@ -94,6 +178,9 @@ class DrakeScene:
     sensor_instances: dict[str, ModelInstanceIndex]
     controller_models: dict[str, MultibodyPlant]
     initial_positions: dict[str, tuple[float, ...]]
+    mechanism_models: dict[str, ControllerMechanism]
+    objects: dict[str, ModelInstanceIndex]
+    configuration: SceneConfiguration
 
 
 def add_plant(
@@ -142,8 +229,8 @@ def build_scene(
 ) -> DrakeScene:
     """Add the physical scene; the caller supplies autonomy and builds the diagram.
 
-    Objects are fixed fixtures. Controller models have the scene's base poses
-    and gravity and contain their robot plus its mounted devices.
+    Objects are fixed or free as declared. Independent controller models contain
+    the full connected mechanism, including actuated tools and mounted sensors.
     """
     if not isinstance(config, DrakeWorld):
         raise ValueError("Drake scene construction requires DrakeWorld")
@@ -156,33 +243,37 @@ def build_scene(
     robot_instances = {}
     controller_models = {}
     initial_positions = {}
-    for robot in devices.robots:
-        definition = definitions.robots[robot.model]
-        instance = add_robot(plant, definition, name=robot.name)
-        X_WB = base_pose(robot)
-        plant.WeldFrames(
-            plant.world_frame(),
-            plant.GetFrameByName(definition.base_frame, instance),
-            X_WB,
+    sensor_instances = {}
+    mechanism_models = {}
+    for mechanism in devices.mechanisms:
+        instances, mounted_sensors = _add_mechanism(
+            plant, mechanism, definitions, devices.sensors
         )
-        model = build_controller_model(
-            robot, definition, sensors=devices.sensors, definitions=definitions
-        )
-        positions = (
-            definition.default_positions
-            if robot.initial_positions is None
-            else robot.initial_positions
-        )
-        if len(positions) != len(definition.joints) or not np.isfinite(positions).all():
-            raise ValueError(f"Invalid initial positions for {robot.name}")
-        if not (
-            np.all(positions >= model.GetPositionLowerLimits())
-            and np.all(positions <= model.GetPositionUpperLimits())
-        ):
-            raise ValueError(f"Initial positions exceed limits for {robot.name}")
-        robot_instances[robot.name] = instance
-        controller_models[robot.name] = model
-        initial_positions[robot.name] = positions
+        robot_instances.update(instances)
+        sensor_instances.update(mounted_sensors)
+        nominal = build_mechanism_model(mechanism, definitions, sensors=devices.sensors)
+        mechanism_models[mechanism.root] = nominal
+        for robot in mechanism.robots:
+            definition = definitions.robots[robot.model]
+            positions = (
+                definition.default_positions
+                if robot.initial_positions is None
+                else robot.initial_positions
+            )
+            indices = list(nominal.indices[robot.name].q)
+            lower = nominal.plant.GetPositionLowerLimits()[indices]
+            upper = nominal.plant.GetPositionUpperLimits()[indices]
+            if (
+                len(positions) != len(indices)
+                or not np.isfinite(positions).all()
+                or not np.all((positions >= lower) & (positions <= upper))
+            ):
+                raise ValueError(
+                    f"Invalid initial positions or limits for {robot.name}"
+                )
+            controller_models[robot.name] = nominal.plant
+            initial_positions[robot.name] = positions
+    object_instances = {}
 
     for obj in scene.objects:
         definition = definitions.objects[obj.model]
@@ -191,21 +282,18 @@ def build_scene(
         with as_file(files(definition.package).joinpath(definition.resource)) as path:
             (instance,) = parser.AddModels(str(path))
         plant.RenameModelInstance(instance, obj.name)
-        plant.WeldFrames(
-            plant.world_frame(),
-            plant.GetFrameByName(definition.base_frame, instance),
-            pose_transform(obj.pose),
-        )
-    sensor_instances = {}
-    for sensor in devices.sensors:
-        robot_name, frame_name = sensor.parent.rsplit("/", 1)
-        sensor_instances[sensor.name] = add_sensor_body(
-            plant,
-            sensor,
-            definitions.sensors[sensor.model],
-            plant.GetFrameByName(frame_name, robot_instances[robot_name]),
-            pose_transform(sensor.pose),
-        )
+        object_instances[obj.name] = instance
+        if obj.motion == "fixed":
+            plant.WeldFrames(
+                plant.world_frame(),
+                plant.GetFrameByName(definition.base_frame, instance),
+                pose_transform(obj.pose),
+            )
+        else:
+            plant.SetDefaultFloatingBaseBodyPose(
+                plant.GetBodyByName(definition.base_frame, instance),
+                pose_transform(obj.pose),
+            )
     plant.Finalize()
 
     cameras = {}
@@ -243,4 +331,25 @@ def build_scene(
         sensor_instances,
         controller_models,
         initial_positions,
+        mechanism_models,
+        object_instances,
+        scene,
     )
+
+
+def initialize_objects(scene: DrakeScene, context) -> None:
+    """Restore declared free-body pose and world-expressed origin velocity."""
+    from pydrake.multibody.math import SpatialVelocity
+
+    for obj in scene.configuration.objects:
+        if obj.motion == "free":
+            definition = scene.definitions.objects[obj.model]
+            body = scene.plant.GetBodyByName(
+                definition.base_frame, scene.objects[obj.name]
+            )
+            scene.plant.SetFreeBodyPose(context, body, pose_transform(obj.pose))
+            scene.plant.SetFreeBodySpatialVelocity(
+                context,
+                body,
+                SpatialVelocity(w=obj.angular_velocity, v=obj.linear_velocity),
+            )

@@ -1,0 +1,4 @@
+asset: package://robo_arch/robots/wsg50/assets/model.urdf
+base_frame: body
+joints: [left_finger_sliding_joint, right_finger_sliding_joint]
+default_positions: [-0.045, 0.045]

@@ -3,11 +3,10 @@
 from collections.abc import Sequence
 
 import numpy as np
-import torch
 from pydrake.multibody.plant import MultibodyPlant
-from pydrake.multibody.tree import PrismaticJoint, RevoluteJoint, WeldJoint
+from pydrake.multibody.tree import BodyIndex, PrismaticJoint, RevoluteJoint, WeldJoint
 
-from robo_arch.core.controllers.dynamics.torch import Body, TensorModel
+from robo_arch.core.controllers.dynamics.jax import NominalModel
 
 
 def build_tensor_model(
@@ -16,7 +15,7 @@ def build_tensor_model(
     frames: tuple[str, ...],
     points: Sequence[Sequence[float]] | np.ndarray,
     device: str = "cuda:0",
-) -> TensorModel:
+) -> NominalModel:
     """Copy tree, inertias and query points into owned float64 device constants.
 
     Extraction accepts ordered scalar revolute/prismatic joints and welds with
@@ -52,25 +51,37 @@ def build_tensor_model(
         raise ValueError("Tensor dynamics does not support constrained mechanisms")
     velocity_lower = tuple(model.GetVelocityLowerLimits())
     velocity_upper = tuple(model.GetVelocityUpperLimits())
-    # Resolve shorthand "cuda" to its concrete device index during setup.
-    tensor_device = torch.empty(0, device=device).device
-    dtype = torch.float64
+    import jax
+    import jax.numpy as jnp
+    from jaxsim.api.model import JaxSimModel
+    from jaxsim.parsers.descriptions import (
+        JointDescription,
+        LinkDescription,
+        ModelDescription,
+    )
 
-    def tensor(value) -> torch.Tensor:
-        return torch.tensor(np.asarray(value), device=tensor_device, dtype=dtype)
-
-    limits = tensor([a.effort_limit() for a in actuators])
-    if not all(
-        np.isfinite(a.effort_limit()) and a.effort_limit() > 0 for a in actuators
-    ):
-        raise ValueError("Tensor dynamics requires finite positive effort limits")
-    damping = tensor([a.joint().default_damping() for a in actuators])
-    rotor = tensor(
+    jax.config.update("jax_enable_x64", True)
+    limits = np.asarray([a.effort_limit() for a in actuators])
+    if not np.all((~np.isnan(limits)) & (limits > 0)):
+        raise ValueError("Tensor dynamics requires positive effort limits")
+    damping = np.asarray([a.joint().default_damping() for a in actuators])
+    rotor = np.asarray(
         [a.default_rotor_inertia() * a.default_gear_ratio() ** 2 for a in actuators]
     )
+    gravity = np.asarray(model.gravity_field().gravity_vector())
+    if not np.array_equal(gravity[:2], [0, 0]):
+        raise ValueError("Shared dynamics supports world-z gravity only")
+    if any(
+        not model.is_gravity_enabled(model.get_body(BodyIndex(i)).model_instance())
+        for i in range(1, model.num_bodies())
+    ):
+        raise ValueError("Shared dynamics requires gravity enabled for every body")
+    links = [LinkDescription(name="world", mass=0.0, inertia=jnp.zeros((6, 6)))]
+    descriptions = []
+    body_poses = {0: np.eye(4)}
     pending = [model.get_joint(i) for i in model.GetJointIndices()]
     body_indices = {int(model.world_body().index()): 0}
-    bodies = []
+
     while pending:
         ready = [j for j in pending if int(j.parent_body().index()) in body_indices]
         if not ready:
@@ -103,34 +114,37 @@ def build_tensor_model(
                 raise ValueError(
                     f"Unsupported tensor dynamics joint: {joint.type_name()}"
                 )
-            x, y, z = axis
-            cross = [[0, -z, y], [z, 0, -x], [-y, x, 0]]
-            spatial = child.default_spatial_inertia()
-            com = spatial.get_com()
-            inertia = spatial.Shift(com).CalcRotationalInertia().CopyToFullMatrix3()
-            gravity = (
-                model.gravity_field().gravity_vector()
-                if model.is_gravity_enabled(child.model_instance())
-                else np.zeros(3)
+            # JaxSim spatial vectors put linear before angular components.
+            spatial = (
+                child.default_spatial_inertia()
+                .ReExpress(child_pose.rotation())
+                .Shift(-child_pose.translation())
             )
-            bodies.append(
-                Body(
-                    parent=body_indices[int(joint.parent_body().index())],
-                    dof=dof,
-                    kind=kind,
-                    rotation_parent=tensor(parent_pose.rotation().matrix()),
-                    translation_parent=tensor(parent_pose.translation()),
-                    rotation_child=tensor(child_pose.rotation().matrix()),
-                    translation_child=tensor(child_pose.translation()),
-                    axis=tensor(axis),
-                    axis_cross=tensor(cross),
-                    mass=spatial.get_mass(),
-                    com=tensor(com),
-                    inertia=tensor(inertia),
-                    gravity=tensor(gravity),
+            order = [3, 4, 5, 0, 1, 2]
+            link = LinkDescription(
+                name=f"body_{int(child.index())}",
+                mass=spatial.get_mass(),
+                inertia=jnp.asarray(spatial.CopyToFullMatrix6()[np.ix_(order, order)]),
+                pose=jnp.eye(4),
+            )
+            descriptions.append(
+                JointDescription(
+                    name=joint.name()
+                    if dof is not None
+                    else f"fixed_{int(child.index())}",
+                    parent=links[body_indices[int(joint.parent_body().index())]],
+                    child=link,
+                    jtype={"weld": 0, "revolute": 1, "prismatic": 2}[kind],
+                    axis=axis if dof is not None else np.array([0.0, 0.0, 1.0]),
+                    pose=jnp.asarray(
+                        body_poses[int(joint.parent_body().index())]
+                        @ parent_pose.GetAsMatrix4()
+                    ),
                 )
             )
-            body_indices[int(child.index())] = len(bodies)
+            links.append(link)
+            body_poses[int(child.index())] = child_pose.GetAsMatrix4()
+            body_indices[int(child.index())] = len(links) - 1
     if len(body_indices) != model.num_bodies():
         raise ValueError(
             "Tensor dynamics requires every body welded or joined to world"
@@ -150,15 +164,44 @@ def build_tensor_model(
         if point.shape != (3,) or not np.isfinite(point).all():
             raise ValueError("Tensor dynamics query points must be finite triples")
         indices.append(body_indices[int(frame.body().index())])
-        local.append(frame.GetFixedPoseInBodyFrame() @ point)
-    return TensorModel(
+        local_point = frame.GetFixedPoseInBodyFrame() @ point
+        pose = body_poses[int(frame.body().index())]
+        local.append(pose[:3, :3] @ local_point + pose[:3, 3])
+    description = ModelDescription.build_model_from(
+        name="nominal",
+        links=links,
+        joints=descriptions,
+        base_link_name="world",
+        fixed_base=True,
+        considered_joints=joints,
+    )
+    native = JaxSimModel.build(description, gravity=float(gravity[2]))
+    # Reduction preserves welded bodies as frames. Resolve each original body
+    # through the maintained parser's transforms, never a second dynamics tree.
+    from jaxsim.parsers.kinematic_graph import KinematicGraphTransforms
+
+    transforms = KinematicGraphTransforms(description)
+    parents, offsets = [], []
+    for index, point in zip(indices, local, strict=True):
+        name = links[index].name
+        if name in native.link_names():
+            parent, transform = name, np.eye(4)
+        else:
+            parent = description.frames_dict[name].parent_name
+            transform = np.asarray(
+                transforms.relative_transform(relative_to=parent, name=name)
+            )
+        parents.append(native.link_names().index(parent))
+        offsets.append(transform[:3, :3] @ point + transform[:3, 3])
+    return NominalModel(
+        native=native,
         joints=joints,
         velocity_lower=velocity_lower,
         velocity_upper=velocity_upper,
         limits=limits,
         damping=damping,
         rotor=rotor,
-        bodies=tuple(bodies),
-        point_bodies=torch.tensor(indices, device=tensor_device, dtype=torch.long),
-        points=tensor(local),
+        point_bodies=np.asarray(parents),
+        points=np.asarray(offsets),
+        device=device,
     )

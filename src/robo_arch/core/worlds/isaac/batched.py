@@ -3,7 +3,6 @@
 from collections.abc import Callable
 
 import torch
-import warp as wp
 from torch import Tensor
 
 from robo_arch.core.worlds.isaac.scene import IsaacScene, initialize_scene
@@ -27,12 +26,17 @@ class BatchedExecution:
             for name, q in initialize_scene(scene).items()
         }
         self.efforts = {name: torch.zeros_like(q) for name, q in self.initial.items()}
-        self.time = 0.0
-        self.times = torch.zeros(
-            scene.world.num_envs, device=device, dtype=torch.float64
-        )
-        scene.native.reset()
-        self.reset(torch.ones(scene.world.num_envs, dtype=torch.bool, device=device))
+        self.environment = scene.environment
+        self.efforts = self.environment.efforts
+        self.times = self.environment.times
+
+    @property
+    def time(self):
+        return self.environment.time
+
+    @time.setter
+    def time(self, value):
+        self.environment.time = value
 
     def reset(self, mask: Tensor) -> None:
         """Reset selected rows without copying masks or state through NumPy.
@@ -45,17 +49,15 @@ class BatchedExecution:
             raise ValueError("Reset mask must contain one boolean per environment")
         if str(mask.device) != self.scene.world.physics.device:
             raise ValueError("Reset mask must be on the simulation device")
-        self.times.masked_fill_(mask, 0)
-        native_mask = wp.from_torch(mask, dtype=wp.bool)
-        for name, arm in self.scene.native.articulations.items():
-            zero = torch.zeros_like(self.initial[name])
-            arm.write_joint_state_to_sim_mask(
-                position=self.initial[name], velocity=zero, env_mask=native_mask
-            )
-            arm.actuators.target_command.set_effort_mask(
-                value=zero, env_mask=native_mask
-            )
-            self.efforts[name] = torch.where(mask[:, None], zero, self.efforts[name])
+        ids = mask.nonzero(as_tuple=False).squeeze(-1).int()
+        if len(ids):
+            self.environment._reset_idx(ids)
+
+    def configure_episodes(self, *, status, reset, observations=None):
+        """Install task callbacks; Lab owns termination capture and physical reset."""
+        self.environment.task_observations = observations
+        self.environment.episode_status = status
+        self.environment.after_reset = reset
 
     def step(
         self, command: Callable[[str, Tensor, Tensor, Tensor], Tensor], dt: float
@@ -96,9 +98,4 @@ class BatchedExecution:
 
     def advance(self, dt: float) -> None:
         """Write buffered commands, step Lab once, and refresh its state buffers."""
-        self.scene.native.write_data_to_sim()
-        self.scene.simulation.cfg.dt = dt
-        self.scene.simulation.step(render=False)
-        self.scene.native.update(dt)
-        self.time += dt
-        self.times.add_(dt)
+        return self.environment.advance(dt)

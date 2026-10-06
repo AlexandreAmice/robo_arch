@@ -133,12 +133,11 @@ ordinary sphere-pair constraints remain clear so floor intervention is isolated.
 
 ## Batched CUDA control in Isaac
 
-The optional GPU path keeps joint state, independent nominal dynamics, barrier
-matrices and Moreau QP solutions on CUDA. `autonomy.parameters.backend:
-torch_moreau` selects the scenario's tensor rollout over Isaac Lab's shared
-scene and execution code. The CPU default remains `backend: drake`. Nominal `joint_tracking` is
-supported on GPU; native C++ `joint_pd` and sensor observations are rejected.
-Mounted camera mass and geometry remain present with observations disabled.
+The world resolves compatible controller adapters automatically. CPU and CUDA
+use the same independent JaxSim nominal dynamics and shared feedback/barrier
+laws; Clarabel and Moreau supply the scalar and batched QP solves. Both nominal
+`joint_tracking` and `joint_pd` are supported. Tensor sensor observations remain
+unsupported; mounted camera mass and geometry remain with observations disabled.
 
 Reuse the scene/task YAML with a separate world profile instead of copying the
 scenario. Install the optional solver once with
@@ -148,13 +147,14 @@ From the repository root:
 ```sh
 uv run src/robo_arch/scenarios/camera_protection/run.py \
   --world-config package://robo_arch/scenarios/camera_protection/isaac_gpu.yaml \
-  --backend torch_moreau --batch-size 32 --no-browser
+  --batch-size 32 --no-browser
 ```
 
-Add `--baseline` for the same batch without filtering. `--compile-model` (or
-`autonomy.parameters.compile_model: true`) optionally compiles the same tensor
-dynamics; first use can take minutes, while eager execution is the default. The world profile owns
-`num_envs`, `env_layout`, `env_spacing` and `log_every_n_steps`. Clones have translated
+Add `--baseline` for the same batch without filtering. JAX always compiles the
+shared dynamics; first use of a model/batch shape includes compilation. Set
+`XLA_PYTHON_CLIENT_PREALLOCATE=false` when sharing the device with Isaac.
+The world profile owns `num_envs`, `env_layout` and `env_spacing`. Trace stride
+belongs to `task.parameters.log_every_n_steps`. Clones have translated
 origins and collision isolation; the controller works in the common environment
 coordinates. One failed QP stops the batch. Native PhysX effort is float32; the
 filter includes rounding protection and validates the command actually applied.
@@ -200,17 +200,11 @@ uv run --project third_party/isaac --group cbf-gpu python \
   -m robo_arch.scenarios.camera_protection.benchmark
 ```
 
-Add `--compile-model` to measure the same complete control loop with compiled
-tensor dynamics; compilation remains part of the separately reported warmup.
-
-On an RTX 3060 Laptop GPU, float64 measurements for batches 1/32/128/512 were
-39.7/58.6/137.6/487.1 ms per control call (25/546/930/1051 environment commands/s)
-in eager mode. With compiled dynamics, batches 1 and 32 measured 27.4 and
-46.6 ms per call (36 and 686 environment commands/s), excluding warmup.
-These are throughput measurements for deterministic perturbed states, not
-1 kHz simulation or hardware guarantees. Startup and warmup are reported
-separately; every measured command passes the residual check. The benchmark
-writes its actual JSON and plot under `recordings/`.
+The benchmark records compilation/setup separately from steady-state calls.
+Previous Torch-tree timings do not describe the shared JaxSim implementation;
+rerun the benchmark for the selected model, batch, device and pinned environment.
+It writes measured JSON and a plot under `recordings/`. GPU residency is not a
+claim of 1 kHz control or hardware suitability.
 
 Native GPU integration tests exercise two environments through both obstacle and
 floor approaches, with and without filtering. Each case starts a separate Isaac
@@ -222,7 +216,7 @@ ROBO_ARCH_NATIVE_ISAAC=1 OMNI_KIT_ACCEPT_EULA=YES \
   src/robo_arch/scenarios/camera_protection/tests/test_gpu_run.py
 ```
 
-These tests enable compiled dynamics and can take several minutes per case,
+These tests can take several minutes per case,
 including first-use compilation. Lower-level native
 reset and failure-cleanup tests are documented with the
 [world implementation](../../core/worlds/README.md).

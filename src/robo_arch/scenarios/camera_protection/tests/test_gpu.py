@@ -34,11 +34,6 @@ def gpu_run(batch_size=2):
     return replace(
         run,
         world_config=world.model_copy(update={"num_envs": batch_size}),
-        autonomy=run.autonomy.model_copy(
-            update={
-                "parameters": {**run.autonomy.parameters, "backend": "torch_moreau"}
-            }
-        ),
     )
 
 
@@ -114,6 +109,8 @@ def test_camera_callback_keeps_state_effort_and_diagnostics_on_cuda():
         run.scene,
         run.world_config,
         {},
+        device_joints={"arm": ("arm", tuple(range(6)))},
+        environment_origins=None,
     )
     description = {}
     command = configure(scene, run=run, description=description)["arm"]
@@ -150,7 +147,7 @@ def test_mounted_camera_batch_constraints_match_drake_random_states():
         model=model,
         joints=definition.joints,
         geometry=geometry,
-        parameters=control.model_copy(update={"backend": "drake"}),
+        parameters=control,
     )
     gpu = tensor_filter(
         model=model,
